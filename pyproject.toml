@@ -1,0 +1,78 @@
+[project]
+name = "admissible"
+version = "0.7.0"
+description = "A friendly exact-commit readiness gate for developers and connected coding agents"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Roque Briceño" }]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+keywords = ["admission-control", "evidence", "policy", "reproducibility"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Documentation = "https://github.com/prive-hn/admissible#readme"
+Issues = "https://github.com/prive-hn/admissible/issues"
+Repository = "https://github.com/prive-hn/admissible"
+
+[project.scripts]
+admissible = "admissible.cli:main"
+
+[project.optional-dependencies]
+# `build` is here because the packaging contract tests build the artefacts and
+# must fail, never skip, when they cannot: a skip reads as "this passed".
+dev = ["build==1.4.0",
+    "setuptools==83.0.0",
+    "wheel==0.47.0",
+    "hypothesis==6.165.10",
+    "lxml==6.0.2",
+    # Keep this paper closure identical to paper/requirements.txt. The artifact
+    # gate compares committed PDFs and figures byte-for-byte.
+    "charset-normalizer==3.5.1",
+    "contourpy==1.3.2; python_version < '3.11'",
+    "contourpy==1.3.3; python_version >= '3.11'",
+    "cycler==0.12.1",
+    "fonttools==4.63.0",
+    "kiwisolver==1.5.1",
+    "matplotlib==3.10.9",
+    "numpy==2.2.6; python_version < '3.11'",
+    "numpy==2.4.6; python_version >= '3.11'",
+    "packaging==26.3",
+    "pillow==12.3.0",
+    "pymupdf==1.28.2",
+    "pyparsing==3.3.2",
+    "python-dateutil==2.9.0.post0",
+    "reportlab==5.0.1",
+    "six==1.17.0",
+    "pypdf",
+    "pdfplumber",
+    "jsonschema",
+    "tomli; python_version < '3.11'",
+]
+
+[build-system]
+# The backend is pinned exactly because release artifacts record generator
+# identity and must not depend on resolver time.
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["admissible*", "fcd*", "rga*", "atlas*", "server*", "protocol*"]
+# Discovery is by prefix, so `atlas*` sweeps up `atlas.tests`, whose modules
+# import the top-level `tests` package that is deliberately not shipped. The
+# sdist prunes it too, so a direct wheel and an sdist-derived wheel agree.
+exclude = ["tests*", "atlas.tests*", "*.tests", "*.tests.*"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["__pycache__/*"]
+
+[tool.setuptools.package-data]
+server = ["static/**/*"]
+protocol = ["*.json"]
+admissible = ["templates/*.yml", "ready_static/*.html", "ready_static/*.css", "ready_static/*.js"]

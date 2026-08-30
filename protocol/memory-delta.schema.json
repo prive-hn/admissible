@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/memory-delta.schema.json",
+  "title": "MemoryDelta",
+  "type": "object", "additionalProperties": false,
+  "required": ["work_item_id", "expected_project_version", "expected_memory_version", "facts", "references", "raw_transcript_included"],
+  "properties": {
+    "work_item_id": {"type": "string"},
+    "expected_project_version": {"type": "integer", "minimum": 0},
+    "expected_memory_version": {"type": "integer", "minimum": 0},
+    "facts": {"type": "array", "items": {"type": "string"}},
+    "references": {"type": "array", "items": {"type": "string"}},
+    "raw_transcript_included": {"const": false}
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/execution-envelope.schema.json",
+  "title": "ExecutionEnvelope",
+  "type": "object", "additionalProperties": false,
+  "required": ["attempt_id", "nonce", "work_item_id", "gate_id", "attempt_counter", "project_version", "memory_version", "contract_revision", "gate_revision", "agent_id", "agent_revision", "specialist", "executor_id", "executor_revision", "model_provider", "model_api_id", "instruction_hash", "context_mode", "memory_scope", "tool_manifest_hash", "initial_steering_hash", "steering_channel", "envelope_hash"],
+  "properties": {
+    "attempt_id": {"type": "string"}, "nonce": {"type": "string", "minLength": 1},
+    "work_item_id": {"type": "string"}, "gate_id": {"type": "string"},
+    "attempt_counter": {"type": "integer", "minimum": 1},
+    "project_version": {"type": "integer", "minimum": 0}, "memory_version": {"type": "integer", "minimum": 0},
+    "contract_revision": {"type": "integer", "minimum": 1}, "gate_revision": {"type": "integer", "minimum": 1},
+    "agent_id": {"type": "string"}, "agent_revision": {"type": "integer", "minimum": 1}, "specialist": {"type": "string"},
+    "executor_id": {"type": "string"}, "executor_revision": {"type": "integer", "minimum": 1},
+    "model_provider": {"type": "string"}, "model_api_id": {"type": "string"},
+    "instruction_hash": {"$ref": "#/$defs/hash"}, "context_mode": {"type": "string"}, "memory_scope": {"type": "string"},
+    "tool_manifest_hash": {"$ref": "#/$defs/hash"}, "initial_steering_hash": {"$ref": "#/$defs/hash"},
+    "steering_channel": {"type": "string"}, "envelope_hash": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible.dev/schema/defect-record.schema.json",
+  "title": "Admissible defect record",
+  "description": "An append-only observation that an admitted artefact was wrong. Filing a defect changes current standing by query; it never rewrites the signed decision that was issued earlier.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind", "defect_id", "repository", "commit_sha", "severity", "summary",
+    "missed_check_ids", "regression_test_id", "discovered_at"
+  ],
+  "properties": {
+    "kind": {"const": "defect"},
+    "defect_id": {"type": "string", "minLength": 1},
+    "repository": {"type": "string", "minLength": 1},
+    "commit_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "severity": {"enum": ["low", "medium", "high", "critical"]},
+    "summary": {"type": "string", "minLength": 1},
+    "missed_check_ids": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Checks that passed this artefact and did not catch the defect."
+    },
+    "regression_test_id": {
+      "type": "string",
+      "description": "The check that must carry a failing-first regression case."
+    },
+    "discovered_at": {"type": "integer", "minimum": 0}
+  }
+}

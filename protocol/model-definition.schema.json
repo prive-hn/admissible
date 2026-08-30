@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/model-definition.schema.json",
+  "title": "ModelDefinition",
+  "type": "object", "additionalProperties": false,
+  "required": ["id", "revision", "provider", "api_id"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "provider": {"type": "string", "minLength": 1},
+    "api_id": {"type": "string", "minLength": 1},
+    "display": {"type": "string"},
+    "context_profile": {"type": "string"},
+    "reasoning": {"type": "string"}
+  }
+}

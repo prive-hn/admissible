@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a reproducible non-security defect
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not disclose vulnerabilities or secrets here. Use SECURITY.md for private reporting.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: "0.8.0 or full commit SHA"
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - admissible-core
+        - admissible-ready
+        - admissible-trust
+        - admissible umbrella
+        - cockpit
+        - papers or documentation
+        - build or release tooling
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include exact commands, inputs without secrets, and observed output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Python, operating system, installation method, and relevant package versions.
+    validations:
+      required: true

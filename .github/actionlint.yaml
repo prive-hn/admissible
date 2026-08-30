@@ -1,0 +1,17 @@
+# actionlint knows the `github` context as a fixed set of properties, and its
+# table does not yet include `job_workflow_sha`. GitHub does: it is documented
+# as "for a job using a reusable workflow, the commit SHA for the reusable
+# workflow file", and it is the only value that tells a callee which revision of
+# itself the caller actually pinned.
+#
+# That check is the whole point of the `tool-sha` input, so the property stays
+# and this narrow ignore is what makes the linter agree. It is scoped to the one
+# message and the two files that carry it -- the gate and the template it is
+# copied from -- so any other expression mistake in them is still an error.
+paths:
+  .github/workflows/admissible-gate.yml:
+    ignore:
+      - 'property "job_workflow_sha" is not defined'
+  admissible/templates/reusable-workflow.yml:
+    ignore:
+      - 'property "job_workflow_sha" is not defined'

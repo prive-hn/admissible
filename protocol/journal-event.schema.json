@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/journal-event.schema.json",
+  "title": "JournalEvent",
+  "description": "A single append-only fcd journal event, as emitted by fcd.core.Enforcer and documented in metrics/SCHEMA.md. This schema is a language-neutral restatement of that existing contract so the atlas reducer's INPUT is validatable. It adds no fields the machine does not already emit. The 'type' discriminator selects the variant.",
+  "type": "object",
+  "required": ["type", "work_item_id"],
+  "properties": {
+    "type": {"type": "string", "enum": ["open", "stage", "bind", "call", "decide", "accept"]},
+    "ts": {"type": "number"},
+    "work_item_id": {"type": "string"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"type": {"const": "open"}}},
+      "then": {
+        "required": ["class", "body_hash", "policy_version"],
+        "properties": {
+          "class": {"type": "string"},
+          "body_hash": {"type": "string"},
+          "policy_version": {"type": "string"},
+          "depends_on": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "stage"}}},
+      "then": {
+        "required": ["stage_id", "stage_kind", "assigned_specialist_id", "declared_model", "well_formed"],
+        "properties": {
+          "stage_id": {"type": "string"},
+          "class": {"type": "string"},
+          "stage_kind": {"type": "string", "enum": ["write", "check"]},
+          "assigned_specialist_id": {"type": "string"},
+          "declared_model": {"type": "string"},
+          "authors": {"type": "array", "items": {"type": "string"}},
+          "body_hash": {"type": "string"},
+          "policy_version": {"type": "string"},
+          "well_formed": {"type": "boolean"},
+          "pi_star": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "bind"}}},
+      "then": {
+        "required": ["stage_id", "declared_model"],
+        "properties": {
+          "stage_id": {"type": "string"},
+          "declared_model": {"type": "string"},
+          "policy_version": {"type": "string"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "call"}}},
+      "then": {
+        "required": ["stage_id", "declared_model", "executed_model", "on_bind", "first_attempt"],
+        "properties": {
+          "stage_id": {"type": "string"},
+          "declared_model": {"type": "string"},
+          "executed_model": {"type": "string"},
+          "runtime_instance": {"type": ["string", "null"]},
+          "on_bind": {"type": "boolean"},
+          "first_attempt": {"type": "boolean"},
+          "signal": {"type": "string", "enum": ["none", "401", "403", "404", "429", "exhausted", "not_found"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "decide"}}},
+      "then": {
+        "required": ["stage_id", "result", "next"],
+        "properties": {
+          "stage_id": {"type": "string"},
+          "result": {"type": "string", "enum": ["pass", "fail_closed"]},
+          "fault": {"type": ["string", "null"]},
+          "next": {"type": "string", "enum": ["retry", "ask", "stop", "accept"]},
+          "tried": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "accept"}}},
+      "then": {
+        "required": ["store_id"],
+        "properties": {"store_id": {"type": "string"}}
+      }
+    }
+  ]
+}

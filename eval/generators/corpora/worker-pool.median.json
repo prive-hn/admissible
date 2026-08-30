@@ -1,0 +1,84 @@
+{
+ "ingested": true,
+ "model": "worker-pool",
+ "sample_count": 12,
+ "sample_count_in": 12,
+ "samples": [
+  {
+   "index": 0,
+   "line": 0,
+   "sha256": "4bf745edea1c1b65a6b372ce96cd5e7a6943ec2590b89f70e9655dec31c2eb34",
+   "source": "def median(data):\n    values = sorted(data)\n    n = len(values)\n    mid = n // 2\n    if n % 2:\n        return values[mid]\n    return (values[mid - 1] + values[mid]) / 2\n"
+  },
+  {
+   "index": 1,
+   "line": 0,
+   "sha256": "4bf745edea1c1b65a6b372ce96cd5e7a6943ec2590b89f70e9655dec31c2eb34",
+   "source": "def median(data):\n    values = sorted(data)\n    n = len(values)\n    mid = n // 2\n    if n % 2:\n        return values[mid]\n    return (values[mid - 1] + values[mid]) / 2\n"
+  },
+  {
+   "index": 2,
+   "line": 0,
+   "sha256": "4bf745edea1c1b65a6b372ce96cd5e7a6943ec2590b89f70e9655dec31c2eb34",
+   "source": "def median(data):\n    values = sorted(data)\n    n = len(values)\n    mid = n // 2\n    if n % 2:\n        return values[mid]\n    return (values[mid - 1] + values[mid]) / 2\n"
+  },
+  {
+   "index": 0,
+   "line": 1,
+   "sha256": "4bf745edea1c1b65a6b372ce96cd5e7a6943ec2590b89f70e9655dec31c2eb34",
+   "source": "def median(data):\n    values = sorted(data)\n    n = len(values)\n    mid = n // 2\n    if n % 2:\n        return values[mid]\n    return (values[mid - 1] + values[mid]) / 2\n"
+  },
+  {
+   "index": 1,
+   "line": 1,
+   "sha256": "4bf745edea1c1b65a6b372ce96cd5e7a6943ec2590b89f70e9655dec31c2eb34",
+   "source": "def median(data):\n    values = sorted(data)\n    n = len(values)\n    mid = n // 2\n    if n % 2:\n        return values[mid]\n    return (values[mid - 1] + values[mid]) / 2\n"
+  },
+  {
+   "index": 2,
+   "line": 1,
+   "sha256": "4bf745edea1c1b65a6b372ce96cd5e7a6943ec2590b89f70e9655dec31c2eb34",
+   "source": "def median(data):\n    values = sorted(data)\n    n = len(values)\n    mid = n // 2\n    if n % 2:\n        return values[mid]\n    return (values[mid - 1] + values[mid]) / 2\n"
+  },
+  {
+   "index": 0,
+   "line": 2,
+   "sha256": "4bf745edea1c1b65a6b372ce96cd5e7a6943ec2590b89f70e9655dec31c2eb34",
+   "source": "def median(data):\n    values = sorted(data)\n    n = len(values)\n    mid = n // 2\n    if n % 2:\n        return values[mid]\n    return (values[mid - 1] + values[mid]) / 2\n"
+  },
+  {
+   "index": 1,
+   "line": 2,
+   "sha256": "0226194ce9974e7c2a270ccd6a67501f0c6f615b8c083a2d648e8c1086649256",
+   "source": "def median(data):\n    ordered = sorted(data)\n    n = len(ordered)\n    mid = n // 2\n    if n % 2:\n        return ordered[mid]\n    return (ordered[mid - 1] + ordered[mid]) / 2\n"
+  },
+  {
+   "index": 2,
+   "line": 2,
+   "sha256": "4bf745edea1c1b65a6b372ce96cd5e7a6943ec2590b89f70e9655dec31c2eb34",
+   "source": "def median(data):\n    values = sorted(data)\n    n = len(values)\n    mid = n // 2\n    if n % 2:\n        return values[mid]\n    return (values[mid - 1] + values[mid]) / 2\n"
+  },
+  {
+   "index": 0,
+   "line": 3,
+   "sha256": "4bf745edea1c1b65a6b372ce96cd5e7a6943ec2590b89f70e9655dec31c2eb34",
+   "source": "def median(data):\n    values = sorted(data)\n    n = len(values)\n    mid = n // 2\n    if n % 2:\n        return values[mid]\n    return (values[mid - 1] + values[mid]) / 2\n"
+  },
+  {
+   "index": 1,
+   "line": 3,
+   "sha256": "4bf745edea1c1b65a6b372ce96cd5e7a6943ec2590b89f70e9655dec31c2eb34",
+   "source": "def median(data):\n    values = sorted(data)\n    n = len(values)\n    mid = n // 2\n    if n % 2:\n        return values[mid]\n    return (values[mid - 1] + values[mid]) / 2\n"
+  },
+  {
+   "index": 2,
+   "line": 3,
+   "sha256": "4bf745edea1c1b65a6b372ce96cd5e7a6943ec2590b89f70e9655dec31c2eb34",
+   "source": "def median(data):\n    values = sorted(data)\n    n = len(values)\n    mid = n // 2\n    if n % 2:\n        return values[mid]\n    return (values[mid - 1] + values[mid]) / 2\n"
+  }
+ ],
+ "schema": "admissible/eval/sample-corpus/v1",
+ "target": "median",
+ "task": "spec:median",
+ "task_sha256": "7c21c1452d31fb45a03e78c183c7962f42c2e01bb0abb49e929d1bdc7cf6e641"
+}

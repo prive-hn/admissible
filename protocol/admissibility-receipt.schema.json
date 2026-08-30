@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prive-hn.github.io/admissible/protocol/admissibility-receipt.schema.json",
+  "title": "Kernel-issued authenticated composed admissibility receipt",
+  "$comment": "After schema validation, semantic validation MUST require each embedded journal_id to equal admissible/{journal_namespace}/{role}; JSON Schema cannot express this sibling-value equality.",
+  "$defs": {
+    "head": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "journal_id",
+        "event_count",
+        "head_digest",
+        "previous_receipt_hash",
+        "extension_digests",
+        "issued_at",
+        "algorithm",
+        "key_id",
+        "signature",
+        "receipt_hash"
+      ],
+      "properties": {
+        "journal_id": { "type": "string", "minLength": 1 },
+        "event_count": { "type": "integer", "minimum": 0 },
+        "head_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "previous_receipt_hash": {
+          "type": "string",
+          "pattern": "^(?:|[0-9a-f]{64})$"
+        },
+        "extension_digests": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        },
+        "issued_at": { "type": "integer", "minimum": 0 },
+        "algorithm": { "const": "hmac-sha256" },
+        "key_id": { "type": "string", "minLength": 1 },
+        "signature": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "receipt_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "base_version",
+    "journal_namespace",
+    "subject_id",
+    "artifact_hash",
+    "sealed",
+    "mediated",
+    "tainted",
+    "impeached",
+    "fcd_head",
+    "rga_head",
+    "calibration_head",
+    "issued_at",
+    "algorithm",
+    "key_id",
+    "signature",
+    "receipt_hash"
+  ],
+  "properties": {
+    "base_version": { "type": "string", "minLength": 1 },
+    "journal_namespace": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,64}$"
+    },
+    "subject_id": { "type": "string", "minLength": 1 },
+    "artifact_hash": {
+      "type": "string",
+      "pattern": "^(?:|[0-9a-f]{64})$"
+    },
+    "sealed": { "type": "boolean" },
+    "mediated": { "type": "boolean" },
+    "tainted": { "type": "boolean" },
+    "impeached": { "type": "boolean" },
+    "fcd_head": {
+      "allOf": [
+        { "$ref": "#/$defs/head" },
+        { "properties": { "journal_id": { "pattern": "^admissible/[A-Za-z0-9._-]{1,64}/fcd$" } } }
+      ]
+    },
+    "rga_head": {
+      "allOf": [
+        { "$ref": "#/$defs/head" },
+        { "properties": { "journal_id": { "pattern": "^admissible/[A-Za-z0-9._-]{1,64}/rga$" } } }
+      ]
+    },
+    "calibration_head": {
+      "allOf": [
+        { "$ref": "#/$defs/head" },
+        { "properties": { "journal_id": { "pattern": "^admissible/[A-Za-z0-9._-]{1,64}/calibration$" } } }
+      ]
+    },
+    "issued_at": { "type": "integer", "minimum": 0 },
+    "algorithm": { "const": "hmac-sha256" },
+    "key_id": { "type": "string", "minLength": 1 },
+    "signature": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "receipt_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "sealed": { "const": false } } },
+      "then": { "properties": { "artifact_hash": { "const": "" } } }
+    },
+    {
+      "if": { "properties": { "sealed": { "const": true } } },
+      "then": {
+        "properties": {
+          "artifact_hash": { "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
+  ]
+}

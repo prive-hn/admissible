@@ -1,0 +1,54 @@
+# Admissible gate for this repository.
+#
+# The whole executable boundary is one commit, and it is written twice below.
+# `uses: ...@SHA` pins the workflow; `tool-sha: SHA` pins the program that
+# workflow runs. They must be the same commit -- the gate compares them at run
+# time and refuses if they disagree -- because a workflow pinned by commit that
+# then checks its own tool out of a movable tag has pinned nothing that matters.
+#
+# This gate evaluates. It never signs, it takes no secret, and a green run means
+# "the deterministic checks passed for this commit" and nothing more. Issuing a
+# receipt happens outside GitHub Actions, in a trust domain the candidate's
+# commands cannot reach:
+#
+#   1. fetch the finished run's `admissible-preview-FULL_SHA-attempt-N`
+#      artifact and verify its included `preview.sha256` receipt;
+#   2. an external observer validates provider and isolation evidence, then
+#      signs with `admissible attest-evaluation --preview preview.json
+#      --source-receipt source.json --isolation MODE --out evaluation.json`;
+#   3. on the trusted finalizer, select durable state before either operation:
+#
+#        export ADMISSIBLE_HOME=/var/lib/admissible
+#        export ADMISSIBLE_DURABLE_HOME=1
+#        admissible policy trust --repo /trusted/checkout
+#        admissible finalize --preview preview.json --sha "$SHA" \
+#          --policy-root /trusted/checkout \
+#          --evaluation-attestation evaluation.json \
+#          --reviews /trusted/out-of-band/reviews.json
+#
+#      `--reviews` carries separately signed review and authorship claims.
+#      Those are separate authenticated roles; adding them needs no observer
+#      re-sign because the finalizer authenticates and binds them independently.
+#
+# Neither step belongs in a workflow file, so neither is here.
+name: admissible
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    # Both of these are the same commit. Replace both together, with the exact
+    # sha of the Admissible release you reviewed -- a tag is a name its owner
+    # can move, a commit is the thing you read.
+    uses: prive-hn/admissible/.github/workflows/admissible-gate.yml@REPLACE-WITH-FULL-40-HEX-ADMISSIBLE-COMMIT-SHA
+    with:
+      tool-sha: REPLACE-WITH-FULL-40-HEX-ADMISSIBLE-COMMIT-SHA
+      # config-path: .admissible.json
+      # class: default
+      # evaluate-runs-on: '["self-hosted","linux","x64","your-label"]'

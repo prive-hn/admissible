@@ -1,0 +1,26 @@
+# The sdist ships the runnable product, not a partial test suite.
+#
+# setuptools' sdist defaults sweep up `test*/test*.py` but not the helpers those
+# files import, which produced an archive whose tests could not even be
+# collected. Rather than ship a suite that cannot run, the sdist excludes tests
+# entirely; the full suite lives in the git checkout, where its fixtures do too.
+include README.md
+include LICENSE
+include NOTICE
+include Makefile
+recursive-include protocol *.json
+recursive-include admissible/templates *.yml
+recursive-exclude tests *
+recursive-exclude atlas/tests *
+prune tests
+prune atlas/tests
+prune .github
+prune apps
+prune data
+prune paper
+prune eval
+prune docs
+prune examples
+prune scripts
+global-exclude *.pyc
+global-exclude __pycache__

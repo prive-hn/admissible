@@ -1,0 +1,84 @@
+{
+ "ingested": true,
+ "model": "worker-pool",
+ "sample_count": 12,
+ "sample_count_in": 12,
+ "samples": [
+  {
+   "index": 0,
+   "line": 0,
+   "sha256": "62a7a47b95dd8cda48fa42377f82221a4ed9e21edb6dcc20750248332077dba9",
+   "source": "def normpath(path):\n    if path == \"\":\n        return \".\"\n    initial_slashes = path.startswith(\"/\")\n    if initial_slashes and path.startswith(\"//\") and not path.startswith(\"///\"):\n        initial_slashes = 2\n    new_comps = []\n    for comp in path.split(\"/\"):\n        if comp in (\"\", \".\"):\n            continue\n        if (comp != \"..\"\n                or (not initial_slashes and not new_comps)\n                or (new_comps and new_comps[-1] == \"..\")):\n            new_comps.append(comp)\n        elif new_comps:\n            new_comps.pop()\n    result = \"/\".join(new_comps)\n    if initial_slashes:\n        result = \"/\" * initial_slashes + result\n    return result or \".\"\n"
+  },
+  {
+   "index": 1,
+   "line": 0,
+   "sha256": "8547ad49b0050d9a4433a2d373733025fea784776143318ebee5db7436818e1c",
+   "source": "def normpath(path):\n    if path == \"\":\n        return \".\"\n    initial_slashes = 1 if path.startswith(\"/\") else 0\n    if initial_slashes and path.startswith(\"//\") and not path.startswith(\"///\"):\n        initial_slashes = 2\n    comps = []\n    for comp in path.split(\"/\"):\n        if comp == \"\" or comp == \".\":\n            continue\n        if comp != \"..\" or (not initial_slashes and not comps) or (comps and comps[-1] == \"..\"):\n            comps.append(comp)\n        elif comps:\n            comps.pop()\n    result = \"/\".join(comps)\n    if initial_slashes:\n        result = \"/\" * initial_slashes + result\n    return result or \".\"\n"
+  },
+  {
+   "index": 2,
+   "line": 0,
+   "sha256": "0a5038452e68b956457ec65ba4269e74fbb6a8a8b1df4a5b6faba8d8297a1744",
+   "source": "def normpath(path):\n    if path == \"\":\n        return \".\"\n    initial_slashes = 0\n    if path.startswith(\"/\"):\n        initial_slashes = 1\n        if path.startswith(\"//\") and not path.startswith(\"///\"):\n            initial_slashes = 2\n    components = []\n    for part in path.split(\"/\"):\n        if part == \"\" or part == \".\":\n            continue\n        if part != \"..\" or (not initial_slashes and not components) or (components and components[-1] == \"..\"):\n            components.append(part)\n        elif components:\n            components.pop()\n    result = \"/\".join(components)\n    if initial_slashes:\n        result = \"/\" * initial_slashes + result\n    return result or \".\"\n"
+  },
+  {
+   "index": 0,
+   "line": 1,
+   "sha256": "c132b4737cb27467826195445c37feb1a24825c5f5b9878dc63c8751e2df9310",
+   "source": "def normpath(path):\n    if path == \"\":\n        return \".\"\n    initial_slashes = 0\n    if path.startswith(\"/\"):\n        initial_slashes = 1\n        if path.startswith(\"//\") and not path.startswith(\"///\"):\n            initial_slashes = 2\n    comps = []\n    for comp in path.split(\"/\"):\n        if comp == \"\" or comp == \".\":\n            continue\n        if comp != \"..\" or (not initial_slashes and not comps) or (comps and comps[-1] == \"..\"):\n            comps.append(comp)\n        elif comps:\n            comps.pop()\n    result = \"/\" * initial_slashes + \"/\".join(comps)\n    return result or \".\"\n"
+  },
+  {
+   "index": 1,
+   "line": 1,
+   "sha256": "150041eb374e78c9fd6f036627ad964d8cec4c23971eb9cab80cbf76b6aa10e6",
+   "source": "def normpath(path):\n    if path == \"\":\n        return \".\"\n    initial_slashes = path.startswith(\"/\")\n    if initial_slashes and path.startswith(\"//\") and not path.startswith(\"///\"):\n        initial_slashes = 2\n    comps = path.split(\"/\")\n    new_comps = []\n    for comp in comps:\n        if comp in (\"\", \".\"):\n            continue\n        if (comp != \"..\"\n                or (not initial_slashes and not new_comps)\n                or (new_comps and new_comps[-1] == \"..\")):\n            new_comps.append(comp)\n        elif new_comps:\n            new_comps.pop()\n    path = \"/\".join(new_comps)\n    if initial_slashes:\n        path = \"/\" * initial_slashes + path\n    return path or \".\"\n"
+  },
+  {
+   "index": 2,
+   "line": 1,
+   "sha256": "d6db03ad612d55a840e6357aed896374be1cb27fdb0a0c5efbd2c632c883d797",
+   "source": "def normpath(path):\n    if path == \"\":\n        return \".\"\n    if path.startswith(\"//\") and not path.startswith(\"///\"):\n        leading = \"//\"\n    elif path.startswith(\"/\"):\n        leading = \"/\"\n    else:\n        leading = \"\"\n    parts = []\n    for part in path.split(\"/\"):\n        if part == \"\" or part == \".\":\n            continue\n        if part == \"..\":\n            if parts and parts[-1] != \"..\":\n                parts.pop()\n            elif not leading:\n                parts.append(\"..\")\n        else:\n            parts.append(part)\n    result = leading + \"/\".join(parts)\n    return result or \".\"\n"
+  },
+  {
+   "index": 0,
+   "line": 2,
+   "sha256": "6a0ca65c1a14615d7f0f143daaa04c4406bdd5d31f14942ea5637ec5012ca2e5",
+   "source": "def normpath(path):\n    if path == '':\n        return '.'\n    initial_slashes = 0\n    if path.startswith('/'):\n        initial_slashes = 1\n        if path.startswith('//') and not path.startswith('///'):\n            initial_slashes = 2\n    comps = []\n    for comp in path.split('/'):\n        if comp == '' or comp == '.':\n            continue\n        if (comp != '..' or (not initial_slashes and not comps)\n                or (comps and comps[-1] == '..')):\n            comps.append(comp)\n        elif comps:\n            comps.pop()\n    result = '/' * initial_slashes + '/'.join(comps)\n    return result or '.'\n"
+  },
+  {
+   "index": 1,
+   "line": 2,
+   "sha256": "d318630f60b07f944f898a2f9f1546f666c05f41cf725fbf9c9f5240e8bc15ea",
+   "source": "def normpath(path):\n    if path == \"\":\n        return \".\"\n    if path.startswith(\"//\") and not path.startswith(\"///\"):\n        initial_slashes = 2\n    elif path.startswith(\"/\"):\n        initial_slashes = 1\n    else:\n        initial_slashes = 0\n    comps = []\n    for comp in path.split(\"/\"):\n        if comp == \"\" or comp == \".\":\n            continue\n        if comp != \"..\" or (not initial_slashes and not comps) or (comps and comps[-1] == \"..\"):\n            comps.append(comp)\n        elif comps:\n            comps.pop()\n    result = \"/\".join(comps)\n    if initial_slashes:\n        result = \"/\" * initial_slashes + result\n    return result or \".\"\n"
+  },
+  {
+   "index": 2,
+   "line": 2,
+   "sha256": "7e307ffc348488204c3826e9e43766f329a8c2161f174956c2eaec888f0df6d0",
+   "source": "def normpath(path):\n    if path == \"\":\n        return \".\"\n    slashes = 0\n    if path.startswith(\"/\"):\n        slashes = 1\n        if path.startswith(\"//\") and not path.startswith(\"///\"):\n            slashes = 2\n    comps = []\n    for comp in path.split(\"/\"):\n        if comp == \"\" or comp == \".\":\n            continue\n        if comp != \"..\" or (slashes == 0 and not comps) or (comps and comps[-1] == \"..\"):\n            comps.append(comp)\n        elif comps:\n            comps.pop()\n    result = \"/\".join(comps)\n    if slashes:\n        result = \"/\" * slashes + result\n    return result or \".\"\n"
+  },
+  {
+   "index": 0,
+   "line": 3,
+   "sha256": "578475e6822e4ba95c579346c8eba4f8da0726e8e4aa3386ad759ce59d8e23a2",
+   "source": "def normpath(path):\n    if path == \"\":\n        return \".\"\n    leading = 0\n    if path.startswith(\"/\"):\n        leading = 1\n        if path.startswith(\"//\") and not path.startswith(\"///\"):\n            leading = 2\n    parts = []\n    for part in path.split(\"/\"):\n        if part == \"\" or part == \".\":\n            continue\n        if part == \"..\":\n            if parts and parts[-1] != \"..\":\n                parts.pop()\n            elif not leading:\n                parts.append(\"..\")\n            continue\n        parts.append(part)\n    result = \"/\" * leading + \"/\".join(parts)\n    return result if result else \".\"\n"
+  },
+  {
+   "index": 1,
+   "line": 3,
+   "sha256": "2f41973f561ca25a43c14776a591617695bb26848e03cd736389066e73867f45",
+   "source": "def normpath(path):\n    if path == '':\n        return '.'\n    initial_slashes = 0\n    if path.startswith('/'):\n        initial_slashes = 1\n        if path.startswith('//') and not path.startswith('///'):\n            initial_slashes = 2\n    comps = []\n    for comp in path.split('/'):\n        if comp == '' or comp == '.':\n            continue\n        if (comp != '..' or (not initial_slashes and not comps) or\n                (comps and comps[-1] == '..')):\n            comps.append(comp)\n        elif comps:\n            comps.pop()\n    result = '/' * initial_slashes + '/'.join(comps)\n    return result or '.'\n"
+  },
+  {
+   "index": 2,
+   "line": 3,
+   "sha256": "712722e8cebcdc2132bdcb81a0787d5dff5a18384c2ddae52f5788bbe4302372",
+   "source": "def normpath(path):\n    if path == \"\":\n        return \".\"\n    initial_slashes = 0\n    if path.startswith(\"/\"):\n        initial_slashes = 1\n        if path.startswith(\"//\") and not path.startswith(\"///\"):\n            initial_slashes = 2\n    comps = []\n    for comp in path.split(\"/\"):\n        if comp == \"\" or comp == \".\":\n            continue\n        if comp != \"..\" or (initial_slashes == 0 and not comps) or (comps and comps[-1] == \"..\"):\n            comps.append(comp)\n        elif comps:\n            comps.pop()\n    result = \"/\" * initial_slashes + \"/\".join(comps)\n    return result or \".\"\n"
+  }
+ ],
+ "schema": "admissible/eval/sample-corpus/v1",
+ "target": "normpath",
+ "task": "spec:normpath",
+ "task_sha256": "e77ef945c630b8da7450ecc44a39da37d80c9e7beefedfb1e521511d21370df1"
+}

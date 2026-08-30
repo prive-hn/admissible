@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/rga-journal-event.schema.json",
+  "title": "RgaJournalEvent",
+  "description": "A single append-only RGA journal event, as emitted by rga.core.Admission and documented in metrics/SCHEMA.md (Refutation-gated admission events). A language-neutral restatement of that contract; it adds no fields the machine does not already emit. The 'type' discriminator selects the variant.",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "type": {"type": "string", "enum": ["rga_declare", "rga_measure", "rga_bound", "rga_open", "rga_sample", "rga_trial", "rga_replay", "rga_refuse", "rga_seal", "rga_close"]},
+    "ts": {"type": "number"}
+  },
+  "$defs": {
+    "refuterKey": {"type": "array", "prefixItems": [{"type": "string"}, {"type": "string"}], "minItems": 2, "maxItems": 2},
+    "trialVerdict": {"type": "string", "enum": ["refuted", "survived", "inconclusive"]},
+    "ledgerVerdict": {"type": "string", "enum": ["killed", "survived", "inconclusive"]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"type": {"const": "rga_declare"}}},
+      "then": {
+        "required": ["refuter_id", "refuter_version", "author", "mode"],
+        "properties": {
+          "refuter_id": {"type": "string"},
+          "refuter_version": {"type": "string"},
+          "author": {"type": "string", "minLength": 1},
+          "mode": {"type": "string", "enum": ["ledger", "bounded"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "rga_measure"}}},
+      "then": {
+        "required": ["refuter_id", "refuter_version", "defect_model_hash", "defect_model_author", "ledger", "kills", "size", "power"],
+        "properties": {
+          "refuter_id": {"type": "string"},
+          "refuter_version": {"type": "string"},
+          "defect_model_hash": {"type": "string"},
+          "defect_model_author": {"type": "string"},
+          "ledger": {
+            "type": "array", "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["defect_id", "verdict"],
+              "properties": {"defect_id": {"type": "string"}, "verdict": {"$ref": "#/$defs/ledgerVerdict"}}
+            }
+          },
+          "kills": {"type": "integer", "minimum": 0},
+          "size": {"type": "integer", "minimum": 1},
+          "power": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "rga_bound"}}},
+      "then": {
+        "required": ["refuter_id", "refuter_version", "epsilon", "n", "power"],
+        "properties": {
+          "refuter_id": {"type": "string"},
+          "refuter_version": {"type": "string"},
+          "epsilon": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+          "n": {"type": "integer", "minimum": 1},
+          "power": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "rga_open"}}},
+      "then": {
+        "required": ["work_item_id", "class", "body_hash", "generator", "declared_model", "fcd_policy_version", "sampling_hash", "policy_version", "k", "theta", "p_min", "claims", "refuters", "fcd_position"],
+        "properties": {
+          "work_item_id": {"type": "string"},
+          "class": {"type": "string"},
+          "body_hash": {"type": "string"},
+          "generator": {"type": "string"},
+          "declared_model": {"type": "string"},
+          "fcd_policy_version": {"type": "string"},
+          "sampling_hash": {"type": "string"},
+          "policy_version": {"type": "string"},
+          "k": {"type": "integer", "minimum": 1},
+          "theta": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+          "p_min": {"type": "number", "minimum": 0, "maximum": 1},
+          "claims": {"type": "array", "items": {"type": "string"}},
+          "refuters": {"type": "array", "items": {"$ref": "#/$defs/refuterKey"}},
+          "fcd_position": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "rga_sample"}}},
+      "then": {
+        "required": ["work_item_id", "sample_index", "stage_id", "artifact_hash", "nonce", "executed_model", "declared_model", "package_categories", "sampling_hash", "fcd_position"],
+        "properties": {
+          "work_item_id": {"type": "string"},
+          "sample_index": {"type": "integer", "minimum": 0},
+          "stage_id": {"type": "string"},
+          "artifact_hash": {"type": "string"},
+          "nonce": {"type": "string"},
+          "executed_model": {"type": "string"},
+          "declared_model": {"type": "string"},
+          "package_categories": {"type": "array", "items": {"type": "string"}},
+          "sampling_hash": {"type": "string"},
+          "fcd_position": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "rga_trial"}}},
+      "then": {
+        "required": ["work_item_id", "trial_index", "refuter_id", "refuter_version", "claim_id", "sample_index", "seed", "inputs_hash", "verdict", "witness_hash"],
+        "properties": {
+          "work_item_id": {"type": "string"},
+          "trial_index": {"type": "integer", "minimum": 0},
+          "refuter_id": {"type": "string"},
+          "refuter_version": {"type": "string"},
+          "claim_id": {"type": "string"},
+          "sample_index": {"type": "integer", "minimum": 0},
+          "seed": {"type": "string"},
+          "inputs_hash": {"type": "string"},
+          "verdict": {"$ref": "#/$defs/trialVerdict"},
+          "witness_hash": {"type": "string"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "rga_replay"}}},
+      "then": {
+        "required": ["work_item_id", "trial_index", "refuter_id", "refuter_version", "verdict", "witness_hash", "diverged"],
+        "properties": {
+          "work_item_id": {"type": "string"},
+          "trial_index": {"type": "integer", "minimum": 0},
+          "refuter_id": {"type": "string"},
+          "refuter_version": {"type": "string"},
+          "verdict": {"$ref": "#/$defs/trialVerdict"},
+          "witness_hash": {"type": "string"},
+          "diverged": {"type": "boolean"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "rga_refuse"}}},
+      "then": {
+        "required": ["refuter_id", "refuter_version", "reason"],
+        "properties": {
+          "refuter_id": {"type": "string"},
+          "refuter_version": {"type": "string"},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "rga_seal"}}},
+      "then": {
+        "required": ["work_item_id", "class", "body_hash", "artifact_hash", "k", "theta", "p_min", "power_min", "sampling_hash", "policy_version", "fcd_policy_version", "generator", "executed_model", "claims", "residual"],
+        "properties": {
+          "work_item_id": {"type": "string"},
+          "class": {"type": "string"},
+          "body_hash": {"type": "string"},
+          "artifact_hash": {"type": "string"},
+          "k": {"type": "integer", "minimum": 1},
+          "theta": {"type": "number"},
+          "p_min": {"type": "number"},
+          "power_min": {"type": "number", "minimum": 0, "maximum": 1},
+          "sampling_hash": {"type": "string"},
+          "policy_version": {"type": "string"},
+          "fcd_policy_version": {"type": "string"},
+          "generator": {"type": "string"},
+          "executed_model": {"type": "string"},
+          "claims": {
+            "type": "array", "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["claim_id", "spec_hash", "composite", "composition", "agreeing", "k", "refuters"],
+              "properties": {
+                "claim_id": {"type": "string"},
+                "spec_hash": {"type": "string"},
+                "composite": {"type": "number", "minimum": 0, "maximum": 1},
+                "composition": {"type": "string", "enum": ["single", "union", "max"]},
+                "agreeing": {"type": "integer", "minimum": 0},
+                "k": {"type": "integer", "minimum": 1},
+                "refuters": {
+                  "type": "array", "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "version", "mode", "power", "defect_model_hash", "kills", "size", "epsilon", "n"],
+                    "properties": {
+                      "id": {"type": "string"},
+                      "version": {"type": "string"},
+                      "mode": {"type": "string", "enum": ["ledger", "bounded"]},
+                      "power": {"type": "number", "minimum": 0, "maximum": 1},
+                      "defect_model_hash": {"type": ["string", "null"]},
+                      "kills": {"type": ["integer", "null"]},
+                      "size": {"type": ["integer", "null"]},
+                      "epsilon": {"type": ["number", "null"]},
+                      "n": {"type": ["integer", "null"]}
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "residual": {"type": "array", "items": {"type": "array", "prefixItems": [{"type": "string"}, {"type": "string", "enum": ["check_stage", "unreviewed"]}], "minItems": 2, "maxItems": 2}}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "rga_close"}}},
+      "then": {
+        "required": ["work_item_id", "result", "fault", "reason", "next"],
+        "properties": {
+          "work_item_id": {"type": "string"},
+          "result": {"const": "fail_closed"},
+          "fault": {"type": ["string", "null"], "enum": ["V1", "V2", "V3", "V4", "V5", null]},
+          "reason": {"type": "string"},
+          "next": {"const": "ask"},
+          "concordance": {"type": "array", "items": {"type": "object", "required": ["claim_id", "agreeing", "k"], "properties": {"claim_id": {"type": "string"}, "agreeing": {"type": "integer"}, "k": {"type": "integer"}}}},
+          "miss_observed": {"type": "array", "items": {"$ref": "#/$defs/refuterKey"}},
+          "power_min": {"type": "number"}
+        }
+      }
+    }
+  ]
+}

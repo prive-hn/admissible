@@ -1,0 +1,21 @@
+# The sdist has to carry the backend that builds it.
+#
+# `backend-path` names a module in the project directory, so an sdist without
+# `build_backend.py` in it is an sdist that cannot be built at all. setuptools
+# does not infer that, so it is stated here.
+include build_backend.py
+include README.md
+
+# The staged sources, and the manifest that closes over them.
+#
+# setuptools would ship the four packages by itself, because `package-dir`
+# points at them. It would not ship `staged-manifest.json`, which is not inside
+# any package -- and a sdist carrying the bytes but not the closure over them is
+# an sdist whose consumer has nothing to check them against. Stated as a
+# recursive include rather than one filename so that the manifest and the files
+# it pins cannot drift apart: everything staged is shipped.
+recursive-include _staged *
+
+# Build artefacts of whichever tree the sdist was made from.
+global-exclude *.pyc
+global-exclude __pycache__

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/adapter-receipt.schema.json",
+  "title": "AdapterReceipt",
+  "type": "object", "additionalProperties": false,
+  "required": ["attempt_id", "nonce", "executor_id", "run_id", "package_hash_observed", "continuation_hash", "executed_provider", "executed_model"],
+  "properties": {
+    "attempt_id": {"type": "string"}, "nonce": {"type": "string", "minLength": 1},
+    "executor_id": {"type": "string"}, "run_id": {"type": "string"},
+    "package_hash_observed": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "continuation_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "executed_provider": {"type": "string"}, "executed_model": {"type": "string"}
+  }
+}

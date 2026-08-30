@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible.dev/schema/evaluation-attestation.schema.json",
+  "title": "Admissible evaluation attestation",
+  "description": "An external observer's signed statement that one evaluation produced exactly these records, for exactly this artefact, in exactly this attempt, and that the observer read a closed receipt for that run from a provider outside it. It is what lets a finalizer treat command evidence as more than a description: the job that produced those records ran candidate-owned commands and cannot be its own witness, and an attestation over the preview alone would only restate the candidate's account of itself. What it establishes is bounded: an operator or an adapter reported reading that source receipt. Admissible does not fetch it and cannot verify it, so a dishonest adapter produces an attestation that verifies -- the adapter-honesty assumption is retained deliberately. Authenticity is HMAC-SHA256 shared-secret authenticity, not public non-repudiation. This is a different domain from a review attestation and from the admission receipt, and none of the three keys substitutes for another.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "algorithm",
+    "key_id",
+    "evaluation",
+    "signature"
+  ],
+  "properties": {
+    "schema": {
+      "const": "admissible/v0.6/evaluation-attestation"
+    },
+    "algorithm": {
+      "const": "hmac-sha256"
+    },
+    "key_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The observer that signed. A finalizer refuses any key id its pinned ADMISSIBLE_EVALUATION_KEYRING does not name."
+    },
+    "evaluation": {
+      "$ref": "#/$defs/statement"
+    },
+    "signature": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "$defs": {
+    "sha1": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "preview_schema",
+        "issued_at",
+        "repository",
+        "commit_sha",
+        "tree_sha",
+        "policy_digest",
+        "class_id",
+        "attempt_id",
+        "state",
+        "readiness",
+        "config_path",
+        "fork",
+        "dependencies",
+        "isolation",
+        "command_digests",
+        "review_digests",
+        "decision_digest",
+        "source_receipt",
+        "observed_at"
+      ],
+      "properties": {
+        "schema": {
+          "const": "admissible/v0.6/evaluation-attestation"
+        },
+        "preview_schema": {
+          "const": "admissible/v0.6/workflow-preview",
+          "description": "The exact preview protocol the observer parsed. Signed so an older or candidate-invented envelope cannot be relabelled after observation."
+        },
+        "issued_at": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The preview issuance time observed. It must equal both the preview issued_at and the embedded decision evaluated_at."
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit_sha": {
+          "$ref": "#/$defs/sha1"
+        },
+        "tree_sha": {
+          "$ref": "#/$defs/sha1"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "class_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attempt_id": {
+          "type": "string",
+          "description": "The single attempt observed. A finalizer refuses unless this equals the attempt the preview's decision names."
+        },
+        "command_digests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sha256"
+          },
+          "description": "Sorted evidence digests of every command record observed. Checked in both directions: a record the observer did not watch cannot be counted, and a record it watched cannot be dropped afterwards."
+        },
+        "review_digests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sha256"
+          }
+        },
+        "decision_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "readiness": {
+          "enum": [
+            "READY_FOR_ATTESTATION",
+            "AWAITING_REVIEW",
+            "NOT_READY"
+          ]
+        },
+        "observed_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "state": {
+          "enum": [
+            "CHECKS_PASSED",
+            "REFUSED",
+            "BLOCKED"
+          ],
+          "description": "The decision state observed. Never ADMITTED: an evaluation signs nothing, and only a durable receipt records an admission."
+        },
+        "config_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The exact policy file this evaluation was decided under. A finalizer re-reads this file and no other."
+        },
+        "fork": {
+          "type": "boolean",
+          "description": "Whether the evaluated head came from a fork. Signed, so it cannot be cleared afterwards: a fork prohibition outside the signature is one that fails open."
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "repository",
+              "commit_sha"
+            ],
+            "properties": {
+              "repository": {
+                "type": "string",
+                "minLength": 1
+              },
+              "commit_sha": {
+                "$ref": "#/$defs/sha1"
+              }
+            }
+          },
+          "description": "Sorted dependency edges the receipt would record. Inside the signature so the graph cannot be edited after observation."
+        },
+        "isolation": {
+          "enum": [
+            "none",
+            "pid-namespace",
+            "single-use-vm",
+            "separate-uid"
+          ],
+          "description": "The boundary the external observer independently asserts after validating infrastructure evidence in its own trust domain. It is never copied from the candidate-adjacent preview. The evaluating job kills each check process group, but a descendant that calls setsid() escapes it; a finalizer therefore refuses 'none'. Admissible authenticates who asserted the boundary, not the hypervisor or namespace itself."
+        },
+        "source_receipt": {
+          "$ref": "#/$defs/source_receipt"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "state": {"const": "CHECKS_PASSED"},
+            "readiness": {"const": "READY_FOR_ATTESTATION"}
+          }
+        },
+        {
+          "properties": {
+            "state": {"const": "REFUSED"},
+            "readiness": {"const": "AWAITING_REVIEW"}
+          }
+        },
+        {
+          "properties": {
+            "state": {"const": "REFUSED"},
+            "readiness": {"const": "NOT_READY"}
+          }
+        },
+        {
+          "properties": {
+            "state": {"const": "BLOCKED"},
+            "readiness": {"const": "NOT_READY"}
+          }
+        }
+      ]
+    },
+    "source_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "run_id",
+        "commit_sha",
+        "conclusion",
+        "receipt_digest"
+      ],
+      "description": "The closed receipt the observer read from a system outside this evaluation.",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "An immutable run or job id at that provider."
+        },
+        "commit_sha": {
+          "$ref": "#/$defs/sha1"
+        },
+        "conclusion": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What the provider reported. The finalizer applies the matrix only to readiness it independently recomputes from evidence and trusted policy: READY_FOR_ATTESTATION accepts success only; genuine AWAITING_REVIEW accepts success or failure; NOT_READY accepts no conclusion. The observer-bound readiness cannot widen that set; cancelled and timed_out are always refused."
+        },
+        "receipt_digest": {
+          "$ref": "#/$defs/sha256",
+          "description": "The digest of the receipt document, or the canonical digest of the source document itself."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,401 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible.dev/schema/workflow-evidence.schema.json",
+  "title": "Admissible developer workflow evidence bundle",
+  "description": "Non-authoritative evidence about one exact repository, commit, tree and policy. Evidence never carries raw output or secrets, and it can never forge a kernel journal event.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "commands",
+    "reviews",
+    "defects",
+    "attestations"
+  ],
+  "properties": {
+    "schema": {
+      "const": "admissible/v0.6/workflow-evidence"
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/command"
+      }
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/review"
+      }
+    },
+    "defects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/defect"
+      }
+    },
+    "attestations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attestation"
+      },
+      "description": "Reviews an external reviewer key signed. Only these can satisfy a required independent review; an unsigned review in 'reviews' is advisory and is heeded only when it rejects."
+    },
+    "author_attestations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/authorship_attestation"
+      },
+      "description": "Authorship claims an author key signed. A class requiring independent review admits nothing without an authenticated one: excluding an author from reviewing their own change is a rule about a key, never about a string in a document. Absent means none supplied."
+    }
+  },
+  "$defs": {
+    "sha1": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "check_id",
+        "check_version",
+        "repository",
+        "commit_sha",
+        "tree_sha",
+        "policy_digest",
+        "argv_digest",
+        "exit_code",
+        "timed_out",
+        "launch_failed",
+        "duration_ms",
+        "stdout_sha256",
+        "stderr_sha256",
+        "stdout_bytes",
+        "stderr_bytes",
+        "output_truncated",
+        "started_at",
+        "finished_at",
+        "attempt_id"
+      ],
+      "properties": {
+        "kind": {
+          "const": "command"
+        },
+        "check_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "check_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit_sha": {
+          "$ref": "#/$defs/sha1"
+        },
+        "tree_sha": {
+          "$ref": "#/$defs/sha1"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "argv_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "timed_out": {
+          "type": "boolean"
+        },
+        "launch_failed": {
+          "type": "boolean"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stdout_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "stderr_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "stdout_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stderr_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_truncated": {
+          "type": "boolean"
+        },
+        "started_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finished_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reused_from_attempt": {
+          "type": "string",
+          "description": "The attempt this observation was originally made in, when this record is a reuse of an earlier one. Empty, or absent, means the observation belongs to attempt_id itself. Reuse never rewrites a record in place: it derives a new one for the current attempt and keeps naming where it came from."
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "review_id",
+        "reviewer_id",
+        "reviewer_version",
+        "author_id",
+        "verdict",
+        "repository",
+        "commit_sha",
+        "tree_sha",
+        "policy_digest",
+        "findings_digest",
+        "issued_at",
+        "attempt_id"
+      ],
+      "properties": {
+        "kind": {
+          "const": "review"
+        },
+        "review_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewer_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "author_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verdict": {
+          "enum": [
+            "approve",
+            "reject",
+            "abstain"
+          ]
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit_sha": {
+          "$ref": "#/$defs/sha1"
+        },
+        "tree_sha": {
+          "$ref": "#/$defs/sha1"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "findings_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "issued_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attempt_id": {
+          "type": "string"
+        },
+        "base_sha": {
+          "$ref": "#/$defs/sha1",
+          "description": "Independent candidate base. Optional; must be paired with patch_sha256."
+        },
+        "patch_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Independent candidate patch digest. Optional; must be paired with base_sha."
+        }
+      },
+      "dependentRequired": {
+        "base_sha": ["patch_sha256"],
+        "patch_sha256": ["base_sha"]
+      }
+    },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "algorithm",
+        "key_id",
+        "review",
+        "signature"
+      ],
+      "properties": {
+        "schema": {
+          "const": "admissible/v0.6/review-attestation"
+        },
+        "algorithm": {
+          "const": "hmac-sha256",
+          "description": "Shared-secret authenticity: a holder of this reviewer key signed it. Never public non-repudiation."
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review": {
+          "$ref": "#/$defs/review"
+        },
+        "signature": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "defect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "defect_id",
+        "repository",
+        "commit_sha",
+        "severity",
+        "summary",
+        "missed_check_ids",
+        "regression_test_id",
+        "discovered_at"
+      ],
+      "properties": {
+        "kind": {
+          "const": "defect"
+        },
+        "defect_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit_sha": {
+          "$ref": "#/$defs/sha1"
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "missed_check_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Checks that passed this artefact and did not catch the defect. Non-empty ids only: an empty string names no check, and the runtime parser refuses it, so a schema that accepted one described a document this product would not."
+        },
+        "regression_test_id": {
+          "type": "string"
+        },
+        "discovered_at": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "authorship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "author_id",
+        "repository",
+        "commit_sha",
+        "tree_sha",
+        "policy_digest",
+        "issued_at"
+      ],
+      "properties": {
+        "kind": {
+          "const": "authorship"
+        },
+        "author_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit_sha": {
+          "$ref": "#/$defs/sha1"
+        },
+        "tree_sha": {
+          "$ref": "#/$defs/sha1"
+        },
+        "policy_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "issued_at": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "authorship_attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "algorithm",
+        "key_id",
+        "authorship",
+        "signature"
+      ],
+      "properties": {
+        "schema": {
+          "const": "admissible/v0.6/authorship-attestation"
+        },
+        "algorithm": {
+          "const": "hmac-sha256"
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authorship": {
+          "$ref": "#/$defs/authorship"
+        },
+        "signature": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

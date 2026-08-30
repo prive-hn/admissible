@@ -1,0 +1,81 @@
+[project]
+name = "admissible-trust"
+version = "0.8.0"
+description = "The signing side of Admissible: reviews, evaluations, policy trust, finalization, receipts and authenticated standing"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Roque Briceño" }]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+keywords = ["admission-control", "authority", "receipts", "signing"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Quality Assurance",
+]
+
+# Exactly one dependency, pinned exactly, and nothing conditional.
+#
+# The pin is `==` because the kernel is not a library this distribution merely
+# uses: the two agree about what a policy digest is, what an evidence record
+# hashes to, and what a decision means. A range would let a Trust wheel
+# finalize against a kernel that computes one of those differently, and the
+# disagreement would appear as a receipt whose decision nobody can reproduce.
+#
+# There is no `[project.optional-dependencies]`. An extra is a second
+# dependency graph reachable on demand -- `pip install admissible-trust[ready]`
+# must not be a way to get a candidate executor back into the process that
+# holds the admission key -- and an environment marker is the same door with a
+# condition on it. `Requires-Dist: admissible; python_version >= "3.10"` is
+# satisfied by every interpreter this project supports, so a marked requirement
+# would pull the umbrella, and the runner with it, into every ordinary install.
+dependencies = ["admissible-core==0.8.0"]
+
+[project.urls]
+Documentation = "https://github.com/prive-hn/admissible#readme"
+Issues = "https://github.com/prive-hn/admissible/issues"
+Repository = "https://github.com/prive-hn/admissible"
+
+[project.scripts]
+# One command, and it is the only one this wheel installs. `admissible-ready`
+# and `admissible` belong to distributions that are not this one; a correctly
+# named command wired to the wrong authority's callable would satisfy every
+# name-only check while handing the signing verb to the runner.
+admissible-trust = "admissible_trust.cli:main"
+
+[build-system]
+# The backend is pinned exactly because release artifacts record generator
+# identity and must not depend on resolver time.
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Enumerated, never discovered. `packages.find` would sweep up whatever
+# happened to be under `src/`, and the property worth asserting is an equality:
+# a wheel that ships one namespace more than its authority needs is a wheel
+# whose authority is not what it claims. `admissible_trust` and nothing else --
+# in particular not `admissible_core`, which Core alone ships, because two
+# copies of the kernel is two kernels with installation order deciding which
+# one hashes a receipt.
+#
+# There is no asset sub-package either. Trust serves no browser, so a directory
+# of HTML and JavaScript here would be a directory nothing reads and a
+# capability nothing needs.
+packages = ["admissible_trust"]
+
+[tool.setuptools.package-dir]
+admissible_trust = "src/admissible_trust"
+
+# There is deliberately no `[tool.setuptools.package-data]`.
+#
+# Ready ships two kinds of data: browser assets its loopback server reads back,
+# and a CI caller template whose workflow runs `admissible-ready run
+# --preview`. Trust reads neither. Shipping the template would put a file that
+# scaffolds candidate execution inside the wheel that holds the signing key,
+# and shipping the assets would put a server's payload in a distribution with
+# no server. The schemas belong to Core, which owns `protocol`.
+
+[tool.setuptools.exclude-package-data]
+"*" = ["__pycache__/*", "*.pyc"]

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/context-package.schema.json",
+  "title": "ContextPackage",
+  "type": "object", "additionalProperties": false,
+  "required": ["attempt_id", "categories", "payload_b64", "expected_hash"],
+  "properties": {
+    "attempt_id": {"type": "string"},
+    "categories": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "payload_b64": {"type": "string", "contentEncoding": "base64"},
+    "expected_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

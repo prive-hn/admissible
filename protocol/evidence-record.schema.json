@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/evidence-record.schema.json",
+  "title": "EvidenceRecords",
+  "description": "Declared records the atlas reducer consumes ALONGSIDE the fcd journal. These are NOT fcd journal events and never enter e.events: the fcd machine owns the journal. Plan/question/artifact records let the cockpit show intent (planned lines), unresolved questions, and real runnable artifacts without pretending they are observed machine transitions. A planned item carries no executed model; a question blocks only its node; an artifact's present/runnable are observed facts.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "plan": {"type": "array", "items": {"$ref": "#/$defs/planItem"}},
+    "questions": {"type": "array", "items": {"$ref": "#/$defs/questionRecord"}},
+    "artifacts": {"type": "array", "items": {"$ref": "#/$defs/artifactRecord"}}
+  },
+  "$defs": {
+    "planItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "description": "A declared, not-yet-opened line. Becomes an item node with status 'planned'. If an fcd 'open' event later appears for the same id, the observed status supersedes 'planned'.",
+      "properties": {
+        "id": {"type": "string"},
+        "class": {"type": ["string", "null"]},
+        "label": {"type": "string"},
+        "depends_on": {"type": "array", "items": {"type": "string"}},
+        "policy_version": {"type": ["string", "null"]}
+      }
+    },
+    "questionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "node_id"],
+      "description": "An unresolved question attached to an EXACT node. The reducer rejects a record whose node_id is not a known node. resolved=false sets that node's blocked=true and NOTHING else.",
+      "properties": {
+        "id": {"type": "string"},
+        "node_id": {"type": "string"},
+        "text": {"type": "string"},
+        "resolved": {"type": "boolean", "default": false}
+      }
+    },
+    "artifactRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "node_id", "uri"],
+      "description": "A real, addressable artifact attached to a node. present/runnable are observed facts, not aspirations.",
+      "properties": {
+        "id": {"type": "string"},
+        "node_id": {"type": "string"},
+        "kind": {"type": "string"},
+        "uri": {"type": "string"},
+        "present": {"type": "boolean", "default": false},
+        "runnable": {"type": "boolean", "default": false}
+      }
+    }
+  }
+}

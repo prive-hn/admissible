@@ -1,0 +1,49 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      python-build-and-test:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /packages/core
+    schedule:
+      interval: weekly
+    groups:
+      core-build:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /packages/ready
+    schedule:
+      interval: weekly
+    groups:
+      ready-build:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /packages/trust
+    schedule:
+      interval: weekly
+    groups:
+      trust-build:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /packages/umbrella
+    schedule:
+      interval: weekly
+    groups:
+      umbrella-build:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /apps/cockpit
+    schedule:
+      interval: weekly
+    groups:
+      cockpit:
+        patterns: ["*"]

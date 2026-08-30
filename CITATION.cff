@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use Admissible, cite the software and the relevant paper."
+title: "Admissible: A Fail-Closed Admissibility Kernel for Agents That Do Not Repeat"
+type: software
+authors:
+  - family-names: "Briceño"
+    given-names: "Roque"
+version: "0.8.0"
+date-released: "2026-08-30"
+license: "Apache-2.0"
+repository-code: "https://github.com/prive-hn/admissible"
+url: "https://github.com/prive-hn/admissible"
+keywords:
+  - admission control
+  - agent integrity
+  - evidence
+  - fail-closed systems
+  - reproducible verification
+preferred-citation:
+  type: report
+  title: "Admissible: A Fail-Closed Admissibility Kernel for Agents That Do Not Repeat"
+  authors:
+    - family-names: "Briceño"
+      given-names: "Roque"
+  year: 2026
+  institution:
+    name: "PRIVÉ, S. DE R.L."

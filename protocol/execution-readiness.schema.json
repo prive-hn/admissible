@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/execution-readiness.schema.json",
+  "title": "ExecutionReadiness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["executor_id", "declared_executor_id", "executor_connected", "provider", "model_api_id", "installed", "authenticated", "model_resolves", "project_access", "tools_available", "canary", "receipt_available", "death_observable", "ready"],
+  "properties": {
+    "executor_id": {"type": "string"},
+    "declared_executor_id": {"type": "string"},
+    "executor_connected": {"type": "boolean"},
+    "provider": {"type": "string"},
+    "model_api_id": {"type": "string"},
+    "installed": {"type": "boolean"},
+    "authenticated": {"type": "boolean"},
+    "model_resolves": {"type": "boolean"},
+    "project_access": {"type": "boolean"},
+    "tools_available": {"type": "boolean"},
+    "canary": {"type": "boolean"},
+    "receipt_available": {"type": "boolean"},
+    "death_observable": {"type": "boolean"},
+    "ready": {"type": "boolean"}
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "ready": {"const": true}, "executor_connected": {"const": true}, "installed": {"const": true},
+        "authenticated": {"const": true}, "model_resolves": {"const": true},
+        "project_access": {"const": true}, "tools_available": {"const": true},
+        "canary": {"const": true}, "receipt_available": {"const": true},
+        "death_observable": {"const": true}
+      }
+    },
+    {
+      "properties": {"ready": {"const": false}},
+      "anyOf": [
+        {"properties": {"executor_connected": {"const": false}}},
+        {"properties": {"installed": {"const": false}}},
+        {"properties": {"authenticated": {"const": false}}},
+        {"properties": {"model_resolves": {"const": false}}},
+        {"properties": {"project_access": {"const": false}}},
+        {"properties": {"tools_available": {"const": false}}},
+        {"properties": {"canary": {"const": false}}},
+        {"properties": {"receipt_available": {"const": false}}},
+        {"properties": {"death_observable": {"const": false}}}
+      ]
+    }
+  ]
+}

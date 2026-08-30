@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible.dev/schema/agent-work-package.schema.json",
+  "title": "Admissible Ready agent work package",
+  "description": "Bounded agent task contract for one exact repository HEAD. It never grants signing, review, merge, or deploy authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "package_id",
+    "task",
+    "identity",
+    "readiness",
+    "capabilities",
+    "completion"
+  ],
+  "properties": {
+    "schema": {"const": "admissible/v0.7/agent-work-package"},
+    "package_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "task": {"type": "string", "minLength": 1, "maxLength": 8000},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit_sha",
+        "tree_sha",
+        "policy_digest",
+        "class_id",
+        "config_path"
+      ],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "commit_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "tree_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "policy_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "class_id": {"type": "string", "minLength": 1, "maxLength": 160},
+        "config_path": {"type": "string", "minLength": 1, "maxLength": 4096}
+      }
+    },
+    "readiness": {"type": "object"},
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "forbidden"],
+      "properties": {
+        "allowed": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requires_clean_tree",
+        "requires_new_commit_after_edits",
+        "requires_admissible_check",
+        "check_arguments",
+        "stop_when_action_owner_is_not"
+      ],
+      "properties": {
+        "requires_clean_tree": {"type": "boolean"},
+        "requires_new_commit_after_edits": {"type": "boolean"},
+        "requires_admissible_check": {"type": "boolean"},
+        "check_arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["package_id", "class_id", "policy_digest", "config_path"],
+          "properties": {
+            "package_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "class_id": {"type": "string", "minLength": 1, "maxLength": 160},
+            "policy_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "config_path": {"type": "string", "minLength": 1, "maxLength": 4096}
+          }
+        },
+        "stop_when_action_owner_is_not": {"const": "agent_or_human"}
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "purpose", "runtime"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 120},
+        "purpose": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "runtime": {"type": "string", "minLength": 1, "maxLength": 80}
+      }
+    }
+  }
+}

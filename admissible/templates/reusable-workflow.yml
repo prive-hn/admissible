@@ -1,0 +1,493 @@
+# The Admissible developer gate, as a reusable workflow a consumer pins.
+#
+# This workflow evaluates. It does not sign, and it holds no secret of any kind.
+#
+# That is a change from an earlier design that ran a `finalize` job here with
+# the signing key in it, and it is worth saying why rather than leaving it to be
+# inferred. `evaluate` runs candidate-owned commands. A command runs as the same
+# user as the job, on the same filesystem, and can leave a process behind that
+# outlives it. So every artefact this job produces -- the preview, the decision
+# document, the command records inside them -- is *candidate-adjacent data*. It
+# describes what happened; it does not prove it. Handing a signing key to a
+# later job in the same run, on the strength of that data, signs the
+# description.
+#
+# So the gate is split at a boundary a workflow cannot fake:
+#
+#   here          evaluate the exact head commit and publish the preview as a
+#                 job output and a durable run artifact, with its SHA-256.
+#                 Data, unsigned, candidate-adjacent, and useful to anybody.
+#
+#   elsewhere     an external observer, after this run is over and its process
+#                 group is gone, authenticates the preview, independently
+#                 asserts what isolation boundary it verified, and signs an
+#                 evaluation attestation with a key that never enters this
+#                 workflow. A trusted finalizer -- a dedicated machine with
+#                 durable storage, holding the admission key and the reviewer
+#                 keyring -- verifies that attestation, re-derives repository,
+#                 tree and policy from its own checkout, recomputes the whole
+#                 decision, checks the policy against a baseline an operator
+#                 trusted, and issues the receipt.
+#
+# That second half is `admissible attest-evaluation` and `admissible finalize`,
+# run outside GitHub Actions. Nothing here can perform it and nothing here
+# claims to. A green run of this workflow means "the deterministic checks passed
+# for this commit"; it never means "this commit is admitted".
+#
+# The whole executable boundary is pinned by `tool-sha`. A caller must pin the
+# `uses:` reference and pass `tool-sha:` with the *same* commit, and the first
+# step refuses if they disagree -- a workflow pinned by commit that then checks
+# its own program out of a movable tag has pinned nothing that matters.
+#
+# Candidate-controlled values (branch names, fork slugs, paths) travel through
+# the environment, never interpolated into a script body.
+name: admissible gate
+
+on:
+  workflow_call:
+    inputs:
+      tool-sha:
+        description: >-
+          The exact Admissible commit to run, as a full 40-character lowercase
+          hex sha. It must be the same commit this workflow itself was called
+          at: pin `uses: .../admissible-gate.yml@SHA` and pass
+          `tool-sha: SHA`. There is no default and no tag fallback.
+        type: string
+        required: true
+      config-path:
+        description: >-
+          Policy file, relative to the candidate checkout root. This exact file
+          is the one checked for existence, evaluated, digested, and named in
+          the preview so a finalizer re-checks the same file.
+        type: string
+        required: false
+        default: .admissible.json
+      class:
+        description: Artifact class id from the policy; empty selects the default.
+        type: string
+        required: false
+        default: ""
+      evidence-path:
+        description: >-
+          Optional evidence bundle, relative to the candidate checkout root, or
+          absolute if a preceding job placed one there.
+
+          A signed review cannot travel in the candidate tree, and this input
+          is not a way to make it. A review binds the commit and tree it
+          approves, so committing the bundle changes both of the values its
+          reviews must bind and the review no longer describes the artefact it
+          is now part of. There is no ordering that fixes it -- the hash would
+          have to contain itself.
+
+          So review bundles reach a finalizer out-of-band, alongside the
+          preview, and this workflow implements no transport for either. What
+          this input is for is evidence that legitimately predates the commit:
+          imported command records from another system, and advisory reviews
+          that count for nothing here. This job holds no reviewer keyring and
+          authenticates none of it -- it carries what it is given into the
+          preview, counts it for nothing, and says so.
+        type: string
+        required: false
+        default: ""
+      evaluate-runs-on:
+        description: >-
+          JSON for the evaluate runner: '"ubuntu-latest"' or a JSON array such
+          as '["self-hosted","linux","x64","my-label"]'. JSON is required so a
+          label list cannot be assembled by string concatenation.
+        type: string
+        required: false
+        default: '"ubuntu-latest"'
+    outputs:
+      preview:
+        description: >-
+          The base64 preview artefact. Unsigned candidate-adjacent data: it is
+          the input an external observer attests and a trusted finalizer
+          consumes, and it is not a receipt. The same bytes are retained as a
+          run artifact even when readiness is AWAITING_REVIEW and the gate is
+          red.
+        value: ${{ jobs.evaluate.outputs.preview }}
+      preview-sha256:
+        description: >-
+          SHA-256 of the preview bytes retained in the run artifact. This is an
+          integrity handoff, not an observer signature or an admission.
+        value: ${{ jobs.evaluate.outputs.preview-sha256 }}
+      artifact-name:
+        description: >-
+          The preview artifact name, bound to the full evaluated SHA and this
+          provider run attempt.
+        value: ${{ jobs.evaluate.outputs.artifact-name }}
+      sha:
+        description: The exact head commit that was evaluated.
+        value: ${{ jobs.evaluate.outputs.sha }}
+      state:
+        description: >-
+          The decision state. One of CHECKS_PASSED, REFUSED or BLOCKED. Never
+          ADMITTED: an evaluation signs nothing, and only a durable signed
+          receipt records an admission.
+        value: ${{ jobs.evaluate.outputs.state }}
+      readiness:
+        description: >-
+          What this evaluation established: READY_FOR_ATTESTATION,
+          AWAITING_REVIEW or NOT_READY. Never an admission. Provider receipt
+          conclusions are exact: READY_FOR_ATTESTATION -> success only;
+          AWAITING_REVIEW -> success or failure; NOT_READY -> no provider
+          conclusion is admissible. A finalizer applies that matrix only to
+          readiness it independently recomputes from evidence and trusted
+          policy; this candidate-adjacent output cannot widen the set.
+        value: ${{ jobs.evaluate.outputs.readiness }}
+      fork:
+        description: Whether the head commit came from a fork.
+        value: ${{ jobs.evaluate.outputs.fork }}
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: evaluate (untrusted, no secret, never signs)
+    runs-on: ${{ fromJSON(inputs.evaluate-runs-on) }}
+    outputs:
+      preview: ${{ steps.emit.outputs.preview }}
+      preview-sha256: ${{ steps.preview_receipt.outputs.sha256 }}
+      artifact-name: admissible-preview-${{ steps.head.outputs.sha }}-attempt-${{ github.run_attempt }}
+      sha: ${{ steps.head.outputs.sha }}
+      fork: ${{ steps.head.outputs.fork }}
+      state: ${{ steps.gate.outputs.state }}
+      readiness: ${{ steps.gate.outputs.readiness }}
+    steps:
+      - id: tool
+        env:
+          TOOL_SHA: ${{ inputs.tool-sha }}
+          # The commit of *this* workflow file, as GitHub resolved the caller's
+          # `uses:` reference. It is the only value that tells this file which
+          # revision of itself the caller actually pinned, so it is the only
+          # honest way to check that the pin and the input agree.
+          JOB_WORKFLOW_SHA: ${{ github.job_workflow_sha }}
+        run: |
+          set -euo pipefail
+          case "$TOOL_SHA" in
+            *[!0-9a-f]* | "")
+              echo "tool-sha must be lowercase hex, got '$TOOL_SHA'" >&2
+              exit 2 ;;
+          esac
+          if [ "${#TOOL_SHA}" -ne 40 ]; then
+            echo "tool-sha must be a full 40-character commit sha; a tag or a" >&2
+            echo "short sha names something that can move, and the point of" >&2
+            echo "this input is that it cannot." >&2
+            exit 2
+          fi
+          if [ -n "$JOB_WORKFLOW_SHA" ] && [ "$JOB_WORKFLOW_SHA" != "$TOOL_SHA" ]; then
+            echo "this workflow is running at commit $JOB_WORKFLOW_SHA but" >&2
+            echo "tool-sha says $TOOL_SHA. The gate you pinned and the program" >&2
+            echo "it would run are different commits, so the pin guarantees" >&2
+            echo "nothing. Pin both to the same sha:" >&2
+            echo "  uses: prive-hn/admissible/.github/workflows/admissible-gate.yml@SHA" >&2
+            echo "  with: { tool-sha: SHA }" >&2
+            exit 2
+          fi
+          echo "repository=prive-hn/admissible" >> "$GITHUB_OUTPUT"
+          echo "ref=$TOOL_SHA" >> "$GITHUB_OUTPUT"
+
+      # actions/checkout v4.2.2, pinned by commit. Re-pin deliberately.
+      - name: check out the trusted Admissible tool
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ${{ steps.tool.outputs.repository }}
+          ref: ${{ inputs.tool-sha }}
+          path: admissible-tool
+          persist-credentials: false
+
+      - name: check out the candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          # On pull_request, GITHUB_SHA is a synthetic merge commit that does
+          # not exist in history. Evidence must describe the real head commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+          persist-credentials: false
+          fetch-depth: 0
+
+      - id: head
+        working-directory: ${{ github.workspace }}/candidate
+        env:
+          EVALUATED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HEAD_SLUG: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          BASE_SLUG: ${{ github.repository }}
+          CONFIG_PATH: ${{ inputs.config-path }}
+        run: |
+          set -euo pipefail
+          observed="$(git rev-parse HEAD)"
+          if [ "$EVALUATED_SHA" != "$observed" ]; then
+            echo "checkout is at $observed, not the evaluated head" >&2
+            exit 2
+          fi
+          case "$EVALUATED_SHA" in
+            *[!0-9a-f]* | "") echo "head sha is not full lowercase hex" >&2; exit 2 ;;
+          esac
+          [ "${#EVALUATED_SHA}" -eq 40 ] || { echo "head sha is not 40 chars" >&2; exit 2; }
+          # A policy that is absent is a gate that is absent. Deleting the file
+          # must fail the gate, never quietly pass it. This is the same path the
+          # CLI is given below and the same path the preview names, so all three
+          # are talking about one file.
+          if [ ! -f "$CONFIG_PATH" ]; then
+            echo "no $CONFIG_PATH at $observed: this repository calls the" >&2
+            echo "Admissible gate but has no policy there, so nothing can be" >&2
+            echo "evaluated and nothing is assumed. Commit a policy with" >&2
+            echo "'admissible init --profile NAME --ci github --tool-sha SHA'." >&2
+            exit 1
+          fi
+          echo "sha=$EVALUATED_SHA" >> "$GITHUB_OUTPUT"
+          if [ "$HEAD_SLUG" != "$BASE_SLUG" ]; then
+            echo "fork=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fork=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: scratch
+        run: |
+          set -euo pipefail
+          # An unpredictable, owner-only directory. The candidate's own checks
+          # never see RUNNER_TEMP, and never see this directory's name either:
+          # it is exported below as ADMISSIBLE_SCRATCH, and the runner strips
+          # the whole ADMISSIBLE_ namespace from a check's environment along
+          # with GITHUB_, RUNNER_ and ACTIONS_. A surviving descendant is
+          # therefore left with no name to guess at for the preview it would
+          # like to rewrite.
+          dir="$(mktemp -d "${RUNNER_TEMP}/admissible.XXXXXXXXXX")"
+          chmod 700 "$dir"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
+      - id: gate
+        continue-on-error: true
+        working-directory: ${{ github.workspace }}/admissible-tool
+        env:
+          CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+          EVALUATED_SHA: ${{ steps.head.outputs.sha }}
+          ADMISSIBLE_CLASS: ${{ inputs.class }}
+          ADMISSIBLE_CONFIG: ${{ inputs.config-path }}
+          ADMISSIBLE_EVIDENCE: ${{ inputs.evidence-path }}
+          # Named inside the ADMISSIBLE_ namespace deliberately: the step's own
+          # shell reads it, and every check the step starts has it stripped.
+          ADMISSIBLE_SCRATCH: ${{ steps.scratch.outputs.dir }}
+          # Evaluation anchors nothing, so a disposable home is honest here.
+          ADMISSIBLE_HOME: ${{ steps.scratch.outputs.dir }}/home
+          # This job runs candidate-owned commands, so it holds no keyring of
+          # any kind. Set empty rather than merely unset, so an inherited value
+          # cannot arrive from somewhere else.
+          ADMISSIBLE_REVIEW_KEYRING: ""
+          ADMISSIBLE_EVALUATION_KEYRING: ""
+          # This generic hosted job can establish no isolation boundary. The
+          # preview therefore says none unconditionally. After the run, the
+          # external observer independently validates infrastructure evidence
+          # and supplies its own signed `attest-evaluation --isolation` fact;
+          # no candidate-controlled workflow input can manufacture that fact.
+          ADMISSIBLE_ISOLATION: none
+        run: |
+          set -euo pipefail
+          preview="$ADMISSIBLE_SCRATCH/preview.json"
+          decision="$ADMISSIBLE_SCRATCH/decision.json"
+          args=(run --repo "$CANDIDATE_ROOT" --sha "$EVALUATED_SHA"
+                --config "$ADMISSIBLE_CONFIG"
+                --preview --preview-out "$preview" --json)
+          if [ -n "$ADMISSIBLE_CLASS" ]; then
+            args+=(--class "$ADMISSIBLE_CLASS")
+          fi
+          if [ -n "$ADMISSIBLE_EVIDENCE" ]; then
+            case "$ADMISSIBLE_EVIDENCE" in
+              /*) args+=(--evidence "$ADMISSIBLE_EVIDENCE") ;;
+              *)  args+=(--evidence "$CANDIDATE_ROOT/$ADMISSIBLE_EVIDENCE") ;;
+            esac
+          fi
+          set +e
+          python3 -m admissible "${args[@]}" > "$decision"
+          status=$?
+          set -e
+          if [ ! -s "$decision" ]; then
+            echo "the gate produced no decision document; see the log above" >&2
+            exit 2
+          fi
+          echo "preview=$preview" >> "$GITHUB_OUTPUT"
+          DECISION_PATH="$decision" python3 - <<'PYTHON' >> "$GITHUB_OUTPUT"
+          import json, os
+          with open(os.environ["DECISION_PATH"], encoding="utf-8") as handle:
+              document = json.load(handle)
+          print("state=" + document["state"])
+          # readiness is what this job established; state is what it decided.
+          # This job holds no reviewer keyring, so the two are not the same
+          # thing and the workflow must not treat them as one.
+          print("readiness=" + document.get("readiness", "NOT_READY"))
+          PYTHON
+          DECISION_PATH="$decision" python3 - <<'PYTHON' >> "$GITHUB_STEP_SUMMARY"
+          import html
+          import json
+          import os
+          from admissible.ready import ReadyError, from_evaluation, from_problem
+
+          with open(os.environ["DECISION_PATH"], encoding="utf-8") as handle:
+              canonical = json.load(handle)
+          commit = canonical.get("commit_sha", os.environ["EVALUATED_SHA"])
+          try:
+              ready = from_evaluation(canonical)
+          except (ReadyError, KeyError, TypeError, ValueError):
+              ready = from_problem(
+                  canonical.get("message", "the evaluation could not be described"),
+                  canonical.get("remediation", ()))
+              ready["identity"]["commit_sha"] = commit
+
+          labels = {
+              "needs_attention": "Needs attention",
+              "waiting_for_review": "Waiting for review",
+              "checks_complete": "Checks complete",
+              "ready": "Ready",
+              "unable_to_check": "Unable to check",
+          }
+          print("### Admissible Ready\n")
+          print(f"## {labels.get(ready['status'], 'Unable to check')}\n")
+          print(html.escape(ready["summary"]) + "\n")
+          if ready["identity"].get("applies_to_current_commit"):
+              print(f"Result applies to exact commit `{commit}`.\n")
+          elif commit:
+              print(f"HEAD is `{commit}`; no completed Ready result applies.\n")
+
+          print("#### What should happen next\n")
+          actions = ready.get("next_actions", [])
+          if actions:
+              action = actions[0]
+              print(f"**{html.escape(action['title'])}**  ")
+              print(html.escape(action["detail"]) + "\n")
+              if action.get("command"):
+                  print(f"```text\n{action['command']}\n```\n")
+          else:
+              print("No developer action is outstanding.\n")
+
+          print("This workflow evaluates and never signs. A green card means "
+                "the checks passed for this commit; it is not an admission.\n")
+          print("<details>")
+          print("<summary>Technical details</summary>\n")
+          print(f"- Canonical state: `{canonical.get('state', 'BLOCKED')}`")
+          print("- Canonical readiness: "
+                f"`{canonical.get('readiness', 'NOT_READY')}`")
+          print(f"- Attempt: `{canonical.get('attempt_id', '')}`")
+          print(f"- Policy anchor: `{canonical.get('policy_anchor', 'unanchored')}`")
+          print("- Receipt: none — observer and finalizer run outside this job")
+          print("\n</details>")
+          PYTHON
+          exit "$status"
+
+      - id: emit
+        env:
+          PREVIEW_PATH: ${{ steps.gate.outputs.preview }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PREVIEW_PATH" ] || [ ! -s "$PREVIEW_PATH" ]; then
+            echo "no preview artefact: the gate failed before it could" >&2
+            echo "produce any evidence. See the step above for the reason." >&2
+            exit 1
+          fi
+          # The preview travels as one base64 job output: small, inspectable,
+          # needing no artifact action. GitHub caps a job's outputs at 1 MiB
+          # counted over UTF-16 code units, which is two bytes per base64
+          # character, so the raw ceiling that fits is 393216 bytes. 262144
+          # sits below it and leaves room for the other outputs.
+          bytes=$(wc -c < "$PREVIEW_PATH")
+          if [ "$bytes" -gt 262144 ]; then
+            echo "preview artefact is $bytes bytes; too large to hand over" >&2
+            exit 2
+          fi
+          echo "preview=$(base64 < "$PREVIEW_PATH" | tr -d '\n')" \
+            >> "$GITHUB_OUTPUT"
+
+      - id: preview_receipt
+        name: write the preview SHA-256 receipt
+        if: ${{ always() && steps.gate.outputs.preview != '' }}
+        env:
+          PREVIEW_PATH: ${{ steps.gate.outputs.preview }}
+          RECEIPT_PATH: ${{ steps.scratch.outputs.dir }}/preview.sha256
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTHON' >> "$GITHUB_OUTPUT"
+          import hashlib
+          import os
+          from pathlib import Path
+
+          preview = Path(os.environ["PREVIEW_PATH"])
+          receipt = Path(os.environ["RECEIPT_PATH"])
+          body = preview.read_bytes()
+          digest = hashlib.sha256(body).hexdigest()
+          receipt.write_text(f"{digest}  {preview.name}\n", encoding="utf-8")
+          print("path=" + str(receipt))
+          print("sha256=" + digest)
+          PYTHON
+
+      - name: persist the preview handoff
+        if: ${{ always() && steps.gate.outputs.preview != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: admissible-preview-${{ steps.head.outputs.sha }}-attempt-${{ github.run_attempt }}
+          path: |
+            ${{ steps.gate.outputs.preview }}
+            ${{ steps.preview_receipt.outputs.path }}
+          if-no-files-found: error
+
+      - name: report the decision
+        env:
+          STATE: ${{ steps.gate.outputs.state }}
+          READINESS: ${{ steps.gate.outputs.readiness }}
+        run: |
+          set -euo pipefail
+          echo "decision: $STATE (readiness: $READINESS)"
+          echo "This job evaluated. It signed nothing and anchored nothing."
+          if [ "$READINESS" = "READY_FOR_ATTESTATION" ]; then
+            echo "every required check passed and nothing is outstanding that"
+            echo "this job could resolve. That is not an admission: no receipt"
+            echo "exists until an external observer attests this evaluation"
+            echo "and a trusted finalizer issues one."
+            exit 0
+          fi
+          if [ "$READINESS" = "AWAITING_REVIEW" ]; then
+            echo "every deterministic required check passed, and this commit" >&2
+            echo "still needs an independent review that no job in this run" >&2
+            echo "can authenticate: a reviewer keyring here would be a" >&2
+            echo "keyring in reach of the candidate's own commands. Hand the" >&2
+            echo "preview output to the trusted finalizer, which holds the" >&2
+            echo "keyring and recomputes the whole decision there." >&2
+            echo "AWAITING_REVIEW is not an admission, so this gate is red," >&2
+            echo "and it stays red here for every review-required profile." >&2
+            exit 1
+          fi
+          exit 1
+
+# what this workflow deliberately does not do
+#
+# It does not sign, it takes no secret, and it has no finalize job. Signing
+# needs three things this run cannot have: durable storage that outlives the
+# job, an admission key that has never been in a process that ran candidate
+# commands, and an evaluation attestation from an observer outside this run.
+#
+# The bridge from "this workflow produced a preview" to "a receipt exists" is an
+# explicit out-of-band boundary, and it is not implemented by this workflow.
+# Crossing it takes three things that happen elsewhere:
+#
+#   1. fetch the preview artifact after the run finishes and verify the
+#      included `preview.sha256` receipt;
+#   2. read the provider's own record of that run -- the run id, the head sha
+#      it ran on, and the conclusion -- and hand it to `admissible
+#      attest-evaluation --source-receipt ... --isolation MODE`. The observer
+#      independently asserts isolation only after validating evidence from its
+#      own trust domain, and signs with a key that never enters this workflow;
+#   3. run `admissible finalize` on the finalizer, adding any separately signed
+#      review and authorship bundle with `--reviews FILE`.
+#
+# Review bundles cross the same boundary, for the reason given on the
+# `evidence-path` input: a review binds the commit and tree it approves, so it
+# cannot be committed into the tree it approves. Review-required profiles
+# therefore stay red here, and that is the honest colour -- this job cannot
+# authenticate a review and must not appear to have.
+#
+# Step 2 carries an assumption worth naming: whoever runs it says they read the
+# provider's record. Admissible does not fetch it and cannot verify it, so an
+# adapter that lies -- or an operator who signs a receipt they never read --
+# produces an attestation that verifies. An automated bridge that queries the
+# GitHub API from the observer's trust domain would narrow that to "the adapter
+# is honest"; it is a reasonable thing to build and does not exist here. Do not
+# read this file as if it did.

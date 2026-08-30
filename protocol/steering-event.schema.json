@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/steering-event.schema.json",
+  "title": "SteeringEvent",
+  "type": "object", "additionalProperties": false,
+  "required": ["attempt_id", "sequence", "scope", "target_id", "text", "continuation_hash"],
+  "properties": {
+    "attempt_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1},
+    "scope": {"enum": ["project", "work", "gate", "stage", "artifact", "evidence", "failure"]},
+    "target_id": {"type": "string"}, "text": {"type": "string", "minLength": 1},
+    "continuation_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible.dev/schema/workflow-receipt.schema.json",
+  "title": "Admissible developer workflow receipt",
+  "description": "An authenticated developer-workflow-admission for one exact artefact, anchored at one position of one monotone workflow journal. This is NOT the composed identity/scrutiny/standing receipt of the research kernel and must never be presented as one. Authenticity is HMAC-SHA256 shared-secret authenticity, not public non-repudiation; the first anchor of a journal is a bootstrap trust assumption.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "scope", "journal_id", "repository", "commit_sha", "tree_sha",
+    "policy_digest", "class_id", "state", "attempt_id", "decision_digest",
+    "evidence_digests", "authenticated_reviews", "dependencies", "issued_at",
+    "body_digest", "receipt_hash", "head"
+  ],
+  "properties": {
+    "schema": {"const": "admissible/v0.6/workflow-receipt"},
+    "scope": {
+      "const": "developer-workflow-admission",
+      "description": "The only claim this document makes."
+    },
+    "journal_id": {"type": "string", "minLength": 1},
+    "repository": {"type": "string", "minLength": 1},
+    "commit_sha": {"$ref": "#/$defs/sha1"},
+    "tree_sha": {"$ref": "#/$defs/sha1"},
+    "policy_digest": {"$ref": "#/$defs/sha256"},
+    "class_id": {"type": "string", "minLength": 1},
+    "state": {
+      "enum": ["ADMITTED"],
+      "description": "A workflow receipt only ever records an admission. A refusal or a block is a decision, not standing, and is never anchored."
+    },
+    "attempt_id": {
+      "type": "string",
+      "description": "The single attempt whose evidence this admission rests on. Attempts never merge: worst-evidence resolution applies inside one attempt, and a later clean attempt does not erase an earlier failed one."
+    },
+    "decision_digest": {"$ref": "#/$defs/sha256"},
+    "evidence_digests": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/sha256"}
+    },
+    "authenticated_reviews": {
+      "type": "array",
+      "description": "Which review record each authenticated reviewer key actually signed, as the finalizer verified it against its pinned keyring. Attribution comes from here and never from the reviewer_id string inside a review record, which is chosen by whoever produced the record.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidence_digest", "key_id"],
+        "properties": {
+          "evidence_digest": {"$ref": "#/$defs/sha256"},
+          "key_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repository", "commit_sha"],
+        "properties": {
+          "repository": {"type": "string", "minLength": 1},
+          "commit_sha": {"$ref": "#/$defs/sha1"}
+        }
+      }
+    },
+    "issued_at": {"type": "integer", "minimum": 0},
+    "body_digest": {"$ref": "#/$defs/sha256"},
+    "receipt_hash": {"$ref": "#/$defs/sha256"},
+    "head": {"$ref": "#/$defs/head"}
+  },
+  "$defs": {
+    "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "head": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "journal_id", "event_count", "head_digest", "previous_receipt_hash",
+        "extension_digests", "issued_at", "algorithm", "key_id", "signature",
+        "receipt_hash"
+      ],
+      "properties": {
+        "journal_id": {"type": "string", "minLength": 1},
+        "event_count": {"type": "integer", "minimum": 0},
+        "head_digest": {"$ref": "#/$defs/sha256"},
+        "previous_receipt_hash": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{64})?$"
+        },
+        "extension_digests": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/sha256"}
+        },
+        "issued_at": {"type": "integer", "minimum": 0},
+        "algorithm": {"const": "hmac-sha256"},
+        "key_id": {"type": "string", "minLength": 1},
+        "signature": {"$ref": "#/$defs/sha256"},
+        "receipt_hash": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

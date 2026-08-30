@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f3f2ed">
+  <title>Admissible Ready</title>
+  <link rel="stylesheet" href="/ready.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to readiness</a>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Admissible Ready home">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <span class="brand-word">Admissible</span>
+      <span class="brand-edition">Ready</span>
+    </a>
+    <div class="header-actions">
+      <span class="connection-dot" id="connection-dot" aria-hidden="true"></span>
+      <span class="connection-copy" id="connection-copy">Connecting</span>
+      <button class="button button-dark" type="button" id="open-connect">Connect agent</button>
+    </div>
+  </header>
+
+  <main id="main" class="shell">
+    <section class="identity-strip" aria-label="Current project identity">
+      <div>
+        <p class="eyebrow">Current project</p>
+        <h1 id="project-name">Loading repository…</h1>
+      </div>
+      <div class="commit-chip" id="commit-chip" title="The exact commit this result describes">
+        <span class="commit-dot" aria-hidden="true"></span>
+        <span id="commit-label">Finding exact commit</span>
+      </div>
+    </section>
+
+    <section class="status-stage" aria-labelledby="status-title">
+      <div class="status-orbit" id="status-orbit" data-status="checking" aria-hidden="true">
+        <span class="status-glyph" id="status-glyph">···</span>
+      </div>
+      <div class="status-copy" aria-live="polite" aria-atomic="true">
+        <p class="eyebrow" id="status-kicker">Checking current state</p>
+        <h2 id="status-title">One clear answer about this commit.</h2>
+        <p id="status-summary">Admissible is loading the latest exact-commit evidence.</p>
+      </div>
+      <button class="button button-primary" type="button" id="run-check">
+        <span id="check-label">Check this commit</span>
+        <span class="button-arrow" aria-hidden="true">→</span>
+      </button>
+    </section>
+
+    <ol class="journey" aria-label="Path to ready">
+      <li class="journey-step" data-step="change">
+        <span class="step-index">1</span>
+        <span><strong>Change</strong><small>Exact commit selected</small></span>
+      </li>
+      <li class="journey-step" data-step="checks">
+        <span class="step-index">2</span>
+        <span><strong>Checks</strong><small>Deterministic evidence</small></span>
+      </li>
+      <li class="journey-step" data-step="review">
+        <span class="step-index">3</span>
+        <span><strong>Review</strong><small>Independent when required</small></span>
+      </li>
+      <li class="journey-step" data-step="ready">
+        <span class="step-index">4</span>
+        <span><strong>Ready</strong><small>Authenticated and current</small></span>
+      </li>
+    </ol>
+
+    <div class="content-grid">
+      <section class="panel next-panel" aria-labelledby="next-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">What happens next</p>
+            <h2 id="next-heading">Loading next action…</h2>
+          </div>
+          <span class="owner-pill" id="action-owner">Admissible</span>
+        </div>
+        <p class="panel-body" id="action-detail">The next useful step will appear here.</p>
+        <div class="command-row" id="command-row" hidden>
+          <code id="action-command"></code>
+          <button class="copy-button" type="button" id="copy-command">Copy</button>
+        </div>
+        <div class="reason-list" id="reason-list"></div>
+      </section>
+
+      <aside class="panel agents-panel" aria-labelledby="agents-heading">
+        <div class="panel-heading compact">
+          <div>
+            <p class="eyebrow">Collaborators</p>
+            <h2 id="agents-heading">Connected agents</h2>
+          </div>
+          <button class="icon-button" type="button" id="refresh-agents" aria-label="Refresh connected agents">↻</button>
+        </div>
+        <div id="agent-list" class="agent-list" aria-live="polite">
+          <div class="empty-agent">
+            <span class="empty-agent-mark" aria-hidden="true">+</span>
+            <p>No agent connected yet.</p>
+          </div>
+        </div>
+        <button class="button button-secondary full" type="button" id="panel-connect">Connect an agent</button>
+        <p class="fine-print">Connected means reachable. It never grants review, signing, merge, or deployment authority.</p>
+      </aside>
+    </div>
+
+    <section class="panel checks-panel" aria-labelledby="checks-heading">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">What was checked</p>
+          <h2 id="checks-heading">Evidence for this commit</h2>
+        </div>
+        <span class="checks-score" id="checks-score">—</span>
+      </div>
+      <div class="check-list" id="check-list">
+        <div class="check-empty">Run a check to see exact results here.</div>
+      </div>
+    </section>
+
+    <details class="technical" id="technical-details">
+      <summary>
+        <span>
+          <strong>Technical details</strong>
+          <small>Exact identity, canonical state, policy, and attempt</small>
+        </span>
+        <span class="disclosure" aria-hidden="true">+</span>
+      </summary>
+      <dl class="technical-grid">
+        <div><dt>Canonical state</dt><dd id="technical-state">—</dd></div>
+        <div><dt>Readiness</dt><dd id="technical-readiness">—</dd></div>
+        <div><dt>Standing</dt><dd id="technical-standing">—</dd></div>
+        <div><dt>Repository</dt><dd id="technical-repository">—</dd></div>
+        <div><dt>Commit SHA</dt><dd id="technical-commit">—</dd></div>
+        <div><dt>Tree SHA</dt><dd id="technical-tree">—</dd></div>
+        <div><dt>Policy digest</dt><dd id="technical-policy">—</dd></div>
+        <div><dt>Attempt</dt><dd id="technical-attempt">—</dd></div>
+      </dl>
+    </details>
+  </main>
+
+  <dialog id="connect-dialog" aria-labelledby="connect-title">
+    <form method="dialog" class="dialog-shell" id="connect-form">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">Shared Ready workflow</p>
+          <h2 id="connect-title">Connect your agent</h2>
+          <p>Your agent gets exact state, checks, and next actions. Admissible keeps authority.</p>
+        </div>
+        <button class="close-button" value="cancel" aria-label="Close connect agent dialog">×</button>
+      </div>
+
+      <div id="connect-fields">
+        <fieldset class="runtime-fieldset">
+          <legend>Choose the runtime</legend>
+          <div class="runtime-grid" id="runtime-grid">
+            <label class="runtime-choice"><input type="radio" name="runtime" value="claude-code" checked><span><strong>Claude Code</strong><small>Project MCP</small></span></label>
+            <label class="runtime-choice"><input type="radio" name="runtime" value="codex"><span><strong>Codex</strong><small>Local MCP</small></span></label>
+            <label class="runtime-choice"><input type="radio" name="runtime" value="hermes"><span><strong>Hermes</strong><small>Native tools</small></span></label>
+            <label class="runtime-choice"><input type="radio" name="runtime" value="local"><span><strong>Local model</strong><small>Any MCP client</small></span></label>
+            <label class="runtime-choice"><input type="radio" name="runtime" value="custom"><span><strong>Custom</strong><small>Standard stdio</small></span></label>
+          </div>
+        </fieldset>
+        <div class="field-row">
+          <label>Agent name<input name="name" maxlength="120" required placeholder="Builder"></label>
+          <label>Day-to-day function<textarea name="purpose" maxlength="2000" required rows="3" placeholder="Implement changes, run tests, and use Admissible to resolve the next item."></textarea></label>
+        </div>
+        <button class="button button-primary full" type="submit">Generate connection</button>
+      </div>
+
+      <section class="setup-result" id="setup-result" hidden aria-live="polite">
+        <div class="setup-status"><span>1</span><p><strong id="setup-title">Add this connection</strong><small id="setup-instruction"></small></p></div>
+        <div class="snippet-wrap">
+          <pre><code id="setup-snippet"></code></pre>
+          <button class="copy-button floating" type="button" id="copy-setup">Copy setup</button>
+        </div>
+        <div class="setup-status"><span>2</span><p><strong>Restart or reconnect the agent</strong><small>Ready will show it here while the MCP session is live.</small></p></div>
+        <div class="setup-status"><span>3</span><p><strong>Ask for the work package</strong><small>The agent receives this exact commit, allowed actions, and the next stopping point.</small></p></div>
+        <button class="button button-secondary full" type="button" id="another-agent">Connect another</button>
+      </section>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/ready.js" defer></script>
+</body>
+</html>

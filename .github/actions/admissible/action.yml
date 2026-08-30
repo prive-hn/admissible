@@ -1,0 +1,206 @@
+name: Admissible evaluate
+description: >-
+  Evaluate one exact commit with the Admissible developer gate. This composite
+  action deliberately has no finalize mode: finalization holds the signing key
+  and must run trusted tool code from its own checkout, which a repository-local
+  action inside the candidate cannot promise. Use the reusable workflow
+  (.github/workflows/admissible-gate.yml) for the signing boundary.
+
+  It also holds no keyring of any kind, for the same reason: a key given to a
+  job that runs candidate-owned commands is a key given to the candidate. A
+  class requiring independent review therefore reports `readiness:
+  AWAITING_REVIEW` here and can only be admitted by a finalizer. Any key
+  variable inherited from the caller is unset before a single check starts, so
+  a caller that exports one by habit does not quietly widen this boundary.
+
+  This action uses no third-party action and no network step. Every input is
+  passed through the environment rather than interpolated into the script body.
+inputs:
+  tool-root:
+    description: >-
+      Directory holding the trusted Admissible package. The action runs
+      `python3 -m admissible` from here, so the candidate checkout never
+      supplies the program that evaluates it.
+    required: true
+  sha:
+    description: Full 40-character lowercase commit SHA under evaluation
+    required: true
+  repo:
+    description: Path to the candidate checkout to evaluate
+    required: true
+  class:
+    description: Artifact class id from .admissible.json
+    required: false
+    default: ""
+  config:
+    description: >-
+      Policy file relative to the candidate checkout root. This exact file is
+      evaluated, digested and named in the preview, so a finalizer re-checks
+      the file that was actually used.
+    required: false
+    default: .admissible.json
+  preview:
+    description: >-
+      Path of the unsigned preview artefact to write. Defaults to a file under
+      RUNNER_TEMP: writing scratch files into either checkout would make a
+      worktree dirty, and a dirty worktree is refused by design.
+    required: false
+    default: ""
+  evidence:
+    description: Optional imported evidence bundle
+    required: false
+    default: ""
+  isolation:
+    description: >-
+      Diagnostic claim from the evaluator about the boundary that confined the
+      candidate-owned commands: pid-namespace, single-use-vm or separate-uid.
+      Empty means none, which is the truth about a bare runner and is what this
+      action assumes. This value never authorizes finalization.
+
+      It is here because the process-group kill this gate performs is real and
+      is not enough: a descendant that calls setsid() leaves that group, keeps
+      running as the same user after the evaluation believes the check is over,
+      and can rewrite the preview before anything reads it. No portable call
+      finds such a process again, so the hole is not one this action can close
+      and it is not claimed shut. After the action is over, the external
+      observer independently validates infrastructure evidence and supplies
+      the authoritative `attest-evaluation --isolation MODE` assertion. A
+      candidate or evaluator changing this diagnostic preview field cannot
+      manufacture the observer's signed fact.
+
+      Declare a boundary only if you built one -- checks run inside a container
+      whose PID namespace is torn down, or on a machine created for this
+      evaluation and destroyed, or as a separate unprivileged user that cannot
+      write any file the evaluator, the observer or the finalizer reads --
+      before the preview is read. The observer, not this action, is responsible
+      for checking and signing that assertion.
+    required: false
+    default: ""
+outputs:
+  preview:
+    description: Path of the preview artefact that was written
+    value: ${{ steps.gate.outputs.preview }}
+  state:
+    description: >-
+      The decision state: CHECKS_PASSED, REFUSED or BLOCKED. Never ADMITTED --
+      an evaluation signs nothing and anchors nothing, and only a durable
+      signed receipt records an admission. Coherent state/readiness pairs are
+      CHECKS_PASSED/READY_FOR_ATTESTATION,
+      REFUSED/AWAITING_REVIEW, and REFUSED-or-BLOCKED/NOT_READY. A consumer
+      branching on `ADMITTED` here is branching on a value this action cannot
+      emit.
+    value: ${{ steps.gate.outputs.state }}
+  readiness:
+    description: >-
+      What this evaluation established, which is not what it decided.
+      READY_FOR_ATTESTATION means every required check passed and nothing is
+      outstanding that this job could resolve -- it is the input an external
+      observer attests, and it is not an admission. AWAITING_REVIEW means every
+      deterministic required check passed and the only blocker left is
+      independent review, which no evaluate job can authenticate because none
+      holds a reviewer keyring -- hand the preview to a trusted finalizer.
+      NOT_READY means something else refused or blocked it. The provider
+      conclusion matrix is exact:
+      READY_FOR_ATTESTATION -> success only
+      AWAITING_REVIEW -> success or failure
+      NOT_READY -> no provider conclusion is admissible
+      Cancelled and timed_out are never admissible. A finalizer applies this
+      matrix only to readiness it independently recomputes from evidence and
+      trusted policy; this candidate-adjacent output cannot widen the set.
+    value: ${{ steps.gate.outputs.readiness }}
+runs:
+  using: composite
+  steps:
+    - id: gate
+      shell: bash
+      working-directory: ${{ inputs.tool-root }}
+      env:
+        ADMISSIBLE_SHA: ${{ inputs.sha }}
+        ADMISSIBLE_REPO: ${{ inputs.repo }}
+        ADMISSIBLE_CLASS: ${{ inputs.class }}
+        ADMISSIBLE_CONFIG: ${{ inputs.config }}
+        ADMISSIBLE_PREVIEW_PATH: ${{ inputs.preview }}
+        ADMISSIBLE_EVIDENCE: ${{ inputs.evidence }}
+        ADMISSIBLE_ISOLATION: ${{ inputs.isolation }}
+      run: |
+        set -euo pipefail
+        # No secret is read here, and none may be given: this step runs
+        # candidate-owned commands. Unset every key variable before anything
+        # starts, so an inherited one from the caller cannot reach a check.
+        unset ADMISSIBLE_HMAC_KEY ADMISSIBLE_HMAC_KEY_FILE
+        unset ADMISSIBLE_REVIEW_KEY ADMISSIBLE_REVIEW_KEY_FILE
+        unset ADMISSIBLE_EVALUATION_KEY ADMISSIBLE_EVALUATION_KEY_FILE
+        export ADMISSIBLE_REVIEW_KEYRING=""
+        export ADMISSIBLE_EVALUATION_KEYRING=""
+
+        # Scratch files live outside both checkouts, in a private directory
+        # with an unpredictable name. An untracked file in the candidate would
+        # make the worktree dirty, and the gate refuses a dirty worktree
+        # because evidence would not describe a real commit. The name is
+        # unpredictable because a check that survived its own exit should have
+        # nothing to guess at.
+        base="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
+        scratch="$(mktemp -d "$base/admissible.XXXXXXXXXX")"
+        chmod 700 "$scratch"
+        preview="${ADMISSIBLE_PREVIEW_PATH:-}"
+        if [ -z "$preview" ]; then
+          preview="$scratch/preview.json"
+        fi
+        decision="$scratch/decision.json"
+        export ADMISSIBLE_PREVIEW_PATH="$preview"
+        export ADMISSIBLE_DECISION_PATH="$decision"
+        # Evaluation anchors nothing, so a disposable home is honest here.
+        export ADMISSIBLE_HOME="$scratch/home"
+
+        args=(run --repo "$ADMISSIBLE_REPO" --sha "$ADMISSIBLE_SHA"
+              --config "$ADMISSIBLE_CONFIG"
+              --preview --preview-out "$preview" --json)
+        if [ -n "$ADMISSIBLE_CLASS" ]; then
+          args+=(--class "$ADMISSIBLE_CLASS")
+        fi
+        if [ -n "$ADMISSIBLE_EVIDENCE" ]; then
+          args+=(--evidence "$ADMISSIBLE_EVIDENCE")
+        fi
+        set +e
+        python3 -m admissible "${args[@]}" > "$decision"
+        status=$?
+        set -e
+        if [ ! -s "$decision" ]; then
+          echo "the gate produced no decision document; see the log above" >&2
+          exit 2
+        fi
+        python3 - <<'PYTHON' >> "$GITHUB_OUTPUT"
+        import json, os
+        with open(os.environ["ADMISSIBLE_DECISION_PATH"],
+                  encoding="utf-8") as handle:
+            document = json.load(handle)
+        print("state=" + document["state"])
+        print("readiness=" + document.get("readiness", "NOT_READY"))
+        print("preview=" + os.environ["ADMISSIBLE_PREVIEW_PATH"])
+        PYTHON
+        python3 - <<'PYTHON' >> "$GITHUB_STEP_SUMMARY"
+        import json, os
+        with open(os.environ["ADMISSIBLE_DECISION_PATH"],
+                  encoding="utf-8") as handle:
+            document = json.load(handle)
+        print("### Admissible\n")
+        commit = document.get("commit_sha", os.environ["ADMISSIBLE_SHA"])
+        readiness = document.get("readiness", "NOT_READY")
+        print(f"**{document['state']}** for commit `{commit}` "
+              f"(readiness `{readiness}`)\n")
+        print("This action evaluates and never signs. No receipt exists until "
+              "an external observer attests this evaluation and a trusted "
+              "finalizer issues one.\n")
+        if readiness == "AWAITING_REVIEW":
+            print("Every deterministic required check passed. The remaining "
+                  "blocker is independent review, which this action holds no "
+                  "keyring to authenticate. This is **not** an admission.\n")
+        for reason in document.get("reasons", []):
+            print(f"- [{reason['code']}] {reason['detail']}")
+        if document.get("message"):
+            print(f"- {document['message']}")
+        print("\nWhat to do next:\n")
+        for line in document.get("remediation", []):
+            print(f"- {line}")
+        PYTHON
+        exit "$status"

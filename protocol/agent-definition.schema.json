@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/agent-definition.schema.json",
+  "title": "AgentDefinition",
+  "type": "object", "additionalProperties": false,
+  "required": ["id", "revision", "instructions", "default_model_id"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "name": {"type": "string", "minLength": 1},
+    "instructions": {"type": "string"},
+    "default_model_id": {"type": "string"},
+    "tools": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "authority": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  }
+}

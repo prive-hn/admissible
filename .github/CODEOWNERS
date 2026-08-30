@@ -1,0 +1,10 @@
+# Default review owner for the first public release.
+* @priveperfumes
+
+# Authority and release surfaces require explicit owner review.
+/packages/trust/ @priveperfumes
+/packages/core/ @priveperfumes
+/.github/workflows/ @priveperfumes
+/SECURITY.md @priveperfumes
+/RELEASING.md @priveperfumes
+/paper/ @priveperfumes

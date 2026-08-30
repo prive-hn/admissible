@@ -1,0 +1,1497 @@
+{
+  "metadata": {
+    "purpose": "Deterministic authority-owner map for the Admissible runtime separation. current_edges, dynamic_imports and resource_packages are derived from census() and module_edges() in tests/architecture/test_import_census.py at the pinned tree; cli_surface is derived from the parsed admissible/cli.py, including the nested parser hierarchy and the branch each nested command dispatches through; the owner and target-policy sections are the judgement this repository commits to. Every field below is checked by that test.",
+    "base_commit": "76ad2950c53c82e105aabe2be345f5ce1ef5e910",
+    "base_tree": "67a63b597d670cc9f66b9169ac92d90deb7b8ee7",
+    "plan": "docs/plans/ADMISSIBLE_RUNTIME_AUTHORITY_SEPARATION.md",
+    "scan_roots": [
+      "admissible",
+      "fcd",
+      "rga",
+      "atlas",
+      "server",
+      "tests",
+      "packages/*/src"
+    ],
+    "module_count": 186
+  },
+  "module_owners": {
+    "admissible": "Umbrella",
+    "admissible.__main__": "Umbrella",
+    "admissible.agent_connection": "Ready",
+    "admissible.agent_mcp": "Ready",
+    "admissible.attestation": "Umbrella",
+    "admissible.cli": "Umbrella",
+    "admissible.config": "Core",
+    "admissible.decision": "Core",
+    "admissible.evidence": "Core",
+    "admissible.fsutil": "Core",
+    "admissible.github": "Umbrella",
+    "admissible.identity": "Core",
+    "admissible.profiles": "Core",
+    "admissible.ready": "Umbrella",
+    "admissible.ready_server": "Ready",
+    "admissible.ready_static": "Ready",
+    "admissible.receipt": "Trust",
+    "admissible.review": "Trust",
+    "admissible.runner": "Ready",
+    "admissible.schema": "Core",
+    "admissible.standing": "Umbrella",
+    "admissible.store": "Umbrella",
+    "admissible_core": "Core",
+    "admissible_core.config": "Core",
+    "admissible_core.decision": "Core",
+    "admissible_core.evidence": "Core",
+    "admissible_core.fsutil": "Core",
+    "admissible_core.identity": "Core",
+    "admissible_core.isolation": "Core",
+    "admissible_core.profiles": "Core",
+    "admissible_core.schema": "Core",
+    "admissible_core.store_base": "Core",
+    "admissible_core.store_candidate": "Core",
+    "admissible_core.store_open": "Core",
+    "admissible_core.store_read": "Core",
+    "admissible_ready": "Ready",
+    "admissible_ready.__main__": "Ready",
+    "admissible_ready.agent_connection": "Ready",
+    "admissible_ready.agent_mcp": "Ready",
+    "admissible_ready.cli": "Ready",
+    "admissible_ready.git_reader": "Ready",
+    "admissible_ready.github": "Ready",
+    "admissible_ready.ready": "Ready",
+    "admissible_ready.ready_server": "Ready",
+    "admissible_ready.ready_static": "Ready",
+    "admissible_ready.runner": "Ready",
+    "admissible_ready.store": "Ready",
+    "admissible_trust": "Trust",
+    "admissible_trust.__main__": "Trust",
+    "admissible_trust.attestation": "Trust",
+    "admissible_trust.cli": "Trust",
+    "admissible_trust.defects": "Trust",
+    "admissible_trust.git_reader": "Trust",
+    "admissible_trust.github": "Trust",
+    "admissible_trust.ready_status": "Trust",
+    "admissible_trust.receipt": "Trust",
+    "admissible_trust.review": "Trust",
+    "admissible_trust.standing": "Trust",
+    "admissible_trust.store": "Trust",
+    "atlas": "Existing Research Surface",
+    "atlas.context": "Existing Research Surface",
+    "atlas.model": "Existing Research Surface",
+    "atlas.tests": "Test Surface",
+    "atlas.tests.test_context_projection": "Test Surface",
+    "atlas.tests.test_context_schemas": "Test Surface",
+    "atlas.tests.test_model": "Test Surface",
+    "atlas.tests.test_schema_conformance": "Test Surface",
+    "fcd": "Existing Research Surface",
+    "fcd.adapter_attestation": "Existing Research Surface",
+    "fcd.cache": "Existing Research Surface",
+    "fcd.context": "Existing Research Surface",
+    "fcd.core": "Existing Research Surface",
+    "fcd.head": "Existing Research Surface",
+    "fcd.human_review": "Existing Research Surface",
+    "fcd.journal": "Existing Research Surface",
+    "fcd.metrics": "Existing Research Surface",
+    "fcd.visual": "Existing Research Surface",
+    "fcd.watchdog": "Existing Research Surface",
+    "rga": "Existing Research Surface",
+    "rga.attestation": "Existing Research Surface",
+    "rga.calibration": "Existing Research Surface",
+    "rga.core": "Existing Research Surface",
+    "server": "Existing Research Surface",
+    "server.app": "Existing Research Surface",
+    "server.execution": "Existing Research Surface",
+    "server.project": "Existing Research Surface",
+    "tests.admissible_support": "Test Surface",
+    "tests.architecture": "Test Surface",
+    "tests.architecture.inspect_wheel": "Test Surface",
+    "tests.architecture.separation_guards": "Test Surface",
+    "tests.architecture.separation_observer": "Test Surface",
+    "tests.architecture.test_distribution_separation": "Test Surface",
+    "tests.architecture.test_import_census": "Test Surface",
+    "tests.architecture.test_separation_harness": "Test Surface",
+    "tests.architecture.test_separation_sabotage": "Test Surface",
+    "tests.compatibility": "Test Surface",
+    "tests.compatibility.test_documented_imports": "Test Surface",
+    "tests.compatibility.test_legacy_cli": "Test Surface",
+    "tests.compatibility.test_legacy_imports": "Test Surface",
+    "tests.compatibility.test_suite_entry_points": "Test Surface",
+    "tests.compatibility.test_umbrella_build_backend": "Test Surface",
+    "tests.compatibility.test_umbrella_distribution": "Test Surface",
+    "tests.core": "Test Surface",
+    "tests.core.legacy_git": "Test Surface",
+    "tests.core.test_admissible_core_build_backend": "Test Surface",
+    "tests.core.test_admissible_core_distribution": "Test Surface",
+    "tests.core.test_admissible_core_isolation": "Test Surface",
+    "tests.core.test_admissible_core_isolation_vocabulary": "Test Surface",
+    "tests.core.test_admissible_core_parity": "Test Surface",
+    "tests.core.test_admissible_core_store": "Test Surface",
+    "tests.core.test_admissible_core_store_open": "Test Surface",
+    "tests.ready": "Test Surface",
+    "tests.ready.test_admissible_ready_agent": "Test Surface",
+    "tests.ready.test_admissible_ready_boundary": "Test Surface",
+    "tests.ready.test_admissible_ready_credentials": "Test Surface",
+    "tests.ready.test_admissible_ready_distribution": "Test Surface",
+    "tests.ready.test_admissible_ready_isolation": "Test Surface",
+    "tests.ready.test_admissible_ready_parity": "Test Surface",
+    "tests.ready.test_admissible_ready_store": "Test Surface",
+    "tests.test_adapter_attestation": "Test Surface",
+    "tests.test_admissible_attempts": "Test Surface",
+    "tests.test_admissible_authority": "Test Surface",
+    "tests.test_admissible_bounded_repair": "Test Surface",
+    "tests.test_admissible_ci_trust": "Test Surface",
+    "tests.test_admissible_cli": "Test Surface",
+    "tests.test_admissible_config": "Test Surface",
+    "tests.test_admissible_decision": "Test Surface",
+    "tests.test_admissible_durability": "Test Surface",
+    "tests.test_admissible_durable_core_security": "Test Surface",
+    "tests.test_admissible_evaluation_core": "Test Surface",
+    "tests.test_admissible_external_consumer": "Test Surface",
+    "tests.test_admissible_final_closure": "Test Surface",
+    "tests.test_admissible_final_repair": "Test Surface",
+    "tests.test_admissible_github": "Test Surface",
+    "tests.test_admissible_hosted_contract": "Test Surface",
+    "tests.test_admissible_identity": "Test Surface",
+    "tests.test_admissible_packaging": "Test Surface",
+    "tests.test_admissible_quality": "Test Surface",
+    "tests.test_admissible_ready": "Test Surface",
+    "tests.test_admissible_ready_docs": "Test Surface",
+    "tests.test_admissible_ready_e2e": "Test Surface",
+    "tests.test_admissible_ready_server": "Test Surface",
+    "tests.test_admissible_receipt": "Test Surface",
+    "tests.test_admissible_release_closure": "Test Surface",
+    "tests.test_admissible_review_candidate": "Test Surface",
+    "tests.test_admissible_review_handoff": "Test Surface",
+    "tests.test_admissible_schema_conformance": "Test Surface",
+    "tests.test_admissible_second_closure": "Test Surface",
+    "tests.test_admissible_standing": "Test Surface",
+    "tests.test_admissible_store": "Test Surface",
+    "tests.test_authenticated_receipt": "Test Surface",
+    "tests.test_bench": "Test Surface",
+    "tests.test_cache": "Test Surface",
+    "tests.test_context_envelope": "Test Surface",
+    "tests.test_context_server": "Test Surface",
+    "tests.test_core": "Test Surface",
+    "tests.test_e8_handcheck": "Test Surface",
+    "tests.test_human_review_receipt": "Test Surface",
+    "tests.test_invariants": "Test Surface",
+    "tests.test_journal_hardening": "Test Surface",
+    "tests.test_metrics": "Test Surface",
+    "tests.test_paper_build": "Test Surface",
+    "tests.test_project_registry": "Test Surface",
+    "tests.test_public_export": "Test Surface",
+    "tests.test_public_release_metadata": "Test Surface",
+    "tests.test_release_builder": "Test Surface",
+    "tests.test_rga_calibration": "Test Surface",
+    "tests.test_rga_citations": "Test Surface",
+    "tests.test_rga_invariants": "Test Surface",
+    "tests.test_rga_mutation": "Test Surface",
+    "tests.test_rga_schema_conformance": "Test Surface",
+    "tests.test_scale": "Test Surface",
+    "tests.test_self_admit_evidence": "Test Surface",
+    "tests.test_server": "Test Surface",
+    "tests.test_server_admissibility": "Test Surface",
+    "tests.test_watchdog": "Test Surface",
+    "tests.trust": "Test Surface",
+    "tests.trust.test_admissible_trust_boundary": "Test Surface",
+    "tests.trust.test_admissible_trust_credentials": "Test Surface",
+    "tests.trust.test_admissible_trust_distribution": "Test Surface",
+    "tests.trust.test_admissible_trust_executable": "Test Surface",
+    "tests.trust.test_admissible_trust_finalization": "Test Surface",
+    "tests.trust.test_admissible_trust_handoff": "Test Surface",
+    "tests.trust.test_admissible_trust_isolation": "Test Surface",
+    "tests.trust.test_admissible_trust_parity": "Test Surface",
+    "tests.trust.test_admissible_trust_store": "Test Surface"
+  },
+  "current_edges": {
+    "admissible.__main__": [
+      "admissible.cli"
+    ],
+    "admissible.agent_connection": [
+      "admissible.identity",
+      "admissible.store"
+    ],
+    "admissible.agent_mcp": [
+      "admissible",
+      "admissible.agent_connection",
+      "admissible.identity",
+      "admissible.ready",
+      "admissible.schema"
+    ],
+    "admissible.attestation": [
+      "admissible.decision",
+      "admissible.evidence",
+      "admissible.fsutil",
+      "admissible.review",
+      "admissible.runner",
+      "fcd.journal"
+    ],
+    "admissible.cli": [
+      "admissible.agent_connection",
+      "admissible.agent_mcp",
+      "admissible.attestation",
+      "admissible.config",
+      "admissible.decision",
+      "admissible.evidence",
+      "admissible.github",
+      "admissible.identity",
+      "admissible.profiles",
+      "admissible.ready",
+      "admissible.ready_server",
+      "admissible.receipt",
+      "admissible.review",
+      "admissible.runner",
+      "admissible.standing",
+      "admissible.store"
+    ],
+    "admissible.config": [
+      "admissible.fsutil",
+      "admissible.profiles",
+      "fcd.journal"
+    ],
+    "admissible.decision": [
+      "admissible.config",
+      "admissible.evidence",
+      "fcd.journal"
+    ],
+    "admissible.evidence": [
+      "fcd.journal"
+    ],
+    "admissible.github": [
+      "admissible.attestation",
+      "admissible.config",
+      "admissible.decision",
+      "admissible.evidence",
+      "admissible.identity",
+      "admissible.receipt",
+      "admissible.review",
+      "admissible.runner"
+    ],
+    "admissible.ready": [
+      "admissible.cli",
+      "admissible.config",
+      "admissible.decision",
+      "admissible.evidence",
+      "admissible.identity",
+      "admissible.runner",
+      "admissible.standing",
+      "admissible.store"
+    ],
+    "admissible.ready_server": [
+      "admissible.agent_connection",
+      "admissible.ready",
+      "admissible.ready_static"
+    ],
+    "admissible.receipt": [
+      "admissible.decision",
+      "admissible.evidence",
+      "admissible.fsutil",
+      "admissible.store",
+      "fcd.head",
+      "fcd.journal"
+    ],
+    "admissible.review": [
+      "admissible.evidence",
+      "admissible.fsutil",
+      "fcd.journal"
+    ],
+    "admissible.runner": [
+      "admissible.config",
+      "admissible.fsutil",
+      "fcd.journal"
+    ],
+    "admissible.standing": [
+      "admissible.decision",
+      "admissible.evidence",
+      "admissible.receipt",
+      "admissible.store",
+      "fcd.journal"
+    ],
+    "admissible.store": [
+      "admissible.evidence",
+      "admissible.receipt",
+      "fcd.head",
+      "fcd.journal"
+    ],
+    "admissible_core.config": [
+      "admissible_core.fsutil",
+      "admissible_core.profiles",
+      "fcd.journal"
+    ],
+    "admissible_core.decision": [
+      "admissible_core.config",
+      "admissible_core.evidence",
+      "fcd.journal"
+    ],
+    "admissible_core.evidence": [
+      "fcd.journal"
+    ],
+    "admissible_core.store_candidate": [
+      "admissible_core.store_base",
+      "admissible_core.store_read"
+    ],
+    "admissible_core.store_open": [
+      "admissible_core.store_base"
+    ],
+    "admissible_core.store_read": [
+      "admissible_core.store_base"
+    ],
+    "admissible_ready.__main__": [
+      "admissible_ready.cli"
+    ],
+    "admissible_ready.agent_connection": [
+      "admissible_core.identity",
+      "admissible_ready.git_reader",
+      "admissible_ready.store"
+    ],
+    "admissible_ready.agent_mcp": [
+      "admissible_core.identity",
+      "admissible_core.schema",
+      "admissible_ready",
+      "admissible_ready.agent_connection",
+      "admissible_ready.git_reader",
+      "admissible_ready.ready",
+      "admissible_ready.runner"
+    ],
+    "admissible_ready.cli": [
+      "admissible_core.config",
+      "admissible_core.decision",
+      "admissible_core.evidence",
+      "admissible_core.identity",
+      "admissible_core.profiles",
+      "admissible_ready.agent_connection",
+      "admissible_ready.agent_mcp",
+      "admissible_ready.git_reader",
+      "admissible_ready.github",
+      "admissible_ready.ready",
+      "admissible_ready.ready_server",
+      "admissible_ready.runner",
+      "admissible_ready.store"
+    ],
+    "admissible_ready.git_reader": [
+      "admissible_core.identity",
+      "admissible_ready.runner"
+    ],
+    "admissible_ready.github": [
+      "admissible_core.decision",
+      "admissible_core.identity",
+      "admissible_ready.runner"
+    ],
+    "admissible_ready.ready": [
+      "admissible_core.config",
+      "admissible_core.decision",
+      "admissible_core.evidence",
+      "admissible_core.identity",
+      "admissible_ready.cli",
+      "admissible_ready.git_reader",
+      "admissible_ready.runner",
+      "admissible_ready.store"
+    ],
+    "admissible_ready.ready_server": [
+      "admissible_ready.agent_connection",
+      "admissible_ready.ready",
+      "admissible_ready.runner"
+    ],
+    "admissible_ready.runner": [
+      "admissible_core.config",
+      "admissible_core.fsutil",
+      "admissible_core.isolation",
+      "fcd.journal"
+    ],
+    "admissible_ready.store": [
+      "admissible_core.evidence",
+      "admissible_core.store_base",
+      "admissible_core.store_candidate",
+      "admissible_core.store_open",
+      "fcd.journal"
+    ],
+    "admissible_trust.__main__": [
+      "admissible_trust.cli"
+    ],
+    "admissible_trust.attestation": [
+      "admissible_core.decision",
+      "admissible_core.evidence",
+      "admissible_core.fsutil",
+      "admissible_core.isolation",
+      "admissible_trust.review",
+      "fcd.journal"
+    ],
+    "admissible_trust.cli": [
+      "admissible_core.config",
+      "admissible_core.decision",
+      "admissible_core.evidence",
+      "admissible_core.identity",
+      "admissible_core.isolation",
+      "admissible_trust.attestation",
+      "admissible_trust.defects",
+      "admissible_trust.git_reader",
+      "admissible_trust.github",
+      "admissible_trust.ready_status",
+      "admissible_trust.receipt",
+      "admissible_trust.review",
+      "admissible_trust.standing",
+      "admissible_trust.store"
+    ],
+    "admissible_trust.defects": [
+      "admissible_core.evidence",
+      "admissible_core.store_base",
+      "admissible_trust.receipt"
+    ],
+    "admissible_trust.git_reader": [
+      "admissible_core.identity"
+    ],
+    "admissible_trust.github": [
+      "admissible_core.config",
+      "admissible_core.decision",
+      "admissible_core.evidence",
+      "admissible_core.identity",
+      "admissible_core.isolation",
+      "admissible_trust.attestation",
+      "admissible_trust.git_reader",
+      "admissible_trust.receipt",
+      "admissible_trust.review"
+    ],
+    "admissible_trust.ready_status": [
+      "admissible_core.decision",
+      "admissible_core.identity",
+      "admissible_trust.git_reader",
+      "admissible_trust.standing",
+      "admissible_trust.store"
+    ],
+    "admissible_trust.receipt": [
+      "admissible_core.decision",
+      "admissible_core.evidence",
+      "admissible_core.fsutil",
+      "admissible_core.store_base",
+      "fcd.head",
+      "fcd.journal"
+    ],
+    "admissible_trust.review": [
+      "admissible_core.evidence",
+      "admissible_core.fsutil",
+      "fcd.journal"
+    ],
+    "admissible_trust.standing": [
+      "admissible_core.decision",
+      "admissible_core.store_base",
+      "admissible_trust.receipt"
+    ],
+    "admissible_trust.store": [
+      "admissible_core.evidence",
+      "admissible_core.store_base",
+      "admissible_core.store_open",
+      "admissible_trust.receipt",
+      "fcd.head",
+      "fcd.journal"
+    ],
+    "atlas": [
+      "atlas.model"
+    ],
+    "atlas.context": [
+      "fcd.context"
+    ],
+    "atlas.model": [
+      "fcd.core"
+    ],
+    "atlas.tests.test_context_projection": [
+      "atlas.context",
+      "fcd.context",
+      "tests.test_context_envelope"
+    ],
+    "atlas.tests.test_model": [
+      "atlas.model",
+      "fcd.core"
+    ],
+    "atlas.tests.test_schema_conformance": [
+      "atlas.model",
+      "fcd.core",
+      "fcd.journal"
+    ],
+    "fcd": [
+      "fcd.adapter_attestation",
+      "fcd.cache",
+      "fcd.context",
+      "fcd.core",
+      "fcd.head",
+      "fcd.human_review",
+      "fcd.journal",
+      "fcd.watchdog"
+    ],
+    "fcd.adapter_attestation": [
+      "fcd.core",
+      "fcd.head",
+      "fcd.journal"
+    ],
+    "fcd.cache": [
+      "fcd.core"
+    ],
+    "fcd.core": [
+      "fcd.journal"
+    ],
+    "fcd.head": [
+      "fcd.journal"
+    ],
+    "fcd.human_review": [
+      "fcd.head",
+      "fcd.journal"
+    ],
+    "fcd.metrics": [
+      "fcd.core"
+    ],
+    "fcd.visual": [
+      "fcd.core"
+    ],
+    "rga": [
+      "rga.attestation",
+      "rga.calibration",
+      "rga.core"
+    ],
+    "rga.attestation": [
+      "fcd",
+      "fcd.core",
+      "fcd.head",
+      "fcd.journal",
+      "rga.calibration",
+      "rga.core"
+    ],
+    "rga.calibration": [
+      "fcd.journal",
+      "rga.core"
+    ],
+    "rga.core": [
+      "fcd.core",
+      "fcd.journal"
+    ],
+    "server.app": [
+      "atlas.context",
+      "fcd.context",
+      "fcd.core",
+      "fcd.journal",
+      "rga.calibration",
+      "rga.core",
+      "server.execution",
+      "server.project"
+    ],
+    "server.execution": [
+      "fcd.context"
+    ],
+    "tests.admissible_support": [
+      "admissible.attestation",
+      "admissible.cli",
+      "admissible.config",
+      "admissible.github",
+      "admissible.receipt",
+      "admissible.runner",
+      "admissible.store"
+    ],
+    "tests.architecture.separation_guards": [
+      "tests.architecture.separation_observer"
+    ],
+    "tests.architecture.test_distribution_separation": [
+      "tests.architecture.inspect_wheel",
+      "tests.architecture.test_import_census"
+    ],
+    "tests.architecture.test_separation_harness": [
+      "tests.architecture.separation_guards",
+      "tests.architecture.separation_observer"
+    ],
+    "tests.architecture.test_separation_sabotage": [
+      "tests.architecture.separation_guards"
+    ],
+    "tests.compatibility": [
+      "tests.architecture.inspect_wheel"
+    ],
+    "tests.compatibility.test_documented_imports": [
+      "tests.compatibility"
+    ],
+    "tests.compatibility.test_legacy_cli": [
+      "tests.architecture.test_import_census",
+      "tests.compatibility"
+    ],
+    "tests.compatibility.test_legacy_imports": [
+      "tests.architecture.test_import_census",
+      "tests.compatibility"
+    ],
+    "tests.compatibility.test_suite_entry_points": [
+      "tests.architecture.inspect_wheel",
+      "tests.compatibility"
+    ],
+    "tests.compatibility.test_umbrella_build_backend": [
+      "tests.architecture.inspect_wheel",
+      "tests.compatibility"
+    ],
+    "tests.compatibility.test_umbrella_distribution": [
+      "tests.architecture.inspect_wheel",
+      "tests.architecture.test_distribution_separation",
+      "tests.compatibility"
+    ],
+    "tests.core.legacy_git": [
+      "admissible_core.identity"
+    ],
+    "tests.core.test_admissible_core_build_backend": [
+      "tests.architecture.inspect_wheel",
+      "tests.core"
+    ],
+    "tests.core.test_admissible_core_distribution": [
+      "admissible_core.config",
+      "admissible_core.profiles",
+      "tests.architecture.inspect_wheel",
+      "tests.core"
+    ],
+    "tests.core.test_admissible_core_isolation": [
+      "tests.core"
+    ],
+    "tests.core.test_admissible_core_isolation_vocabulary": [
+      "admissible.runner",
+      "admissible_core.isolation",
+      "tests.core"
+    ],
+    "tests.core.test_admissible_core_parity": [
+      "admissible.config",
+      "admissible.decision",
+      "admissible.evidence",
+      "admissible.fsutil",
+      "admissible.identity",
+      "admissible.profiles",
+      "admissible.schema",
+      "admissible_core.config",
+      "admissible_core.decision",
+      "admissible_core.evidence",
+      "admissible_core.fsutil",
+      "admissible_core.identity",
+      "admissible_core.profiles",
+      "admissible_core.schema",
+      "tests.core",
+      "tests.core.legacy_git"
+    ],
+    "tests.core.test_admissible_core_store": [
+      "admissible.store",
+      "admissible_core.store_base",
+      "admissible_core.store_candidate",
+      "admissible_core.store_read"
+    ],
+    "tests.core.test_admissible_core_store_open": [
+      "admissible_core.store_base",
+      "admissible_core.store_open",
+      "tests.core"
+    ],
+    "tests.ready.test_admissible_ready_agent": [
+      "admissible.agent_mcp",
+      "admissible_core.store_base",
+      "admissible_ready.agent_mcp",
+      "admissible_ready.git_reader",
+      "admissible_ready.ready",
+      "admissible_ready.ready_server",
+      "admissible_ready.ready_static",
+      "admissible_ready.runner",
+      "admissible_ready.store",
+      "tests.ready.test_admissible_ready_parity"
+    ],
+    "tests.ready.test_admissible_ready_boundary": [
+      "admissible.github",
+      "admissible.identity",
+      "admissible_core.identity",
+      "admissible_ready.git_reader",
+      "admissible_ready.github",
+      "admissible_ready.runner"
+    ],
+    "tests.ready.test_admissible_ready_credentials": [
+      "admissible_core.config",
+      "admissible_ready.agent_mcp",
+      "admissible_ready.cli",
+      "admissible_ready.ready",
+      "admissible_ready.ready_server",
+      "admissible_ready.ready_static",
+      "admissible_ready.runner"
+    ],
+    "tests.ready.test_admissible_ready_distribution": [
+      "tests.architecture.inspect_wheel",
+      "tests.architecture.test_distribution_separation",
+      "tests.ready"
+    ],
+    "tests.ready.test_admissible_ready_isolation": [
+      "admissible_ready.ready",
+      "tests.ready"
+    ],
+    "tests.ready.test_admissible_ready_parity": [
+      "admissible.agent_connection",
+      "admissible.cli",
+      "admissible.ready",
+      "admissible.store",
+      "admissible_core.profiles",
+      "admissible_ready.agent_connection",
+      "admissible_ready.cli",
+      "admissible_ready.git_reader",
+      "admissible_ready.ready",
+      "admissible_ready.store"
+    ],
+    "tests.ready.test_admissible_ready_store": [
+      "admissible.store",
+      "admissible_core.store_base",
+      "admissible_core.store_candidate",
+      "admissible_core.store_open",
+      "admissible_ready.ready",
+      "admissible_ready.store",
+      "tests.ready"
+    ],
+    "tests.test_adapter_attestation": [
+      "fcd.adapter_attestation",
+      "fcd.core",
+      "fcd.head"
+    ],
+    "tests.test_admissible_cli": [
+      "admissible.config",
+      "admissible.review",
+      "admissible.store"
+    ],
+    "tests.test_admissible_durable_core_security": [
+      "admissible.decision",
+      "admissible.evidence",
+      "admissible.receipt",
+      "admissible.standing",
+      "admissible.store"
+    ],
+    "tests.test_admissible_evaluation_core": [
+      "admissible.attestation",
+      "admissible.decision",
+      "admissible.evidence",
+      "admissible.github",
+      "admissible.receipt",
+      "admissible.store"
+    ],
+    "tests.test_admissible_final_closure": [
+      "admissible.attestation",
+      "admissible.cli",
+      "admissible.config",
+      "admissible.evidence",
+      "admissible.fsutil",
+      "admissible.github",
+      "admissible.profiles",
+      "admissible.receipt",
+      "admissible.review",
+      "admissible.runner",
+      "admissible.store"
+    ],
+    "tests.test_admissible_hosted_contract": [
+      "admissible.evidence"
+    ],
+    "tests.test_admissible_packaging": [
+      "admissible.schema"
+    ],
+    "tests.test_admissible_ready_docs": [
+      "tests.architecture.test_distribution_separation"
+    ],
+    "tests.test_admissible_ready_e2e": [
+      "tests.admissible_support",
+      "tests.test_admissible_cli"
+    ],
+    "tests.test_admissible_receipt": [
+      "fcd.journal",
+      "rga"
+    ],
+    "tests.test_admissible_review_candidate": [
+      "admissible.evidence"
+    ],
+    "tests.test_admissible_schema_conformance": [
+      "admissible.profiles"
+    ],
+    "tests.test_admissible_second_closure": [
+      "admissible.attestation",
+      "admissible.cli",
+      "admissible.config",
+      "admissible.decision",
+      "admissible.evidence",
+      "admissible.github",
+      "admissible.receipt",
+      "admissible.runner",
+      "admissible.standing",
+      "admissible.store"
+    ],
+    "tests.test_admissible_store": [
+      "fcd.head"
+    ],
+    "tests.test_authenticated_receipt": [
+      "fcd",
+      "fcd.core",
+      "fcd.head",
+      "fcd.journal",
+      "rga",
+      "rga.attestation"
+    ],
+    "tests.test_cache": [
+      "fcd.cache",
+      "fcd.core"
+    ],
+    "tests.test_context_envelope": [
+      "fcd",
+      "fcd.context"
+    ],
+    "tests.test_context_server": [
+      "server.app"
+    ],
+    "tests.test_core": [
+      "fcd.core"
+    ],
+    "tests.test_human_review_receipt": [
+      "fcd.head",
+      "fcd.human_review"
+    ],
+    "tests.test_invariants": [
+      "fcd.core",
+      "fcd.watchdog"
+    ],
+    "tests.test_journal_hardening": [
+      "fcd.core",
+      "fcd.journal",
+      "rga.calibration",
+      "rga.core"
+    ],
+    "tests.test_metrics": [
+      "fcd.metrics"
+    ],
+    "tests.test_project_registry": [
+      "server.project"
+    ],
+    "tests.test_rga_calibration": [
+      "fcd.core",
+      "rga.calibration",
+      "rga.core"
+    ],
+    "tests.test_rga_invariants": [
+      "fcd.core",
+      "rga.core"
+    ],
+    "tests.test_rga_mutation": [
+      "fcd.core",
+      "rga.core"
+    ],
+    "tests.test_rga_schema_conformance": [
+      "fcd.journal",
+      "rga.core"
+    ],
+    "tests.test_scale": [
+      "fcd.core"
+    ],
+    "tests.test_server": [
+      "server.app",
+      "server.execution"
+    ],
+    "tests.test_server_admissibility": [
+      "fcd.core",
+      "rga.core",
+      "server.app"
+    ],
+    "tests.test_watchdog": [
+      "fcd.core",
+      "fcd.watchdog"
+    ],
+    "tests.trust.test_admissible_trust_boundary": [
+      "admissible_core.identity",
+      "admissible_trust.git_reader",
+      "tests.trust"
+    ],
+    "tests.trust.test_admissible_trust_credentials": [
+      "admissible_core.store_base",
+      "admissible_trust.attestation",
+      "admissible_trust.cli",
+      "admissible_trust.receipt",
+      "admissible_trust.review",
+      "admissible_trust.store",
+      "tests.trust"
+    ],
+    "tests.trust.test_admissible_trust_distribution": [
+      "tests.architecture.inspect_wheel",
+      "tests.architecture.test_distribution_separation",
+      "tests.trust"
+    ],
+    "tests.trust.test_admissible_trust_executable": [
+      "admissible_core.identity",
+      "admissible_trust.cli",
+      "admissible_trust.git_reader",
+      "admissible_trust.ready_status",
+      "tests.trust",
+      "tests.trust.test_admissible_trust_finalization"
+    ],
+    "tests.trust.test_admissible_trust_finalization": [
+      "admissible.cli",
+      "admissible.github",
+      "admissible.receipt",
+      "admissible.runner",
+      "admissible.store",
+      "admissible_core.config",
+      "admissible_core.store_base",
+      "admissible_trust.attestation",
+      "admissible_trust.cli",
+      "admissible_trust.defects",
+      "admissible_trust.git_reader",
+      "admissible_trust.github",
+      "admissible_trust.ready_status",
+      "admissible_trust.receipt",
+      "admissible_trust.review",
+      "admissible_trust.standing",
+      "admissible_trust.store",
+      "fcd.journal"
+    ],
+    "tests.trust.test_admissible_trust_handoff": [
+      "tests.architecture.inspect_wheel",
+      "tests.trust"
+    ],
+    "tests.trust.test_admissible_trust_isolation": [
+      "admissible_trust.cli",
+      "admissible_trust.github",
+      "admissible_trust.ready_status",
+      "tests.trust"
+    ],
+    "tests.trust.test_admissible_trust_parity": [
+      "admissible.attestation",
+      "admissible.evidence",
+      "admissible.ready",
+      "admissible.receipt",
+      "admissible.review",
+      "admissible.standing",
+      "admissible_core.evidence",
+      "admissible_trust.attestation",
+      "admissible_trust.ready_status",
+      "admissible_trust.receipt",
+      "admissible_trust.review",
+      "admissible_trust.standing",
+      "fcd.head",
+      "fcd.journal",
+      "tests.trust"
+    ],
+    "tests.trust.test_admissible_trust_store": [
+      "admissible.receipt",
+      "admissible.store",
+      "admissible_core.store_base",
+      "admissible_core.store_open",
+      "admissible_ready.store",
+      "admissible_trust.receipt",
+      "admissible_trust.store",
+      "fcd.journal",
+      "tests.trust"
+    ]
+  },
+  "cli_surface": {
+    "module": "admissible.cli",
+    "add_parser_commands": [
+      "attest-evaluation",
+      "attest-review",
+      "check",
+      "connect",
+      "explain",
+      "export",
+      "finalize",
+      "impeach",
+      "import",
+      "init",
+      "list",
+      "mcp",
+      "policy",
+      "profiles",
+      "ready-status",
+      "revoke",
+      "run",
+      "status",
+      "trust",
+      "ui",
+      "verify"
+    ],
+    "commands_map": {
+      "profiles": "_command_profiles",
+      "init": "_command_init",
+      "run": "_command_run",
+      "check": "_command_check",
+      "mcp": "_command_mcp",
+      "connect": "_command_connect",
+      "ui": "_command_ui",
+      "ready-status": "_command_ready_status",
+      "verify": "_command_verify",
+      "explain": "_command_explain",
+      "status": "_command_status",
+      "impeach": "_command_impeach",
+      "attest-review": "_command_attest_review",
+      "attest-evaluation": "_command_attest_evaluation",
+      "policy": "_command_policy",
+      "finalize": "_command_finalize",
+      "export": "_command_export",
+      "import": "_command_import"
+    },
+    "dispatched_commands": [
+      "attest-evaluation",
+      "attest-review",
+      "check",
+      "connect",
+      "explain",
+      "export",
+      "finalize",
+      "impeach",
+      "import",
+      "init",
+      "mcp",
+      "policy",
+      "profiles",
+      "ready-status",
+      "run",
+      "status",
+      "ui",
+      "verify"
+    ],
+    "command_hierarchy": [
+      {
+        "path": [],
+        "dest": "command",
+        "commands": [
+          "attest-evaluation",
+          "attest-review",
+          "check",
+          "connect",
+          "explain",
+          "export",
+          "finalize",
+          "impeach",
+          "import",
+          "init",
+          "mcp",
+          "policy",
+          "profiles",
+          "ready-status",
+          "run",
+          "status",
+          "ui",
+          "verify"
+        ]
+      },
+      {
+        "path": [
+          "policy"
+        ],
+        "dest": "policy_command",
+        "commands": [
+          "list",
+          "revoke",
+          "trust"
+        ]
+      }
+    ],
+    "nested_dispatch": {
+      "policy list": "_command_policy_list",
+      "policy revoke": "_command_policy_revoke",
+      "policy trust": "_command_policy"
+    }
+  },
+  "dynamic_imports": {
+    "admissible.ready_server": [
+      {
+        "what": "importlib.resources.files",
+        "target": "admissible.ready_static"
+      }
+    ],
+    "admissible.schema": [
+      {
+        "what": "importlib.resources.files",
+        "target": "protocol"
+      }
+    ],
+    "admissible_core.schema": [
+      {
+        "what": "importlib.resources.files",
+        "target": "protocol"
+      }
+    ],
+    "admissible_ready.ready_server": [
+      {
+        "what": "importlib.resources.files",
+        "target": null
+      }
+    ],
+    "tests.admissible_support": [
+      {
+        "what": "importlib.import_module",
+        "target": null,
+        "package": null
+      }
+    ],
+    "tests.architecture.separation_guards": [
+      {
+        "what": "importlib.import_module",
+        "target": null,
+        "package": null
+      }
+    ],
+    "tests.core.test_admissible_core_build_backend": [
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": "admissible_core_build_backend_under_test",
+        "location": null
+      },
+      {
+        "what": "importlib.import_module",
+        "target": null,
+        "package": null
+      }
+    ],
+    "tests.ready.test_admissible_ready_agent": [
+      {
+        "what": "importlib.resources.files",
+        "target": "admissible_ready.ready_static"
+      }
+    ],
+    "tests.ready.test_admissible_ready_credentials": [
+      {
+        "what": "importlib.resources.files",
+        "target": "admissible_ready.ready_static"
+      }
+    ],
+    "tests.ready.test_admissible_ready_isolation": [
+      {
+        "what": "importlib.import_module",
+        "target": null,
+        "package": null
+      },
+      {
+        "what": "importlib.import_module",
+        "target": null,
+        "package": null
+      },
+      {
+        "what": "importlib.import_module",
+        "target": null,
+        "package": null
+      }
+    ],
+    "tests.test_e8_handcheck": [
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": "e8_handcheck_under_test",
+        "location": null
+      }
+    ],
+    "tests.test_paper_build": [
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": null,
+        "location": null
+      }
+    ],
+    "tests.test_public_export": [
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": "public_export_race",
+        "location": null
+      },
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": "public_export_replace",
+        "location": null
+      }
+    ],
+    "tests.test_release_builder": [
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": "release_builder_default",
+        "location": null
+      },
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": "release_builder_symlink",
+        "location": null
+      },
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": "release_builder_race",
+        "location": null
+      },
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": "release_builder_replace",
+        "location": null
+      }
+    ],
+    "tests.test_self_admit_evidence": [
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": "self_admit_under_test",
+        "location": null
+      }
+    ],
+    "tests.trust.test_admissible_trust_isolation": [
+      {
+        "what": "importlib.import_module",
+        "target": null,
+        "package": null
+      },
+      {
+        "what": "importlib.import_module",
+        "target": null,
+        "package": null
+      }
+    ]
+  },
+  "resource_packages": {
+    "admissible.ready_server": [
+      "admissible.ready_static"
+    ],
+    "admissible.schema": [
+      "protocol"
+    ],
+    "admissible_core.schema": [
+      "protocol"
+    ],
+    "tests.ready.test_admissible_ready_agent": [
+      "admissible_ready.ready_static"
+    ],
+    "tests.ready.test_admissible_ready_credentials": [
+      "admissible_ready.ready_static"
+    ]
+  },
+  "transitional_edges": {
+    "rationale": "Mixed modules are classified Umbrella rather than waved through. Each allowed edge is observed today and forbidden under the target policy; the split is complete when this list is empty.",
+    "modules": [
+      "admissible",
+      "admissible.__main__",
+      "admissible.attestation",
+      "admissible.cli",
+      "admissible.github",
+      "admissible.ready",
+      "admissible.standing",
+      "admissible.store"
+    ],
+    "allowed": [
+      [
+        "admissible.attestation",
+        "admissible.runner"
+      ],
+      [
+        "admissible.cli",
+        "admissible.attestation"
+      ],
+      [
+        "admissible.cli",
+        "admissible.receipt"
+      ],
+      [
+        "admissible.cli",
+        "admissible.review"
+      ],
+      [
+        "admissible.cli",
+        "admissible.standing"
+      ],
+      [
+        "admissible.github",
+        "admissible.attestation"
+      ],
+      [
+        "admissible.github",
+        "admissible.receipt"
+      ],
+      [
+        "admissible.github",
+        "admissible.review"
+      ],
+      [
+        "admissible.ready",
+        "admissible.standing"
+      ],
+      [
+        "admissible.store",
+        "admissible.receipt"
+      ]
+    ]
+  },
+  "target_policy": {
+    "namespaces": {
+      "Core": "admissible_core",
+      "Ready": "admissible_ready",
+      "Trust": "admissible_trust",
+      "Umbrella": "admissible"
+    },
+    "distributions": {
+      "Core": "admissible-core",
+      "Ready": "admissible-ready",
+      "Trust": "admissible-trust",
+      "Umbrella": "admissible"
+    },
+    "forbidden_edges": [
+      [
+        "Core",
+        "Ready"
+      ],
+      [
+        "Core",
+        "Trust"
+      ],
+      [
+        "Ready",
+        "Trust"
+      ],
+      [
+        "Trust",
+        "Ready"
+      ]
+    ],
+    "target_owners": {
+      "admissible": "Core",
+      "admissible.__main__": "Ready",
+      "admissible.agent_connection": "Ready",
+      "admissible.agent_mcp": "Ready",
+      "admissible.attestation": "Trust",
+      "admissible.cli": "Ready",
+      "admissible.config": "Core",
+      "admissible.decision": "Core",
+      "admissible.evidence": "Core",
+      "admissible.fsutil": "Core",
+      "admissible.github": "Ready",
+      "admissible.identity": "Core",
+      "admissible.profiles": "Core",
+      "admissible.ready": "Ready",
+      "admissible.ready_server": "Ready",
+      "admissible.ready_static": "Ready",
+      "admissible.receipt": "Trust",
+      "admissible.review": "Trust",
+      "admissible.runner": "Ready",
+      "admissible.schema": "Core",
+      "admissible.standing": "Trust",
+      "admissible.store": "Core",
+      "admissible_core": "Core",
+      "admissible_core.config": "Core",
+      "admissible_core.decision": "Core",
+      "admissible_core.evidence": "Core",
+      "admissible_core.fsutil": "Core",
+      "admissible_core.identity": "Core",
+      "admissible_core.isolation": "Core",
+      "admissible_core.profiles": "Core",
+      "admissible_core.schema": "Core",
+      "admissible_core.store_base": "Core",
+      "admissible_core.store_candidate": "Core",
+      "admissible_core.store_open": "Core",
+      "admissible_core.store_read": "Core",
+      "admissible_ready": "Ready",
+      "admissible_ready.__main__": "Ready",
+      "admissible_ready.agent_connection": "Ready",
+      "admissible_ready.agent_mcp": "Ready",
+      "admissible_ready.cli": "Ready",
+      "admissible_ready.git_reader": "Ready",
+      "admissible_ready.github": "Ready",
+      "admissible_ready.ready": "Ready",
+      "admissible_ready.ready_server": "Ready",
+      "admissible_ready.ready_static": "Ready",
+      "admissible_ready.runner": "Ready",
+      "admissible_ready.store": "Ready",
+      "admissible_trust": "Trust",
+      "admissible_trust.__main__": "Trust",
+      "admissible_trust.attestation": "Trust",
+      "admissible_trust.cli": "Trust",
+      "admissible_trust.defects": "Trust",
+      "admissible_trust.git_reader": "Trust",
+      "admissible_trust.github": "Trust",
+      "admissible_trust.ready_status": "Trust",
+      "admissible_trust.receipt": "Trust",
+      "admissible_trust.review": "Trust",
+      "admissible_trust.standing": "Trust",
+      "admissible_trust.store": "Trust"
+    },
+    "umbrella_dispatch": "The umbrella distribution keeps the 'admissible' namespace and console entry point but owns no module: it dispatches to the Ready and Trust console scripts without importing either, so it cannot appear as an owner in target_owners. It is forbidden in trusted infrastructure.",
+    "split_modules": {
+      "admissible.cli": {
+        "primary": "Ready",
+        "parts": [
+          {
+            "owner": "Ready",
+            "target": "admissible_ready.cli"
+          },
+          {
+            "owner": "Trust",
+            "target": "admissible_trust.cli"
+          },
+          {
+            "owner": "Umbrella",
+            "target": "admissible.cli",
+            "note": "non-importing dispatcher only"
+          }
+        ]
+      },
+      "admissible.ready": {
+        "primary": "Ready",
+        "parts": [
+          {
+            "owner": "Ready",
+            "target": "admissible_ready.state",
+            "note": "unsigned Ready mapping, inspection, check"
+          },
+          {
+            "owner": "Trust",
+            "target": "admissible_trust.ready",
+            "note": "authenticated Ready projection"
+          }
+        ]
+      },
+      "admissible.standing": {
+        "primary": "Trust",
+        "parts": [
+          {
+            "owner": "Core",
+            "target": "admissible_core.standing",
+            "note": "pure/unsigned standing queries"
+          },
+          {
+            "owner": "Trust",
+            "target": "admissible_trust.standing",
+            "note": "authenticated projection and defect filing"
+          }
+        ]
+      },
+      "admissible.store": {
+        "primary": "Core",
+        "parts": [
+          {
+            "owner": "Core",
+            "target": "admissible_core.store",
+            "note": "persistence mechanism with capability facades"
+          },
+          {
+            "owner": "Ready",
+            "target": "admissible_ready.attempts"
+          },
+          {
+            "owner": "Trust",
+            "target": "admissible_trust.receipts"
+          }
+        ]
+      },
+      "admissible.github": {
+        "primary": "Ready",
+        "parts": [
+          {
+            "owner": "Ready",
+            "target": "admissible_ready.github",
+            "note": "candidate CI projection, evaluate-only"
+          },
+          {
+            "owner": "Trust",
+            "target": "admissible_trust.github",
+            "note": "finalization and authenticated receipt reads"
+          }
+        ]
+      },
+      "admissible.attestation": {
+        "primary": "Trust",
+        "parts": [
+          {
+            "owner": "Trust",
+            "target": "admissible_trust.attestation"
+          },
+          {
+            "owner": "Core",
+            "target": "admissible_core.evaluation",
+            "note": "deterministic evaluation records without signing"
+          }
+        ]
+      }
+    },
+    "out_of_scope_owners": {
+      "Existing Research Surface": "fcd/, rga/, atlas/, server/ keep their current layout; this refactor does not reinterpret their theorem status.",
+      "Test Surface": "tests/ and atlas/tests/ may import any surface under test."
+    }
+  }
+}

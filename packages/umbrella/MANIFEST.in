@@ -1,0 +1,11 @@
+# The sdist ships the dispatcher, its six facades, and the prose that says when
+# not to install it.
+#
+# There is no `recursive-include` for package data, because there is no package
+# data: this distribution reads no template, no schema and no browser asset at
+# runtime. A wheel built from this sdist and a wheel built directly therefore
+# install exactly the same paths, which is what `SdistDerivedWheelAgrees`
+# asserts.
+include README.md
+global-exclude *.pyc
+global-exclude __pycache__

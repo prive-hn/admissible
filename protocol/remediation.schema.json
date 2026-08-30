@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible.dev/schema/remediation.schema.json",
+  "title": "Admissible Ready remediation",
+  "description": "Stable reason codes and ordered next actions for one exact Ready identity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "identity",
+    "status",
+    "summary",
+    "reasons",
+    "actions",
+    "agent_can_continue"
+  ],
+  "properties": {
+    "schema": {"const": "admissible/v0.7/remediation"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit_sha",
+        "tree_sha",
+        "policy_digest",
+        "class_id",
+        "attempt_id",
+        "applies_to_current_commit"
+      ],
+      "properties": {
+        "repository": {"type": ["string", "null"], "minLength": 1},
+        "commit_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "tree_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "policy_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "class_id": {"type": ["string", "null"], "minLength": 1},
+        "attempt_id": {"type": ["string", "null"], "minLength": 1},
+        "applies_to_current_commit": {"type": "boolean"}
+      }
+    },
+    "status": {
+      "enum": [
+        "checking",
+        "needs_attention",
+        "waiting_for_review",
+        "checks_complete",
+        "ready",
+        "unable_to_check"
+      ]
+    },
+    "summary": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "reasons": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "subject", "detail"],
+        "properties": {
+          "code": {"type": "string", "minLength": 1, "maxLength": 160},
+          "subject": {"type": "string", "minLength": 1, "maxLength": 1000},
+          "detail": {"type": "string", "minLength": 1, "maxLength": 8000}
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "detail",
+          "owner",
+          "kind",
+          "reason_codes",
+          "command",
+          "retryable"
+        ],
+        "properties": {
+          "id": {"type": "string", "minLength": 1, "maxLength": 160},
+          "title": {"type": "string", "minLength": 1, "maxLength": 500},
+          "detail": {"type": "string", "minLength": 1, "maxLength": 8000},
+          "owner": {
+            "enum": [
+              "agent_or_human",
+              "human",
+              "reviewer",
+              "trusted_infrastructure"
+            ]
+          },
+          "kind": {"type": "string", "minLength": 1, "maxLength": 160},
+          "reason_codes": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 1000,
+            "items": {"type": "string", "minLength": 1, "maxLength": 160}
+          },
+          "command": {"type": "string", "maxLength": 8000},
+          "retryable": {"type": "boolean"}
+        }
+      }
+    },
+    "agent_can_continue": {"type": "boolean"}
+  }
+}

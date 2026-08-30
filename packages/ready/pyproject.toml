@@ -1,0 +1,83 @@
+[project]
+name = "admissible-ready"
+version = "0.8.0"
+description = "The candidate side of Admissible: exact-commit checks, Ready state, MCP and the loopback UI"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Roque Briceño" }]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+keywords = ["admission-control", "candidate", "evidence", "policy"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Quality Assurance",
+]
+
+# Exactly one dependency, pinned exactly, and nothing conditional.
+#
+# The pin is `==` because the kernel is not a library this distribution merely
+# uses: the two agree about what a policy digest is, what an evidence record
+# hashes to, and what a decision means. A range would let a Ready wheel run
+# against a kernel that computes one of those differently, and the disagreement
+# would appear as a check that passed here and refused there.
+#
+# There is no `[project.optional-dependencies]`. An extra is a second
+# dependency graph reachable on demand -- `pip install admissible-ready[trust]`
+# must not be a way to get signing authority back -- and an environment marker
+# is the same door with a condition on it. `Requires-Dist: admissible;
+# python_version >= "3.10"` is satisfied by every interpreter this project
+# supports, so a marked requirement would pull the umbrella, and Trust with it,
+# into every ordinary install.
+dependencies = ["admissible-core==0.8.0"]
+
+[project.urls]
+Documentation = "https://github.com/prive-hn/admissible#readme"
+Issues = "https://github.com/prive-hn/admissible/issues"
+Repository = "https://github.com/prive-hn/admissible"
+
+[project.scripts]
+# One command, and it is the only one this wheel installs. `admissible-trust`
+# and `admissible` belong to distributions that are not this one; a correctly
+# named command wired to the wrong authority's callable would satisfy every
+# name-only check while handing the signing verb to the runner.
+admissible-ready = "admissible_ready.cli:main"
+
+[build-system]
+# The backend is pinned exactly because release artifacts record generator
+# identity and must not depend on resolver time.
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Package data is explicit below; disabling implicit discovery keeps data-only
+# directories from being mistaken for undeclared namespace packages.
+include-package-data = false
+# Enumerated, never discovered. `packages.find` would sweep up whatever
+# happened to be under `src/`, and the property worth asserting is an equality:
+# a wheel that ships one namespace more than its authority needs is a wheel
+# whose authority is not what it claims. `admissible_ready` and its static
+# asset package, and nothing else -- in particular not `admissible_core`, which
+# Core alone ships, because two copies of the kernel is two kernels with
+# installation order deciding which one hashes a receipt.
+packages = ["admissible_ready", "admissible_ready.ready_static"]
+
+[tool.setuptools.package-dir]
+admissible_ready = "src/admissible_ready"
+"admissible_ready.ready_static" = "src/admissible_ready/ready_static"
+
+[tool.setuptools.package-data]
+# The CI caller template is candidate-side scaffolding: the workflow it writes
+# runs `admissible-ready run --preview`, so it ships from the distribution that
+# has an execution surface rather than from the kernel. `admissible_ready.cli`
+# hands its directory to `plan_init`, which plans the write without owning the
+# bytes.
+admissible_ready = ["templates/*.yml"]
+# The browser assets the loopback server reads back through
+# `importlib.resources`. A wheel without them is a UI that answers 500.
+"admissible_ready.ready_static" = ["*.html", "*.css", "*.js"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["__pycache__/*", "*.pyc"]

@@ -1,0 +1,37 @@
+# The Admissible repository's own call into its own gate.
+#
+# This workflow is a manual test surface, deliberately not an automatic one.
+# The gate itself lives in `admissible-gate.yml` and is `workflow_call` only:
+# a reusable workflow that also triggered itself on every push would either
+# gate this repository twice or, worse, appear to run while quietly doing
+# nothing. Dispatch this by hand to exercise the gate end to end.
+#
+# `tool-sha` is `github.sha` here, and that is correct only because this is the
+# tool's own repository: a local `uses: ./...` resolves to this same commit, so
+# the pin and the program agree by construction. A consumer cannot write this --
+# `github.sha` is their commit, not the gate's -- which is why the generated
+# consumer workflow spells the sha out twice instead.
+#
+# Nothing here signs. This gate has no signing path at all: a receipt is issued
+# by `admissible finalize` on a trusted finalizer, outside GitHub Actions,
+# against an evaluation attestation from an external observer.
+name: admissible
+
+on:
+  workflow_dispatch:
+    inputs:
+      class:
+        description: Artifact class id from .admissible.json
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    uses: ./.github/workflows/admissible-gate.yml
+    with:
+      tool-sha: ${{ github.sha }}
+      class: ${{ inputs.class }}

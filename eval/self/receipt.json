@@ -1,0 +1,31 @@
+{
+ "artifact_hash": "ba804faea0374ef2e170ed1c92b8eaf926a2e43b3c8e516a3d0bd6a1f98f94af",
+ "commit": "db286ac6cb71fb62a040d99d7f0a3a78cf59bf4f",
+ "defect_model": {
+  "author": "repo:admissible",
+  "cases_declared": 298,
+  "cases_run": 298,
+  "hash": "D-self-ce08ca6c39fc07c1",
+  "integrity_line": "every target byte-identical to pre-run",
+  "killed": 298,
+  "survived_the_mutation": 0,
+  "survivors": [],
+  "undetected_line": "none",
+  "unrun": []
+ },
+ "fault": "V14",
+ "measured_detection": {
+  "kills": 298,
+  "ratio": 1.0,
+  "size": 298
+ },
+ "reading": "The system refuses to certify its own power. The defect model and the refuter have one author, so the power record would be self-certified. This is the coupling assumption the paper declines to prove, enforced rather than noted: 298/298 detection is a fact about this repository and is not admissible evidence about it.",
+ "refusal": "defect model authored by the refuter's author",
+ "refused_at": "measure",
+ "refuter": {
+  "author": "repo:admissible",
+  "id": "sabotage",
+  "version": "v1"
+ },
+ "sealed": false
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/context-journal-event.schema.json",
+  "title": "ContextJournalEvent",
+  "description": "Append-only project/context/envelope events emitted by fcd.context.ContextAuthority.",
+  "type": "object",
+  "required": ["type", "ts"],
+  "properties": {
+    "type": {"enum": ["work_pin", "envelope_admit", "context_package", "steering", "adapter_receipt", "receipt_refuse", "impact_review", "memory_promote"]},
+    "ts": {"type": "number"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"type": {"const": "work_pin"}}, "required": ["type"]},
+      "then": {"required": ["project_id", "work_item_id", "project_version", "memory_version", "contract_revision"]}
+    },
+    {
+      "if": {"properties": {"type": {"const": "envelope_admit"}}, "required": ["type"]},
+      "then": {
+        "required": ["attempt_id", "nonce", "work_item_id", "gate_id", "attempt_counter", "project_version", "memory_version", "agent_id", "specialist", "executor_id", "model_provider", "model_api_id", "context_mode", "envelope_hash"],
+        "properties": {"envelope_hash": {"$ref": "#/$defs/hash"}}
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "context_package"}}, "required": ["type"]},
+      "then": {
+        "required": ["attempt_id", "nonce", "categories", "package_hash_expected"],
+        "properties": {
+          "categories": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "package_hash_expected": {"$ref": "#/$defs/hash"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "steering"}}, "required": ["type"]},
+      "then": {
+        "required": ["attempt_id", "sequence", "scope", "target_id", "text_hash", "continuation_hash"],
+        "properties": {
+          "scope": {"enum": ["project", "work", "gate", "stage", "artifact", "evidence", "failure"]},
+          "text_hash": {"$ref": "#/$defs/hash"},
+          "continuation_hash": {"$ref": "#/$defs/hash"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "adapter_receipt"}}, "required": ["type"]},
+      "then": {
+        "required": ["attempt_id", "nonce", "executor_id", "run_id", "package_hash_observed", "continuation_hash", "executed_provider", "executed_model"],
+        "properties": {
+          "package_hash_observed": {"$ref": "#/$defs/hash"},
+          "continuation_hash": {"$ref": "#/$defs/hash"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "receipt_refuse"}}, "required": ["type"]},
+      "then": {"required": ["target_attempt_id", "receipt_attempt_id", "nonce", "executor_id", "run_id"]}
+    },
+    {
+      "if": {"properties": {"type": {"const": "impact_review"}}, "required": ["type"]},
+      "then": {
+        "required": ["work_item_id", "classification", "decision", "actor", "reviewed_project_version", "reviewed_memory_version", "signature"],
+        "properties": {"signature": {"$ref": "#/$defs/hash"}}
+      }
+    },
+    {
+      "if": {"properties": {"type": {"const": "memory_promote"}}, "required": ["type"]},
+      "then": {"required": ["work_item_id", "expected_project_version", "expected_memory_version", "result"]}
+    }
+  ],
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

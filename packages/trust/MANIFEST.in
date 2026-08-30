@@ -1,0 +1,9 @@
+# The sdist ships the runnable product and nothing it does not read.
+#
+# There is no `recursive-include` here because there is no package data: Trust
+# serves no browser and scaffolds no CI caller, so a wheel built from this
+# sdist and a wheel built directly install exactly the same paths -- which is
+# the property `SdistDerivedWheelAgrees` asserts.
+include README.md
+global-exclude *.pyc
+global-exclude __pycache__

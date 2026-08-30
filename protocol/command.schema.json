@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/command.schema.json",
+  "title": "Command",
+  "description": "An interaction-layer command from the operator to the cockpit. Two shapes: a free node-scoped steering message, or a slash command. Commands NEVER write the fcd store or forge journal events directly; they request transitions that the fcd machine either performs or refuses (fail-closed). A command that would violate an fcd invariant is rejected, not silently applied.",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "required": ["kind", "target"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["steer", "slash"],
+      "description": "'steer' = free natural-language steering scoped to a node. 'slash' = a structured slash command."
+    },
+    "target": {
+      "$ref": "#/$defs/target",
+      "description": "The node this command is scoped to. Steering and questions attach here and block ONLY this node."
+    },
+    "issued_at": {"type": "number", "description": "Logical time the command was issued."},
+    "actor": {"type": "string", "description": "Operator identity. Recorded, never used to widen an allow set."}
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {"const": "steer"},
+        "text": {"type": "string", "description": "Free steering text scoped to target."}
+      },
+      "required": ["text"]
+    },
+    {
+      "properties": {
+        "kind": {"const": "slash"},
+        "name": {
+          "type": "string",
+          "description": "Slash command name without the leading '/'.",
+          "enum": ["inspect", "why", "impact", "fix", "retry", "pause", "discard", "accept"]
+        },
+        "args": {
+          "type": "object",
+          "description": "Command-specific arguments. See docs/INTERACTION_LAYER.md for the per-command contract.",
+          "additionalProperties": true
+        }
+      },
+      "required": ["name"]
+    }
+  ],
+  "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id"],
+      "properties": {
+        "node_id": {"type": "string", "description": "An item or stage node id in the current AtlasSnapshot."},
+        "line": {"type": ["integer", "null"], "description": "Optional compiled-contract line index. An unresolved question on this line blocks ONLY the affected line, not sibling lines."}
+      }
+    }
+  }
+}

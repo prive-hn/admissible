@@ -1,0 +1,116 @@
+[project]
+name = "admissible"
+version = "0.8.0"
+description = "Developer-convenience umbrella: the legacy `admissible` command, dispatched to the distribution that owns it"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Roque Briceño" }]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+keywords = ["admission-control", "evidence", "policy", "receipts"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Quality Assurance",
+]
+
+# Three dependencies, pinned exactly, and nothing conditional.
+#
+# The pins are `==` because this distribution decides nothing: it hands an
+# invocation to whichever sibling owns it, so the answer a user gets is that
+# sibling's answer at that sibling's version. A range would let one dispatcher
+# route to a Ready that computes a policy digest one way and a Trust that
+# computes it another, and the disagreement would surface as an evaluation that
+# passed and a finalization that refused.
+#
+# There is no `[project.optional-dependencies]`, and no environment marker on
+# any of these. The three are unconditional here on purpose: installing the
+# umbrella is exactly the act of putting both authorities on one machine, and
+# it is the *sibling* distributions that must never do that. Their metadata
+# says so; this one says the opposite, in the open, so that "which of these did
+# I install?" has a visible answer.
+dependencies = [
+  "admissible-core==0.8.0",
+  "admissible-ready==0.8.0",
+  "admissible-trust==0.8.0",
+]
+
+[project.urls]
+Documentation = "https://github.com/prive-hn/admissible#readme"
+Issues = "https://github.com/prive-hn/admissible/issues"
+Repository = "https://github.com/prive-hn/admissible"
+
+[project.scripts]
+# One command, and it is the legacy one. `admissible-ready` and
+# `admissible-trust` are installed by the distributions that implement them:
+# re-declaring either here would put a second script with the same name in the
+# same environment, with installation order deciding which callable a user got.
+admissible = "admissible.cli:main"
+
+[build-system]
+# One release, named with `==`, and not a floor.
+#
+# `>=77` would build this distribution against whatever setuptools the machine
+# resolved on the day of the build. That is fine for a floor that only has to
+# be new enough to read `license = "Apache-2.0"` above -- the SPDX-string form, which
+# 68 cannot parse -- and it is not fine for an artefact anybody has to be able
+# to rebuild: the wheel a release publishes would be a function of the
+# resolver's mood rather than of this checkout, and "the same wheel" would stop
+# being a claim a digest can settle. It also makes an offline build
+# unpreparable, because a wheelhouse is a directory of files and a range does
+# not name one.
+#
+# 83.0.0 specifically: its own `Requires-Python` is `>=3.10`, which is this
+# project's floor exactly, so the pin is installable everywhere the project
+# claims to run; it ships as a pure `py3-none-any` wheel, so an air-gapped
+# build needs no compiler; and it vendors the wheel writer, so
+# `get_requires_for_build_wheel()` answers `[]` and there is nothing further to
+# declare. `wheel` is deliberately not listed: a second copy of the writer is a
+# second writer, with installation order deciding which one produced the
+# archive.
+#
+# `tests/compatibility/test_umbrella_build_backend` is where this is enforced.
+# It refuses a range outright, builds this project twice from a local
+# wheelhouse in two throwaway environments with no index and no network, and
+# compares the complete SHA-256 of the wheel files.
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Enumerated, never discovered. The property worth asserting is an equality: a
+# wheel that ships one namespace more than its authority needs is a wheel whose
+# authority is not what it claims, and this wheel's authority is *none*. It
+# holds a dispatcher and the facades for the imports this project documents;
+# the implementations live in the three distributions it pins, and vendoring
+# any of them would put a second copy of a kernel, a runner or a receipt signer
+# in the environment with installation order deciding which one ran.
+packages = ["admissible"]
+
+[tool.setuptools.package-dir]
+# `compat/`, and deliberately not `src/`.
+#
+# `tests/architecture/test_import_census` names every module under
+# `packages/*/src` by the dotted name it will be imported as, and refuses two
+# permanent source files claiming one name. The repository root still holds the
+# legacy monolith as `admissible/`, so `packages/umbrella/src/admissible/cli.py`
+# would be a second permanent `admissible.cli` -- two dispatchers with import
+# order deciding which one a process got, which is precisely the ambiguity that
+# census exists to reject. `packages/core` meets the same problem for `fcd`,
+# `rga`, `atlas` and `protocol` and solves it with a transient `_staged/` copy;
+# these sources are permanent, so they sit beside `src` instead of in it, and
+# `tests/compatibility/test_legacy_imports` censuses them there with the same
+# parser. When the legacy package retires, this moves to `src/`.
+admissible = "compat/admissible"
+
+# There is deliberately no `[tool.setuptools.package-data]`.
+#
+# Ready ships browser assets and a CI caller template because its server reads
+# the first and its `init --ci` writes the second. Core ships the schemas
+# because `admissible_core.schema` reads them back. This distribution reads
+# nothing at runtime: every byte it would need belongs to a sibling, and a copy
+# here would be a copy that can disagree.
+
+[tool.setuptools.exclude-package-data]
+"*" = ["__pycache__/*", "*.pyc"]

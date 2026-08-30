@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/atlas-snapshot.schema.json",
+  "title": "AtlasSnapshot",
+  "description": "Canonical, immutable cockpit state reduced from an fcd journal plus declared plan/question/artifact records. This is the wire form of atlas.model.AtlasSnapshot.to_dict(). A skin renders a projection of this object and MUST NOT mutate it. Every item/stage node is grounded in a real fcd journal event; nodes with status 'planned' come only from a plan record and carry no executed model.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["policy_version", "generated_at", "capabilities", "nodes", "roots", "store", "questions", "impact"],
+  "properties": {
+    "policy_version": {
+      "type": "string",
+      "description": "Policy version this snapshot was rendered under. NOT necessarily the version any given item pinned at Open — see nodes[*].policy_version."
+    },
+    "generated_at": {
+      "type": "number",
+      "description": "Logical time the snapshot was produced, from the caller-supplied clock. Preserved verbatim; the reducer has no clock of its own."
+    },
+    "capabilities": {
+      "type": "array",
+      "description": "Default hierarchy (class -> specialist -> model), present even with an empty journal.",
+      "items": {"$ref": "#/$defs/capabilityNode"}
+    },
+    "nodes": {
+      "type": "object",
+      "description": "All work nodes (items and their stages) keyed by node id.",
+      "additionalProperties": {"$ref": "#/$defs/node"}
+    },
+    "roots": {
+      "type": "array",
+      "description": "Item node ids with no depends_on (top of the DAG).",
+      "items": {"type": "string"}
+    },
+    "store": {
+      "type": "array",
+      "description": "Accepted artifact item ids (fcd store contents), sorted.",
+      "items": {"type": "string"}
+    },
+    "questions": {
+      "type": "array",
+      "description": "All unresolved/resolved questions across the atlas.",
+      "items": {"$ref": "#/$defs/question"}
+    },
+    "impact": {"$ref": "#/$defs/impact"}
+  },
+  "$defs": {
+    "capabilityNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label", "parent", "node_class", "children"],
+      "properties": {
+        "id": {"type": "string"},
+        "kind": {"type": "string", "enum": ["class", "specialist", "model"]},
+        "label": {"type": "string"},
+        "parent": {"type": ["string", "null"]},
+        "node_class": {"type": ["string", "null"]},
+        "children": {"type": "array", "items": {"$ref": "#/$defs/capabilityNode"}}
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label", "parent", "children", "status", "node_class", "policy_version", "declared_model", "executed_model", "fault", "depends_on", "blocked", "questions", "artifacts"],
+      "properties": {
+        "id": {"type": "string"},
+        "kind": {"type": "string", "enum": ["item", "stage"]},
+        "label": {"type": "string"},
+        "parent": {"type": ["string", "null"], "description": "Item id for a stage node; null for an item node."},
+        "children": {"type": "array", "items": {"type": "string"}, "description": "Stage node ids (for an item); empty for a stage."},
+        "status": {
+          "type": ["string", "null"],
+          "description": "Item: planned|open|failed|accepted. Stage: fcd pc (Open|Admitted|Running|Passed|Closed).",
+          "enum": ["planned", "open", "failed", "accepted", "Open", "Admitted", "Running", "Passed", "Closed", null]
+        },
+        "node_class": {"type": ["string", "null"]},
+        "policy_version": {"type": ["string", "null"], "description": "For an item, the version PINNED at Open — not the render version."},
+        "declared_model": {"type": ["string", "null"], "description": "Stage only: m_decl written by Bind (pre-norm)."},
+        "executed_model": {"type": ["string", "null"], "description": "Stage only: m_exec written by Observe (pre-norm). Null on a planned/unobserved stage."},
+        "fault": {"type": ["string", "null"], "description": "Stage only: F1..F10 on a published fail-closed."},
+        "depends_on": {"type": "array", "items": {"type": "string"}},
+        "blocked": {"type": "boolean", "description": "True iff this node carries at least one unresolved question. Blocks ONLY this node."},
+        "questions": {"type": "array", "items": {"$ref": "#/$defs/question"}},
+        "artifacts": {"type": "array", "items": {"$ref": "#/$defs/artifact"}}
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "node_id", "text", "resolved"],
+      "properties": {
+        "id": {"type": "string"},
+        "node_id": {"type": "string", "description": "The exact node this question blocks. MUST exist in nodes."},
+        "text": {"type": "string"},
+        "resolved": {"type": "boolean"}
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "node_id", "kind", "uri", "present", "runnable"],
+      "properties": {
+        "id": {"type": "string"},
+        "node_id": {"type": "string"},
+        "kind": {"type": "string", "description": "e.g. python_module, file, command, url."},
+        "uri": {"type": "string"},
+        "present": {"type": "boolean", "description": "Observed to exist at uri."},
+        "runnable": {"type": "boolean", "description": "Observed to be executable/openable, not merely present."}
+      }
+    },
+    "impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Failure impact over item-node ids. observed/reachable/unknown are pairwise disjoint and together cover every item node. 'unknown' means NOT ASSERTED (neither failed nor a declared dependent of a failure) — it is not a safety claim.",
+      "required": ["observed", "reachable", "unknown"],
+      "properties": {
+        "observed": {"type": "array", "items": {"type": "string"}, "description": "Items with a published fail-closed decision in the journal."},
+        "reachable": {"type": "array", "items": {"type": "string"}, "description": "Non-observed items with a transitive depends_on path onto an observed failure."},
+        "unknown": {"type": "array", "items": {"type": "string"}, "description": "Everything else. Absence of a claim, not a safe claim."}
+      }
+    }
+  }
+}

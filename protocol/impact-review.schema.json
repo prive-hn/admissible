@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/impact-review.schema.json",
+  "title": "ImpactReview",
+  "type": "object", "additionalProperties": false,
+  "required": ["work_item_id", "classification", "decision", "actor", "reviewed_project_version", "reviewed_memory_version", "signature"],
+  "properties": {
+    "work_item_id": {"type": "string"},
+    "classification": {"enum": ["unaffected", "reachable", "direct_conflict", "unknown"]},
+    "decision": {"enum": ["continue_pinned", "refresh", "owner_override"]},
+    "actor": {"type": "string"},
+    "reviewed_project_version": {"type": "integer", "minimum": 0},
+    "reviewed_memory_version": {"type": "integer", "minimum": 0},
+    "signature": {"type": "string", "minLength": 1}
+  }
+}

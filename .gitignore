@@ -1,0 +1,42 @@
+.venv/
+node_modules/
+build/
+/dist/
+*.egg-info/
+# Transient copies of the root-owned research and schema sources, made by
+# packages/core/build_backend.py while a build runs and removed after it. A
+# crashed build must not be able to leave a second copy of them committable.
+packages/*/_staged/
+# The lock that serialises those builds. It sits beside the staging tree rather
+# than inside it -- cleanup deletes `_staged/` and must not be able to delete
+# what decides who may run cleanup -- so it is named separately here, and it is
+# created once and never removed.
+packages/*/_staged.lock
+apps/cockpit/dist/
+apps/cockpit/coverage/
+paper/_pdf_spec.json
+data/raw/
+data/*.jsonl
+data/*.sqlite
+__pycache__/
+.DS_Store
+*.pyc
+.env
+secrets/
+**/_pdf_spec.json
+**/_volume_spec.json
+# Fresh self-admission always overwrites this raw harness transcript; the
+# source-bound receipt is the retained evidence.
+_sabotage.log
+
+# Hypothesis writes an example database beside whatever directory it is run
+# from. eval/realdefects runs from the repository root, and the architecture
+# suite compares `git ls-files` against a filesystem walk -- an unignored cache
+# fails that comparison.
+.hypothesis/
+# The real-defect study's inputs and outputs. `bugsinpy/` is a third-party
+# checkout the README tells the reader to clone here; `srccache/` is ~24MB of
+# fetched third-party source. The committed evidence is the `*-results.json`
+# files, which are NOT ignored.
+eval/realdefects/bugsinpy
+eval/realdefects/srccache

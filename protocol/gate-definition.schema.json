@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/gate-definition.schema.json",
+  "title": "GateDefinition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "revision", "agent_id", "executor_id", "model_id", "context_mode", "continuity"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "name": {"type": "string"},
+    "agent_id": {"type": "string", "minLength": 1},
+    "executor_id": {"type": "string", "minLength": 1},
+    "model_id": {"type": "string", "minLength": 1},
+    "context_mode": {"enum": ["project_shared", "fresh_scoped", "fresh_blind", "contract_only"]},
+    "continuity": {"enum": ["fresh", "executor_continue", "executor_fork"]}
+  },
+  "allOf": [{
+    "if": {"properties": {"context_mode": {"const": "fresh_blind"}}, "required": ["context_mode"]},
+    "then": {"properties": {"continuity": {"const": "fresh"}}}
+  }]
+}

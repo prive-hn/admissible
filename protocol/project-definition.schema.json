@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible/protocol/project-definition.schema.json",
+  "title": "ProjectDefinition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "revision", "local_path", "github", "base_branch", "project_version", "memory_version", "policy_version", "strict_unknown", "skin"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "local_path": {"type": "string", "minLength": 1},
+    "github": {"type": "string", "pattern": "^[^/]+/[^/]+$"},
+    "base_branch": {"type": "string", "minLength": 1},
+    "project_version": {"type": "integer", "minimum": 0},
+    "memory_version": {"type": "integer", "minimum": 0},
+    "policy_version": {"type": "string"},
+    "strict_unknown": {"type": "boolean"},
+    "skin": {"type": "string"},
+    "models": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "revision", "provider", "api_id"],
+        "properties": {
+          "id": {"type": "string"}, "revision": {"type": "integer", "minimum": 1},
+          "provider": {"type": "string"}, "api_id": {"type": "string"},
+          "display": {"type": "string"}, "context_profile": {"type": "string"},
+          "reasoning": {"type": "string"}
+        }
+      }
+    },
+    "agents": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "revision", "default_model_id", "instructions"],
+        "properties": {
+          "id": {"type": "string"}, "revision": {"type": "integer", "minimum": 1},
+          "name": {"type": "string"}, "instructions": {"type": "string"},
+          "default_model_id": {"type": "string"},
+          "tools": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "authority": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+        }
+      }
+    },
+    "gates": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "revision", "agent_id", "executor_id", "model_id", "context_mode", "continuity"],
+        "properties": {
+          "id": {"type": "string"}, "revision": {"type": "integer", "minimum": 1},
+          "name": {"type": "string"}, "agent_id": {"type": "string"},
+          "executor_id": {"type": "string"}, "model_id": {"type": "string"},
+          "context_mode": {"enum": ["project_shared", "fresh_scoped", "fresh_blind", "contract_only"]},
+          "continuity": {"enum": ["fresh", "executor_continue", "executor_fork"]}
+        },
+        "allOf": [{
+          "if": {"properties": {"context_mode": {"const": "fresh_blind"}}, "required": ["context_mode"]},
+          "then": {"properties": {"continuity": {"const": "fresh"}}}
+        }]
+      }
+    }
+  },
+  "dependentRequired": {
+    "models": ["agents", "gates"],
+    "agents": ["models", "gates"],
+    "gates": ["models", "agents"]
+  }
+}

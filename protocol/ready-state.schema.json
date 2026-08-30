@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://admissible.dev/schema/ready-state.schema.json",
+  "title": "Admissible Ready state",
+  "description": "Friendly human and agent presentation over one canonical developer-workflow decision. Friendly status never replaces canonical state or authentic standing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "status",
+    "summary",
+    "identity",
+    "canonical",
+    "progress",
+    "checks",
+    "reasons",
+    "next_actions",
+    "agent_can_continue",
+    "advanced"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {"status": {"const": "ready"}},
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "canonical": {
+            "properties": {
+              "state": {"const": "ADMITTED"},
+              "readiness": {"const": "READY_FOR_ATTESTATION"},
+              "standing": {"const": "CURRENT"},
+              "exit_code": {"const": 0}
+            },
+            "required": ["state", "readiness", "standing", "exit_code"]
+          },
+          "identity": {
+            "properties": {
+              "applies_to_current_commit": {"const": true},
+              "repository": {"type": "string", "minLength": 1},
+              "commit_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+              "tree_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+              "policy_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "class_id": {"type": "string", "minLength": 1}
+            },
+            "required": [
+              "applies_to_current_commit",
+              "repository",
+              "commit_sha",
+              "tree_sha",
+              "policy_digest",
+              "class_id"
+            ]
+          },
+          "next_actions": {"maxItems": 0},
+          "agent_can_continue": {"const": false}
+        }
+      },
+      "else": {
+        "properties": {"next_actions": {"minItems": 1}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "canonical": {
+            "properties": {
+              "state": {"const": "ADMITTED"},
+              "readiness": {"const": "READY_FOR_ATTESTATION"},
+              "standing": {"const": "CURRENT"},
+              "exit_code": {"const": 0}
+            },
+            "required": ["state", "readiness", "standing", "exit_code"]
+          },
+          "identity": {
+            "properties": {"applies_to_current_commit": {"const": true}},
+            "required": ["applies_to_current_commit"]
+          }
+        },
+        "required": ["canonical", "identity"]
+      },
+      "then": {
+        "properties": {"status": {"const": "ready"}}
+      }
+    }
+  ],
+  "properties": {
+    "schema": {"const": "admissible/v0.7/ready-state"},
+    "status": {
+      "enum": ["checking", "needs_attention", "waiting_for_review", "checks_complete", "ready", "unable_to_check"]
+    },
+    "summary": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit_sha", "tree_sha", "policy_digest", "class_id", "attempt_id", "applies_to_current_commit"],
+      "properties": {
+        "repository": {"type": ["string", "null"], "minLength": 1},
+        "commit_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "tree_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "policy_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "class_id": {"type": ["string", "null"], "minLength": 1},
+        "attempt_id": {"type": ["string", "null"], "minLength": 1},
+        "applies_to_current_commit": {"type": "boolean"}
+      }
+    },
+    "canonical": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "readiness", "standing", "scope", "exit_code"],
+      "properties": {
+        "state": {"enum": ["CHECKS_PASSED", "REFUSED", "BLOCKED", "ADMITTED"]},
+        "readiness": {"enum": ["READY_FOR_ATTESTATION", "AWAITING_REVIEW", "NOT_READY"]},
+        "standing": {"enum": ["UNKNOWN", "CURRENT", "IMPEACHED", "UNVERIFIED"]},
+        "scope": {"const": "developer-workflow-admission"},
+        "exit_code": {"type": "integer", "enum": [0, 1, 2]}
+      }
+    },
+    "progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checks_total", "checks_required", "checks_passed", "checks_failed"],
+      "properties": {
+        "checks_total": {"type": "integer", "minimum": 0},
+        "checks_required": {"type": "integer", "minimum": 0},
+        "checks_passed": {"type": "integer", "minimum": 0},
+        "checks_failed": {"type": "integer", "minimum": 0}
+      }
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "required",
+          "status",
+          "duration_ms",
+          "provenance",
+          "attempt_id",
+          "reused_from_attempt"
+        ],
+        "properties": {
+          "check_id": {"type": "string", "minLength": 1},
+          "required": {"type": "boolean"},
+          "status": {"type": "string", "minLength": 1},
+          "exit_code": {"type": ["integer", "null"]},
+          "duration_ms": {"type": "integer", "minimum": 0},
+          "provenance": {"type": "string"},
+          "attempt_id": {"type": "string"},
+          "reused_from_attempt": {"type": "string"}
+        }
+      }
+    },
+    "reasons": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "subject", "detail"],
+        "properties": {
+          "code": {"type": "string", "minLength": 1, "maxLength": 160},
+          "subject": {"type": "string", "minLength": 1, "maxLength": 1000},
+          "detail": {"type": "string", "minLength": 1, "maxLength": 8000}
+        }
+      }
+    },
+    "next_actions": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "detail", "owner", "kind", "reason_codes", "command", "retryable"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1, "maxLength": 160},
+          "title": {"type": "string", "minLength": 1, "maxLength": 500},
+          "detail": {"type": "string", "minLength": 1, "maxLength": 8000},
+          "owner": {"enum": ["agent_or_human", "human", "reviewer", "trusted_infrastructure"]},
+          "kind": {"type": "string", "minLength": 1, "maxLength": 160},
+          "reason_codes": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 1000,
+            "items": {"type": "string", "minLength": 1, "maxLength": 160}
+          },
+          "command": {"type": "string", "maxLength": 8000},
+          "retryable": {"type": "boolean"}
+        }
+      }
+    },
+    "agent_can_continue": {"type": "boolean"},
+    "advanced": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["remediation", "independent_reviews", "required_independent_reviews"],
+      "properties": {
+        "remediation": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {"type": "string", "maxLength": 8000}
+        },
+        "independent_reviews": {"type": "integer", "minimum": 0},
+        "required_independent_reviews": {"type": ["integer", "null"], "minimum": 0},
+        "message": {"type": "string"},
+        "receipt_hash": {"type": "string"},
+        "decision_digest": {"type": "string"},
+        "check_evidence": {"type": "string"}
+      }
+    }
+  }
+}

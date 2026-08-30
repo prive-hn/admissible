@@ -1,0 +1,84 @@
+{
+ "ingested": true,
+ "model": "worker-pool",
+ "sample_count": 12,
+ "sample_count_in": 12,
+ "samples": [
+  {
+   "index": 0,
+   "line": 0,
+   "sha256": "856d69fedf451bb5d7ce66c189c6a7cce5d4838b9266e959856676e44d97a4ee",
+   "source": "def quantiles(data):\n    values = sorted(data)\n    m = len(values) - 1\n    result = []\n    for i in (1, 2, 3):\n        j, delta = divmod(i * m, 4)\n        result.append((values[j] * (4 - delta) + values[j + 1] * delta) / 4)\n    return result\n"
+  },
+  {
+   "index": 1,
+   "line": 0,
+   "sha256": "856d69fedf451bb5d7ce66c189c6a7cce5d4838b9266e959856676e44d97a4ee",
+   "source": "def quantiles(data):\n    values = sorted(data)\n    m = len(values) - 1\n    result = []\n    for i in (1, 2, 3):\n        j, delta = divmod(i * m, 4)\n        result.append((values[j] * (4 - delta) + values[j + 1] * delta) / 4)\n    return result\n"
+  },
+  {
+   "index": 2,
+   "line": 0,
+   "sha256": "856d69fedf451bb5d7ce66c189c6a7cce5d4838b9266e959856676e44d97a4ee",
+   "source": "def quantiles(data):\n    values = sorted(data)\n    m = len(values) - 1\n    result = []\n    for i in (1, 2, 3):\n        j, delta = divmod(i * m, 4)\n        result.append((values[j] * (4 - delta) + values[j + 1] * delta) / 4)\n    return result\n"
+  },
+  {
+   "index": 0,
+   "line": 1,
+   "sha256": "76bda720ba4d2b203a792c953892483589f91c2822427a4162090ff617e90bd3",
+   "source": "def quantiles(data):\n    values = sorted(data)\n    m = len(values) - 1\n    result = []\n    for i in range(1, 4):\n        j = i * m // 4\n        delta = i * m - j * 4\n        result.append((values[j] * (4 - delta) + values[j + 1] * delta) / 4)\n    return result\n"
+  },
+  {
+   "index": 1,
+   "line": 1,
+   "sha256": "7ddf7c28ed76e794f40ae1c39f9deb1226a17df5f31fda6b9d067d2b71a7dd1b",
+   "source": "def quantiles(data):\n    values = sorted(data)\n    m = len(values) - 1\n    result = []\n    for i in range(1, 4):\n        j, delta = divmod(i * m, 4)\n        result.append((values[j] * (4 - delta) + values[j + 1] * delta) / 4)\n    return result\n"
+  },
+  {
+   "index": 2,
+   "line": 1,
+   "sha256": "7ddf7c28ed76e794f40ae1c39f9deb1226a17df5f31fda6b9d067d2b71a7dd1b",
+   "source": "def quantiles(data):\n    values = sorted(data)\n    m = len(values) - 1\n    result = []\n    for i in range(1, 4):\n        j, delta = divmod(i * m, 4)\n        result.append((values[j] * (4 - delta) + values[j + 1] * delta) / 4)\n    return result\n"
+  },
+  {
+   "index": 0,
+   "line": 2,
+   "sha256": "856d69fedf451bb5d7ce66c189c6a7cce5d4838b9266e959856676e44d97a4ee",
+   "source": "def quantiles(data):\n    values = sorted(data)\n    m = len(values) - 1\n    result = []\n    for i in (1, 2, 3):\n        j, delta = divmod(i * m, 4)\n        result.append((values[j] * (4 - delta) + values[j + 1] * delta) / 4)\n    return result\n"
+  },
+  {
+   "index": 1,
+   "line": 2,
+   "sha256": "944c74d337c1b690a2111e26d3e83fd4bd0cf7c5eb7c362859660405a6c3add3",
+   "source": "def quantiles(data):\n    ordered = sorted(data)\n    m = len(ordered) - 1\n    result = []\n    for i in (1, 2, 3):\n        j, delta = divmod(i * m, 4)\n        result.append((ordered[j] * (4 - delta) + ordered[j + 1] * delta) / 4)\n    return result\n"
+  },
+  {
+   "index": 2,
+   "line": 2,
+   "sha256": "76bda720ba4d2b203a792c953892483589f91c2822427a4162090ff617e90bd3",
+   "source": "def quantiles(data):\n    values = sorted(data)\n    m = len(values) - 1\n    result = []\n    for i in range(1, 4):\n        j = i * m // 4\n        delta = i * m - j * 4\n        result.append((values[j] * (4 - delta) + values[j + 1] * delta) / 4)\n    return result\n"
+  },
+  {
+   "index": 0,
+   "line": 3,
+   "sha256": "ea1bc618aaf7d2f9511d181a32dd760cbffdb5dec7fe523015420270368b2041",
+   "source": "def quantiles(data):\n    values = sorted(data)\n    n = len(values)\n    result = []\n    for i in (1, 2, 3):\n        position = i * (n - 1) / 4\n        lower = int(position)\n        upper = min(lower + 1, n - 1)\n        fraction = position - lower\n        result.append(values[lower] + (values[upper] - values[lower]) * fraction)\n    return result\n"
+  },
+  {
+   "index": 1,
+   "line": 3,
+   "sha256": "856d69fedf451bb5d7ce66c189c6a7cce5d4838b9266e959856676e44d97a4ee",
+   "source": "def quantiles(data):\n    values = sorted(data)\n    m = len(values) - 1\n    result = []\n    for i in (1, 2, 3):\n        j, delta = divmod(i * m, 4)\n        result.append((values[j] * (4 - delta) + values[j + 1] * delta) / 4)\n    return result\n"
+  },
+  {
+   "index": 2,
+   "line": 3,
+   "sha256": "856d69fedf451bb5d7ce66c189c6a7cce5d4838b9266e959856676e44d97a4ee",
+   "source": "def quantiles(data):\n    values = sorted(data)\n    m = len(values) - 1\n    result = []\n    for i in (1, 2, 3):\n        j, delta = divmod(i * m, 4)\n        result.append((values[j] * (4 - delta) + values[j + 1] * delta) / 4)\n    return result\n"
+  }
+ ],
+ "schema": "admissible/eval/sample-corpus/v1",
+ "target": "quantiles",
+ "task": "spec:quantiles",
+ "task_sha256": "d45870bae8774a63f19067ca3d8f283ff044c2626bc29193d3a70d990ac907a9"
+}

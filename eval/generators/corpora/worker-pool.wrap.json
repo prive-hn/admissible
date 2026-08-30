@@ -1,0 +1,84 @@
+{
+ "ingested": true,
+ "model": "worker-pool",
+ "sample_count": 12,
+ "sample_count_in": 12,
+ "samples": [
+  {
+   "index": 0,
+   "line": 0,
+   "sha256": "9203723a410cba3be16e0a0d2dff5ede8e07c44b8459b46d41660a04cbd74ce6",
+   "source": "def wrap(text, width):\n    lines = []\n    current = []\n    length = 0\n    for word in text.split():\n        if current and length + 1 + len(word) > width:\n            lines.append(\" \".join(current))\n            current = [word]\n            length = len(word)\n        elif current:\n            current.append(word)\n            length += 1 + len(word)\n        else:\n            current.append(word)\n            length = len(word)\n    if current:\n        lines.append(\" \".join(current))\n    return lines\n"
+  },
+  {
+   "index": 1,
+   "line": 0,
+   "sha256": "756e20777880e4ad1d29cbe9c6ec31ec1c0a84093ce39fc0092246153644496f",
+   "source": "def wrap(text, width):\n    lines = []\n    current = []\n    length = 0\n    for word in text.split():\n        if current and length + 1 + len(word) > width:\n            lines.append(\" \".join(current))\n            current = [word]\n            length = len(word)\n        else:\n            length += len(word) + (1 if current else 0)\n            current.append(word)\n    if current:\n        lines.append(\" \".join(current))\n    return lines\n"
+  },
+  {
+   "index": 2,
+   "line": 0,
+   "sha256": "05deeb100b9fb2b1600d2e3ef6b12151ac4d5f574ce185b192c0e14205d3ac6f",
+   "source": "def wrap(text, width):\n    lines = []\n    current = \"\"\n    for word in text.split():\n        if not current:\n            current = word\n        elif len(current) + 1 + len(word) <= width:\n            current = current + \" \" + word\n        else:\n            lines.append(current)\n            current = word\n    if current:\n        lines.append(current)\n    return lines\n"
+  },
+  {
+   "index": 0,
+   "line": 1,
+   "sha256": "05deeb100b9fb2b1600d2e3ef6b12151ac4d5f574ce185b192c0e14205d3ac6f",
+   "source": "def wrap(text, width):\n    lines = []\n    current = \"\"\n    for word in text.split():\n        if not current:\n            current = word\n        elif len(current) + 1 + len(word) <= width:\n            current = current + \" \" + word\n        else:\n            lines.append(current)\n            current = word\n    if current:\n        lines.append(current)\n    return lines\n"
+  },
+  {
+   "index": 1,
+   "line": 1,
+   "sha256": "0f756111fa2f188d4e5996a5b1153548b984c33ad437f904226df1bb17dfe921",
+   "source": "def wrap(text, width):\n    lines = []\n    current = \"\"\n    for word in text.split():\n        if not current:\n            current = word\n        elif len(current) + 1 + len(word) <= width:\n            current += \" \" + word\n        else:\n            lines.append(current)\n            current = word\n    if current:\n        lines.append(current)\n    return lines\n"
+  },
+  {
+   "index": 2,
+   "line": 1,
+   "sha256": "947abd66837031e856e9e0bb8c474a1db21e07e332cfa32d67b97cdf1dcb082d",
+   "source": "def wrap(text, width):\n    lines = []\n    current = []\n    length = 0\n    for word in text.split():\n        if current and length + 1 + len(word) > width:\n            lines.append(\" \".join(current))\n            current = [word]\n            length = len(word)\n        elif current:\n            current.append(word)\n            length += 1 + len(word)\n        else:\n            current = [word]\n            length = len(word)\n    if current:\n        lines.append(\" \".join(current))\n    return lines\n"
+  },
+  {
+   "index": 0,
+   "line": 2,
+   "sha256": "127618a56ea3999e68c47a7326684035f1eb217a440186e291f5f829559157b6",
+   "source": "def wrap(text, width):\n    lines = []\n    current = []\n    length = 0\n    for word in text.split():\n        if current and length + 1 + len(word) > width:\n            lines.append(' '.join(current))\n            current = [word]\n            length = len(word)\n        elif current:\n            current.append(word)\n            length += 1 + len(word)\n        else:\n            current.append(word)\n            length = len(word)\n    if current:\n        lines.append(' '.join(current))\n    return lines\n"
+  },
+  {
+   "index": 1,
+   "line": 2,
+   "sha256": "05deeb100b9fb2b1600d2e3ef6b12151ac4d5f574ce185b192c0e14205d3ac6f",
+   "source": "def wrap(text, width):\n    lines = []\n    current = \"\"\n    for word in text.split():\n        if not current:\n            current = word\n        elif len(current) + 1 + len(word) <= width:\n            current = current + \" \" + word\n        else:\n            lines.append(current)\n            current = word\n    if current:\n        lines.append(current)\n    return lines\n"
+  },
+  {
+   "index": 2,
+   "line": 2,
+   "sha256": "05deeb100b9fb2b1600d2e3ef6b12151ac4d5f574ce185b192c0e14205d3ac6f",
+   "source": "def wrap(text, width):\n    lines = []\n    current = \"\"\n    for word in text.split():\n        if not current:\n            current = word\n        elif len(current) + 1 + len(word) <= width:\n            current = current + \" \" + word\n        else:\n            lines.append(current)\n            current = word\n    if current:\n        lines.append(current)\n    return lines\n"
+  },
+  {
+   "index": 0,
+   "line": 3,
+   "sha256": "0f756111fa2f188d4e5996a5b1153548b984c33ad437f904226df1bb17dfe921",
+   "source": "def wrap(text, width):\n    lines = []\n    current = \"\"\n    for word in text.split():\n        if not current:\n            current = word\n        elif len(current) + 1 + len(word) <= width:\n            current += \" \" + word\n        else:\n            lines.append(current)\n            current = word\n    if current:\n        lines.append(current)\n    return lines\n"
+  },
+  {
+   "index": 1,
+   "line": 3,
+   "sha256": "98e618753a280d6a949f23ccd160caf09e635b5d8c162c07e46fcc4b5d98ad45",
+   "source": "def wrap(text, width):\n    lines = []\n    current = ''\n    for word in text.split():\n        if not current:\n            current = word\n        elif len(current) + 1 + len(word) <= width:\n            current = current + ' ' + word\n        else:\n            lines.append(current)\n            current = word\n    if current:\n        lines.append(current)\n    return lines\n"
+  },
+  {
+   "index": 2,
+   "line": 3,
+   "sha256": "05deeb100b9fb2b1600d2e3ef6b12151ac4d5f574ce185b192c0e14205d3ac6f",
+   "source": "def wrap(text, width):\n    lines = []\n    current = \"\"\n    for word in text.split():\n        if not current:\n            current = word\n        elif len(current) + 1 + len(word) <= width:\n            current = current + \" \" + word\n        else:\n            lines.append(current)\n            current = word\n    if current:\n        lines.append(current)\n    return lines\n"
+  }
+ ],
+ "schema": "admissible/eval/sample-corpus/v1",
+ "target": "wrap",
+ "task": "spec:wrap",
+ "task_sha256": "7ae4afda0948f744f022312b60ed67cc1643d2b80e4d739c90b7d9faac8c100b"
+}

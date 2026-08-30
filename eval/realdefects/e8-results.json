@@ -1,0 +1,1362 @@
+[
+ {
+  "project": "youtube-dl",
+  "bug": "1",
+  "path": "youtube_dl/utils.py",
+  "symbol": "_match_one",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "99036a1298089068dcf80c0985bfcc3f8c24f281",
+  "fixed": "1cc47c667419e0eadc0a6989256ab7b276852adf",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 35
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "10",
+  "path": "youtube_dl/utils.py",
+  "symbol": "js_to_json",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "85d586617750d38d742a24f141b099f6b898d269",
+  "fixed": "d305dd73a3d6927f0a2c63d08662a183fa173833",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 17
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "11",
+  "path": "youtube_dl/utils.py",
+  "symbol": "str_to_int",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "b568561eba6f4aceb87419e21aba11567c5de7da",
+  "fixed": "348c6bf1c1a00eec323d6e21ff7b9b12699afe04",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "separated",
+  "stubs": 36,
+  "witness": {
+   "args": [
+    "'0'"
+   ],
+   "regimes": {
+    "R0": {
+     "buggy": [
+      "value",
+      "0"
+     ],
+     "fixed": [
+      "raise",
+      "TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union"
+     ]
+    },
+    "R1('')": {
+     "buggy": [
+      "value",
+      "0"
+     ],
+     "fixed": [
+      "raise",
+      "TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union"
+     ]
+    },
+    "R2('q')": {
+     "buggy": [
+      "value",
+      "0"
+     ],
+     "fixed": [
+      "raise",
+      "TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union"
+     ]
+    }
+   }
+  }
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "13",
+  "path": "youtube_dl/utils.py",
+  "symbol": "urljoin",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 1,
+  "buggy": "6945b9e78f38284eb4e440b7badea2fc60b66c2f",
+  "fixed": "fad4ceb53404227f471af2f3544c4c14a5df4acb",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 36
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "15",
+  "path": "youtube_dl/utils.py",
+  "symbol": "js_to_json",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 1,
+  "buggy": "e7f3529f68ee7c8ca78366d37f851cb31fa00f31",
+  "fixed": "c384d537f882efab10a78a56ce6dcb0a30f54b47",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "separated",
+  "stubs": 35,
+  "witness": {
+   "args": [
+    "'0E'"
+   ],
+   "regimes": {
+    "R0": {
+     "buggy": [
+      "value",
+      "'0\"E\"'"
+     ],
+     "fixed": [
+      "value",
+      "'0E'"
+     ]
+    },
+    "R1('')": {
+     "buggy": [
+      "value",
+      "'0\"E\"'"
+     ],
+     "fixed": [
+      "value",
+      "'0E'"
+     ]
+    },
+    "R2('q')": {
+     "buggy": [
+      "value",
+      "'0\"E\"'"
+     ],
+     "fixed": [
+      "value",
+      "'0E'"
+     ]
+    }
+   }
+  }
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "17",
+  "path": "youtube_dl/utils.py",
+  "symbol": "cli_bool_option",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "4bf22f7a1014c55e3358b5a419945071b152eafc",
+  "fixed": "5b232f46dcbdc805507c02edd4fd598f31d544d5",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "20",
+  "path": "youtube_dl/utils.py",
+  "symbol": "get_elements_by_attribute",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "b6c9fe416243373bcb59eb8aa5ef0baca8f3c97c",
+  "fixed": "609ff8ca19f1c4c168a81121074b91cc0f0d4c47",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "separated",
+  "stubs": 34,
+  "witness": {
+   "args": [
+    "'class'",
+    "'a'",
+    "'<div class class class=\"a\"></div>'",
+    "False"
+   ],
+   "regimes": {
+    "R0": {
+     "buggy": [
+      "value",
+      "[]"
+     ],
+     "fixed": [
+      "raise",
+      "AssertionError: "
+     ]
+    },
+    "R1('')": {
+     "buggy": [
+      "value",
+      "[]"
+     ],
+     "fixed": [
+      "raise",
+      "AssertionError: "
+     ]
+    },
+    "R2('q')": {
+     "buggy": [
+      "value",
+      "[]"
+     ],
+     "fixed": [
+      "raise",
+      "AssertionError: "
+     ]
+    }
+   }
+  }
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "22",
+  "path": "youtube_dl/utils.py",
+  "symbol": "_match_one",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 7,
+  "buggy": "1bd05345ea4b91598ec04b8e0d33fd14f9e2eddc",
+  "fixed": "db13c16ef8968613680e2bbc85f373c3e74faf98",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 32
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "24",
+  "path": "youtube_dl/utils.py",
+  "symbol": "_match_one",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 10,
+  "buggy": "2c6da7df4a4d69ec933688e3c53795fd3436a1c6",
+  "fixed": "e5a088dc4be4fdcc96927a9f1b7284d4cd49c415",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 32
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "26",
+  "path": "youtube_dl/utils.py",
+  "symbol": "js_to_json",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 1,
+  "buggy": "4c93ee8d14dc081d413304d2d2eb694cb62cc71a",
+  "fixed": "47212f7bcbd59af40f91796562a6b72ba0439ac4",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "separated",
+  "stubs": 29,
+  "witness": {
+   "args": [
+    "'100'"
+   ],
+   "regimes": {
+    "R0": {
+     "buggy": [
+      "value",
+      "'10'"
+     ],
+     "fixed": [
+      "value",
+      "'100'"
+     ]
+    },
+    "R1('')": {
+     "buggy": [
+      "value",
+      "'10'"
+     ],
+     "fixed": [
+      "value",
+      "'100'"
+     ]
+    },
+    "R2('q')": {
+     "buggy": [
+      "value",
+      "'10'"
+     ],
+     "fixed": [
+      "value",
+      "'100'"
+     ]
+    }
+   }
+  }
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "27",
+  "path": "youtube_dl/utils.py",
+  "symbol": "parse_dfxp_time_expr",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "d631d5f9f27f93767226192e4288990413fa9dbd",
+  "fixed": "db2fe38b5508cbd28b89893219d9cccd41406851",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 20
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "28",
+  "path": "youtube_dl/utils.py",
+  "symbol": "_htmlentity_transform",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 5,
+  "buggy": "bd1512d19649c280197729814766d590ea6c023b",
+  "fixed": "7aefc49c4013efb5056b2c1237e22c52cb5d3c49",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 20
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "37",
+  "path": "youtube_dl/utils.py",
+  "symbol": "uppercase_escape",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 4,
+  "buggy": "98b7cf1acefe398f792ca6ff4c5f84f1b7785fcb",
+  "fixed": "676eb3f2dd542be3e84780b18388253382d3e465",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 0
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "41",
+  "path": "youtube_dl/utils.py",
+  "symbol": "unified_strdate",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "81c2f20b5386d89a62dc27293654d75b77f47473",
+  "fixed": "026fcc04956f2077a50cd4b4e9b87f45d2bcddea",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 0
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "43",
+  "path": "youtube_dl/utils.py",
+  "symbol": "url_basename",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 1,
+  "buggy": "cecaaf3f58ad9f544dbb79af1e565d9353fa2b2d",
+  "fixed": "d6c7a367e88096bb17e323954002c084477fe908",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.4",
+  "status": "candidate",
+  "result": "separated",
+  "stubs": 0,
+  "witness": {
+   "args": [
+    "'http://e.com/a/../b'"
+   ],
+   "regimes": {
+    "R0": {
+     "buggy": [
+      "value",
+      "''"
+     ],
+     "fixed": [
+      "value",
+      "'b'"
+     ]
+    },
+    "R1('')": {
+     "buggy": [
+      "value",
+      "''"
+     ],
+     "fixed": [
+      "value",
+      "'b'"
+     ]
+    },
+    "R2('q')": {
+     "buggy": [
+      "value",
+      "''"
+     ],
+     "fixed": [
+      "value",
+      "'b'"
+     ]
+    }
+   }
+  }
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "5",
+  "path": "youtube_dl/utils.py",
+  "symbol": "unified_timestamp",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 3,
+  "buggy": "b02b960c6bba834d9e7199ac53430c7933079dc8",
+  "fixed": "7dc2a74e0ac9cfa74cc9de6f586ffd5cc8bac0d9",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 30
+ },
+ {
+  "project": "youtube-dl",
+  "bug": "6",
+  "path": "youtube_dl/utils.py",
+  "symbol": "parse_dfxp_time_expr",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 8,
+  "buggy": "4f29fa99069760dc47ef9ca5dbf607a567d2982f",
+  "fixed": "d631d5f9f27f93767226192e4288990413fa9dbd",
+  "repo": "https://github.com/ytdl-org/youtube-dl",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "separated",
+  "stubs": 20,
+  "witness": {
+   "args": [
+    "''"
+   ],
+   "regimes": {
+    "R0": {
+     "buggy": [
+      "value",
+      "0.0"
+     ],
+     "fixed": [
+      "value",
+      "None"
+     ]
+    },
+    "R1('')": {
+     "buggy": [
+      "value",
+      "0.0"
+     ],
+     "fixed": [
+      "value",
+      "None"
+     ]
+    },
+    "R2('q')": {
+     "buggy": [
+      "value",
+      "0.0"
+     ],
+     "fixed": [
+      "value",
+      "None"
+     ]
+    }
+   }
+  }
+ },
+ {
+  "project": "scrapy",
+  "bug": "11",
+  "path": "scrapy/utils/gz.py",
+  "symbol": "gunzip",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 1,
+  "buggy": "241bd00e76df142a24699819f8496bdec8f5c83a",
+  "fixed": "9de6f1ca757b7f200d15e94840c9d431cf202276",
+  "repo": "https://github.com/scrapy/scrapy",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 1
+ },
+ {
+  "project": "scrapy",
+  "bug": "14",
+  "path": "scrapy/utils/gz.py",
+  "symbol": "is_gzipped",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 3,
+  "buggy": "b7553d921afe356ec858bb1d2e5b1702df05ea24",
+  "fixed": "d43a35735a062a4260b002cfbcd3236c77ef9399",
+  "repo": "https://github.com/scrapy/scrapy",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 1
+ },
+ {
+  "project": "scrapy",
+  "bug": "15",
+  "path": "scrapy/utils/url.py",
+  "symbol": "_safe_ParseResult",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 8,
+  "buggy": "b7925e42202d79d2ba9d00b6aded3a451c92fe81",
+  "fixed": "1aec5200bc81493623f2a4e077b4e80e104e47d5",
+  "repo": "https://github.com/scrapy/scrapy",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 4
+ },
+ {
+  "project": "scrapy",
+  "bug": "16",
+  "path": "scrapy/utils/url.py",
+  "symbol": "_unquotepath",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 145,
+  "buggy": "73a5571c6044d5aea47b4f973e325c2f3d4e25dc",
+  "fixed": "68dedf54cb27847f6d035099b61aa06226549fad",
+  "repo": "https://github.com/scrapy/scrapy",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "separated",
+  "stubs": 4,
+  "witness": {
+   "args": [
+    "''"
+   ],
+   "regimes": {
+    "R0": {
+     "buggy": [
+      "value",
+      "''"
+     ],
+     "fixed": [
+      "value",
+      "b''"
+     ]
+    },
+    "R1('')": {
+     "buggy": [
+      "value",
+      "''"
+     ],
+     "fixed": [
+      "value",
+      "b''"
+     ]
+    },
+    "R2('q')": {
+     "buggy": [
+      "value",
+      "''"
+     ],
+     "fixed": [
+      "value",
+      "b''"
+     ]
+    }
+   }
+  }
+ },
+ {
+  "project": "scrapy",
+  "bug": "17",
+  "path": "scrapy/utils/response.py",
+  "symbol": "response_status_message",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "ebef6d7c6dd8922210db8a4a44f48fe27ee0cd16",
+  "fixed": "65c7c05060fd2d1fc161d4904243d5e0b31e202b",
+  "repo": "https://github.com/scrapy/scrapy",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 6
+ },
+ {
+  "project": "scrapy",
+  "bug": "25",
+  "path": "scrapy/http/request/form.py",
+  "symbol": "_get_form",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 3,
+  "buggy": "57f87b95d4d705f8afdd8fb9f7551033a7d88ee2",
+  "fixed": "9548691fdd47077a53f85daace091ef4af599cb9",
+  "repo": "https://github.com/scrapy/scrapy",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "scrapy",
+  "bug": "29",
+  "path": "scrapy/utils/request.py",
+  "symbol": "request_httprepr",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 1,
+  "buggy": "5c4666a3d489bd3efa2e188de58721a125a5bfad",
+  "fixed": "8d45b3c4810cb5304ba1193b45697a0df1157326",
+  "repo": "https://github.com/scrapy/scrapy",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 6
+ },
+ {
+  "project": "scrapy",
+  "bug": "35",
+  "path": "scrapy/crawler.py",
+  "symbol": "_get_spider_loader",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "0a5bbbaed3e182d2151b6b34357667901ece353f",
+  "fixed": "c3d3a9491412d2a91b0927a05908593dcd329e4a",
+  "repo": "https://github.com/scrapy/scrapy",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 15
+ },
+ {
+  "project": "scrapy",
+  "bug": "36",
+  "path": "scrapy/utils/misc.py",
+  "symbol": "set_environ",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 12,
+  "buggy": "cb8140a42a27ede87b0880372024f2f1804618b8",
+  "fixed": "cf9be5344a89dd8e14f8241ec69de9c984ec1e05",
+  "repo": "https://github.com/scrapy/scrapy",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "scrapy",
+  "bug": "38",
+  "path": "scrapy/http/request/form.py",
+  "symbol": "_get_clickable",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "6cc6bbb5fc5c102271829a554772effb0444023c",
+  "fixed": "6c3970e6722191b642fd99c6c1bfed0d93010cab",
+  "repo": "https://github.com/scrapy/scrapy",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 8
+ },
+ {
+  "project": "scrapy",
+  "bug": "7",
+  "path": "scrapy/http/request/form.py",
+  "symbol": "_urlencode",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 8,
+  "buggy": "e1ceaf3b5fa29326f032c4ed3f50943384b9e63d",
+  "fixed": "074caf434e255bc96f106e57e3e288028f372485",
+  "repo": "https://github.com/scrapy/scrapy",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 8
+ },
+ {
+  "project": "thefuck",
+  "bug": "1",
+  "path": "thefuck/rules/pip_unknown_command.py",
+  "symbol": "get_new_command",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "2ced7a7f33ae0bec3ffc7a43ce95330bdf6cfcb9",
+  "fixed": "444908ce1c17767ef4aaf9e0b4950497914f7f63",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 4
+ },
+ {
+  "project": "thefuck",
+  "bug": "10",
+  "path": "thefuck/rules/man.py",
+  "symbol": "get_new_command",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 11,
+  "buggy": "8bd6c5da67e55c64257345efa4e3cc454c42475c",
+  "fixed": "0c84eefa55fc1b4bc4940b41d74568884344e35c",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "separated",
+  "stubs": 2,
+  "witness": {
+   "args": [
+    "Record(script='', script_parts=[], stderr='')"
+   ],
+   "regimes": {
+    "R0": {
+     "buggy": [
+      "value",
+      "[' 2  --help', ' 3 ', ' 2 ']"
+     ],
+     "fixed": [
+      "raise",
+      "IndexError: list index out of range"
+     ]
+    },
+    "R1('')": {
+     "buggy": [
+      "value",
+      "[' 2  --help', ' 3 ', ' 2 ']"
+     ],
+     "fixed": [
+      "raise",
+      "IndexError: list index out of range"
+     ]
+    },
+    "R2('q')": {
+     "buggy": [
+      "value",
+      "[' 2  --help', ' 3 ', ' 2 ']"
+     ],
+     "fixed": [
+      "raise",
+      "IndexError: list index out of range"
+     ]
+    }
+   }
+  }
+ },
+ {
+  "project": "thefuck",
+  "bug": "11",
+  "path": "thefuck/rules/git_push.py",
+  "symbol": "get_new_command",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 17,
+  "buggy": "92f3c8fb52b32b79005b4864c31a5c2d8c45f4b1",
+  "fixed": "db7dffdb44ae5c7be8de088765463fbda96197d1",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "thefuck",
+  "bug": "12",
+  "path": "thefuck/rules/no_command.py",
+  "symbol": "match",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "4c2fc490f280ca3921785d8f58a37274ced35ce6",
+  "fixed": "ca787a1cba3cc9b26b43919c5e60acb40ebcd919",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "thefuck",
+  "bug": "13",
+  "path": "thefuck/rules/git_branch_exists.py",
+  "symbol": "match",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 3,
+  "buggy": "2af65071d84a7d1d14a4126364d9b4c9b5241f3c",
+  "fixed": "237bc579994de633fe104714156ddfa925a50b6e",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "thefuck",
+  "bug": "15",
+  "path": "thefuck/rules/git_add.py",
+  "symbol": "match",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 3,
+  "buggy": "3a39deb485995e67afb1919972cd1c9aaedf4c32",
+  "fixed": "41707b80c61acadb7c87b0efcbf10f4186dc5937",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "thefuck",
+  "bug": "18",
+  "path": "thefuck/rules/sudo.py",
+  "symbol": "match",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 3,
+  "buggy": "b65a9a0a4fd9bef394b45a1d367d29aa1e1c403e",
+  "fixed": "c3b1ba763708b8faaaf55717c436c4cd4c57a7ea",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 0
+ },
+ {
+  "project": "thefuck",
+  "bug": "2",
+  "path": "thefuck/utils.py",
+  "symbol": "get_all_executables",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 1,
+  "buggy": "40ab4eb62db57627bff10cf029d29c94704086a2",
+  "fixed": "78ef9eec88f43d5727986be2237f6e0e250cbbbc",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "thefuck",
+  "bug": "20",
+  "path": "thefuck/rules/dirty_unzip.py",
+  "symbol": "_zip_file",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 3,
+  "buggy": "0a6a3db65d2fc480c5b2f1135137f34c9f06b742",
+  "fixed": "280751b36e715b006c631ba6c08de99ccc74f6d2",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "separated",
+  "stubs": 3,
+  "witness": {
+   "args": [
+    "Record(script='', split_script='00')"
+   ],
+   "regimes": {
+    "R0": {
+     "buggy": [
+      "value",
+      "None"
+     ],
+     "fixed": [
+      "value",
+      "'0.zip'"
+     ]
+    },
+    "R1('')": {
+     "buggy": [
+      "value",
+      "None"
+     ],
+     "fixed": [
+      "value",
+      "'0.zip'"
+     ]
+    },
+    "R2('q')": {
+     "buggy": [
+      "value",
+      "None"
+     ],
+     "fixed": [
+      "value",
+      "'0.zip'"
+     ]
+    }
+   }
+  }
+ },
+ {
+  "project": "thefuck",
+  "bug": "21",
+  "path": "thefuck/rules/git_fix_stash.py",
+  "symbol": "match",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 6,
+  "buggy": "71dc2666ccf62e653291d9a7a08e2c6c3320425b",
+  "fixed": "213791d3c2af379ffa37a140735998736b41912e",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "thefuck",
+  "bug": "26",
+  "path": "thefuck/rules/vagrant_up.py",
+  "symbol": "get_new_command",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 7,
+  "buggy": "7cb0388ed0845545e878b29783bbf8e901a02745",
+  "fixed": "feb3eee2a08f0cba4552373d728509bc90b561ab",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-attributes-named"
+ },
+ {
+  "project": "thefuck",
+  "bug": "28",
+  "path": "thefuck/rules/fix_file.py",
+  "symbol": "get_new_command",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 19,
+  "buggy": "88831c424f569e6a55fc98883d3eeecc7d425b18",
+  "fixed": "9b30ae0424607a4e268bd26eaee8ccb91a5588f9",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "thefuck",
+  "bug": "30",
+  "path": "thefuck/rules/fix_file.py",
+  "symbol": "get_new_command",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 6,
+  "buggy": "de513cacb150049e3f95434f8d6d30b7ed1e0ea7",
+  "fixed": "43fead02d3a24fef71534116c5550def0f56830c",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-attributes-named"
+ },
+ {
+  "project": "thefuck",
+  "bug": "32",
+  "path": "thefuck/rules/ls_lah.py",
+  "symbol": "get_new_command",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 3,
+  "buggy": "cb33c912e5f2f4c2da6b70d708ff0437bfcd3b94",
+  "fixed": "25cc98a21a3450a046caf418f08713c82a290805",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-attributes-named"
+ },
+ {
+  "project": "thefuck",
+  "bug": "6",
+  "path": "thefuck/rules/git_branch_exists.py",
+  "symbol": "get_new_command",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 3,
+  "buggy": "797ca1c5647c565f62e21a8e29515c8b0fbe275f",
+  "fixed": "7c858fadb3458be829d3d43666ccb46c3ed5b8a0",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "thefuck",
+  "bug": "8",
+  "path": "thefuck/rules/dnf_no_such_command.py",
+  "symbol": "_parse_operations",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "449cb9a00693c8b4d97d5fda8d732cf0978e117e",
+  "fixed": "be48f027847161f907def8987706041c65a1fd58",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "separated",
+  "stubs": 7,
+  "witness": {
+   "args": [
+    "''"
+   ],
+   "regimes": {
+    "R0": {
+     "buggy": [
+      "raise",
+      "TypeError: cannot use a bytes pattern on a string-like object"
+     ],
+     "fixed": [
+      "value",
+      "[]"
+     ]
+    },
+    "R1('')": {
+     "buggy": [
+      "raise",
+      "TypeError: cannot use a bytes pattern on a string-like object"
+     ],
+     "fixed": [
+      "value",
+      "[]"
+     ]
+    },
+    "R2('q')": {
+     "buggy": [
+      "raise",
+      "TypeError: cannot use a bytes pattern on a string-like object"
+     ],
+     "fixed": [
+      "value",
+      "[]"
+     ]
+    }
+   }
+  }
+ },
+ {
+  "project": "thefuck",
+  "bug": "9",
+  "path": "thefuck/rules/git_push.py",
+  "symbol": "get_new_command",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 5,
+  "buggy": "ce6b82c92d78ae283cb3db001766b76f6647bc47",
+  "fixed": "feb36ede5c518fdc3b6eddf945b2d8b1e2294d15",
+  "repo": "https://github.com/nvbn/thefuck",
+  "python": "3.7.0",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "black",
+  "bug": "1",
+  "path": "black.py",
+  "symbol": "reformat_many",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 11,
+  "buggy": "26c9465a22c732ab1e17b0dec578fa3432e9b558",
+  "fixed": "c0a7582e3d4cc8bec3b7f5a6c52b36880dcb57d7",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "module-exec-failed"
+ },
+ {
+  "project": "black",
+  "bug": "13",
+  "path": "blib2to3/pgen2/tokenize.py",
+  "symbol": "generate_tokens",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 4,
+  "buggy": "b719d85ccc330170e40b2617307a7e3b2a0bab14",
+  "fixed": "883689366ce0f0e0ddd66d81360c61abfd19b01a",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 0
+ },
+ {
+  "project": "black",
+  "bug": "16",
+  "path": "black.py",
+  "symbol": "gen_python_files_in_dir",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 14,
+  "buggy": "fb34c9e19589d05f92084a28940837151251ebd6",
+  "fixed": "42a3fe53319a8c02858c2a96989ed1339f84515a",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "black",
+  "bug": "17",
+  "path": "black.py",
+  "symbol": "decode_bytes",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 4,
+  "buggy": "bbc09a4f013f2a584f143f3f5e3f76f6082367d4",
+  "fixed": "7fc6ce990669464f5172b63fafa3724f5f308be3",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 13
+ },
+ {
+  "project": "black",
+  "bug": "18",
+  "path": "black.py",
+  "symbol": "lib2to3_unparse",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 44,
+  "buggy": "dbe26161fa68632d608a440666a0960a32630902",
+  "fixed": "00a302560b92951c22f0f4c8d618cf63de39bd57",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 13
+ },
+ {
+  "project": "black",
+  "bug": "2",
+  "path": "black.py",
+  "symbol": "generate_ignored_nodes",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 40,
+  "buggy": "c8ca6b2b9ff3510bee12129824cebfc2fc51e5b2",
+  "fixed": "892eddacd215d685e136686b7f629ade70adca83",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "module-exec-failed"
+ },
+ {
+  "project": "black",
+  "bug": "20",
+  "path": "black.py",
+  "symbol": "format_file_in_place",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "2e52a2b3ecc0fe025439c3db05a4457ab14f167b",
+  "fixed": "06e95b1e9bcd43c4574840f8174ba4b2c5d281bd",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "black",
+  "bug": "21",
+  "path": "black.py",
+  "symbol": "dump_to_file",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 1,
+  "buggy": "c071af761e1550c6e4ebab8e5af747d2d8fdd48e",
+  "fixed": "8e7848c63efe36f09e4651bece8c0efc34a1c3e1",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ },
+ {
+  "project": "black",
+  "bug": "5",
+  "path": "black.py",
+  "symbol": "bracket_split_build_line",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 11,
+  "buggy": "1bbb01b854d168d76ebe4bf78961c2152ae075d9",
+  "fixed": "9394de150ebf0adc426523f46dc08e8b2b2b0b63",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 16
+ },
+ {
+  "project": "black",
+  "bug": "7",
+  "path": "black.py",
+  "symbol": "normalize_fmt_off",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 13,
+  "buggy": "18119d38466652ae818436cb497f601294ed4558",
+  "fixed": "de806405d2934b629d67e2a6317ad7e826765a20",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 14
+ },
+ {
+  "project": "black",
+  "bug": "8",
+  "path": "black.py",
+  "symbol": "bracket_split_build_line",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 10,
+  "buggy": "e6ddb68c786256e1cb0c76b42d10c212ef34cb2a",
+  "fixed": "6b994fdb8ab70ce4c2eafb8f2f0ff2648f3ff1ef",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 14
+ },
+ {
+  "project": "black",
+  "bug": "9",
+  "path": "black.py",
+  "symbol": "get_grammars",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 2,
+  "buggy": "026c81b83454f176a9f9253cbfb70be2c159d822",
+  "fixed": "d6db1c12a8e14833fe22da377cddc2bd1f43dc14",
+  "repo": "https://github.com/psf/black",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 14
+ },
+ {
+  "project": "tqdm",
+  "bug": "9",
+  "path": "tqdm/_tqdm.py",
+  "symbol": "format_sizeof",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 8,
+  "buggy": "9da1d5d116aec7a23d8f6dc22d5e23ecb1c40a7c",
+  "fixed": "d877c1dfb4739852105f7b967a8fceb869ac5042",
+  "repo": "https://github.com/tqdm/tqdm",
+  "python": "3.6.9",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 4
+ },
+ {
+  "project": "httpie",
+  "bug": "1",
+  "path": "httpie/downloads.py",
+  "symbol": "get_unique_filename",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 34,
+  "buggy": "001bda19450ad85c91345eea3cfa3991e1d492ba",
+  "fixed": "5300b0b490b8db48fac30b5e32164be93dc574b7",
+  "repo": "https://github.com/jakubroztocil/httpie/",
+  "python": "3.7.3",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 4
+ },
+ {
+  "project": "cookiecutter",
+  "bug": "1",
+  "path": "cookiecutter/generate.py",
+  "symbol": "generate_context",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 1,
+  "buggy": "c15633745df6abdb24e02746b82aadb20b8cdf8c",
+  "fixed": "7f6804c4953a18386809f11faf4d86898570debc",
+  "repo": "https://github.com/cookiecutter/cookiecutter",
+  "python": "3.6.9",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 12
+ },
+ {
+  "project": "cookiecutter",
+  "bug": "2",
+  "path": "cookiecutter/hooks.py",
+  "symbol": "run_hook",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 9,
+  "buggy": "d7e7b28811e474e14d1bed747115e47dcdd15ba3",
+  "fixed": "90434ff4ea4477941444f1e83313beb414838535",
+  "repo": "https://github.com/cookiecutter/cookiecutter",
+  "python": "3.6.9",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 3
+ },
+ {
+  "project": "cookiecutter",
+  "bug": "3",
+  "path": "cookiecutter/prompt.py",
+  "symbol": "read_user_choice",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 1,
+  "buggy": "5c282f020a8db7e5e7c4e7b51b010556ca31fb7f",
+  "fixed": "7129d474206761a6156925db78eee4b62a0e3944",
+  "repo": "https://github.com/cookiecutter/cookiecutter",
+  "python": "3.6.9",
+  "status": "candidate",
+  "result": "not-separated",
+  "stubs": 5
+ },
+ {
+  "project": "luigi",
+  "bug": "21",
+  "path": "luigi/interface.py",
+  "symbol": "run",
+  "kind": "def",
+  "module_level": true,
+  "changed_lines": 3,
+  "buggy": "b7768da963570bd2223d97c1035f811c2eaf30b4",
+  "fixed": "1a6a89d8b510089392bb407d4ec660451deb1f23",
+  "repo": "https://github.com/spotify/luigi",
+  "python": "3.8.3",
+  "status": "candidate",
+  "result": "no-input-strategy"
+ }
+]

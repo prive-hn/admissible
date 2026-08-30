@@ -1,0 +1,11 @@
+# The sdist ships the runnable product and the data it reads at runtime.
+#
+# `package-data` puts the templates and browser assets in the wheel; an sdist
+# is built by a different code path and would otherwise omit them, so a wheel
+# built *from the sdist* would install a UI with no assets and an `init --ci`
+# with no template. Both are named here so the two builds agree.
+include README.md
+recursive-include src/admissible_ready/templates *.yml
+recursive-include src/admissible_ready/ready_static *.html *.css *.js
+global-exclude *.pyc
+global-exclude __pycache__

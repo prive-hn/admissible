@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prive-hn.github.io/admissible/protocol/head-receipt.schema.json",
+  "title": "Admissible authenticated journal head receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "journal_id",
+    "event_count",
+    "head_digest",
+    "previous_receipt_hash",
+    "extension_digests",
+    "issued_at",
+    "algorithm",
+    "key_id",
+    "signature",
+    "receipt_hash"
+  ],
+  "properties": {
+    "journal_id": { "type": "string", "minLength": 1 },
+    "event_count": { "type": "integer", "minimum": 0 },
+    "head_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "previous_receipt_hash": {
+      "type": "string",
+      "pattern": "^(?:|[0-9a-f]{64})$"
+    },
+    "extension_digests": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    },
+    "issued_at": { "type": "integer", "minimum": 0 },
+    "algorithm": { "const": "hmac-sha256" },
+    "key_id": { "type": "string", "minLength": 1 },
+    "signature": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "receipt_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
