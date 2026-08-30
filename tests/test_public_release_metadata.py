@@ -177,6 +177,10 @@ class PublicRepositorySurface(unittest.TestCase):
             artifact.planned_wall_seconds, artifact.max_wall_seconds)
         self.assertLessEqual(
             artifact.planned_cost_units, artifact.max_cost_units)
+        from admissible.runner import order_checks
+        ordered = [check.id for check in order_checks(artifact.checks)]
+        self.assertEqual(
+            ordered, ["venv", "pip", "npm", "unit", "audit", "build"])
 
     def test_every_arxiv_reference_has_a_canonical_link(self):
         for relative in (
