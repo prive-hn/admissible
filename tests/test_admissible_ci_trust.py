@@ -177,22 +177,26 @@ class ReusableWorkflowTest(unittest.TestCase):
         guard = evaluate.split('if [ ! -f "$CONFIG_PATH" ]; then', 1)[1]
         self.assertIn("exit 1", guard.split("\n          fi\n", 1)[0])
 
-    def test_the_admissible_repository_does_not_self_trigger_the_gate(self):
+    def test_the_admissible_repository_evaluates_itself_with_a_pinned_gate(self):
+        """Public CI is Ready evaluate. Trust stays off GitHub Actions.
+
+        The tool pin is a reviewed commit, not ``github.sha``: using the
+        candidate as the program would let a PR rewrite the gate it is
+        evaluated by.
+        """
+
         caller = read(CALLER)
         trigger = caller.split("jobs:")[0]
-        self.assertNotIn("pull_request:", trigger)
-        self.assertNotIn("push:", trigger)
-        self.assertIn("workflow_dispatch:", trigger)
-
-    def test_manual_dispatch_cannot_sign_an_arbitrary_ref(self):
-        """It cannot sign anything, because the gate it calls cannot."""
-
-        caller = read(CALLER)
+        self.assertIn("pull_request:", trigger)
+        self.assertIn("push:", trigger)
+        self.assertNotIn("workflow_dispatch:", trigger)
         self.assertNotIn("secrets:", caller)
         self.assertNotIn("ADMISSIBLE_HMAC_KEY", caller)
-        # A local `uses: ./...` resolves to this same commit, so the pin and
-        # the program agree by construction here and nowhere else.
-        self.assertIn("tool-sha: ${{ github.sha }}", caller)
+        self.assertNotIn("tool-sha: ${{ github.sha }}", caller)
+        pins = re.findall(
+            r"admissible-gate\.yml@([0-9a-f]{40})", caller)
+        self.assertEqual(1, len(pins), caller)
+        self.assertIn("tool-sha: " + pins[0], caller)
 
     def test_job_summary_is_a_friendly_exact_commit_ready_card(self):
         evaluate = job_block(self.gate(), "evaluate")

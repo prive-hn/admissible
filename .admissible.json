@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "profile": "python-library",
+  "title": "Admissible public source",
+  "summary": "Exact-head evaluate of this repository. A green run means the deterministic checks passed for this commit. It is not an admission.",
+  "residual_risks": [
+    "Hosted evaluate cannot attest isolation; ADMISSIBLE_ISOLATION is none.",
+    "The pin is the last reviewed tool commit, not the candidate commit.",
+    "A green evaluate is not an admission."
+  ],
+  "tightening": [
+    "Bump uses and tool-sha together after a reviewed successor commit.",
+    "Run attest-evaluation and finalize off GitHub Actions."
+  ],
+  "classes": [
+    {
+      "id": "default",
+      "description": "Public source tree.",
+      "required_independent_reviews": 0,
+      "review_requirement": "No independent review required; deterministic checks carry this class.",
+      "review_max_age_seconds": 604800,
+      "max_cost_units": 24,
+      "max_wall_seconds": 3600,
+      "residual_risks": [
+        "Hosted evaluate cannot attest isolation.",
+        "A green evaluate is not an admission."
+      ],
+      "tightening": [
+        "Bump the pinned tool-sha after a reviewed successor."
+      ],
+      "checks": [
+        {
+          "id": "venv",
+          "argv": ["python3", "-m", "venv", ".venv"],
+          "timeout_seconds": 120,
+          "cost_units": 1,
+          "required": true,
+          "version": "1",
+          "description": "Disposable interpreter for this evaluate.",
+          "cacheable": false
+        },
+        {
+          "id": "pip",
+          "argv": [".venv/bin/python", "-m", "pip", "install", "-e", ".[dev]"],
+          "timeout_seconds": 900,
+          "cost_units": 3,
+          "required": true,
+          "version": "1",
+          "description": "Install the candidate in the disposable interpreter.",
+          "cacheable": false
+        },
+        {
+          "id": "npm",
+          "argv": ["npm", "ci", "--prefix", "apps/cockpit"],
+          "timeout_seconds": 600,
+          "cost_units": 2,
+          "required": true,
+          "version": "1",
+          "description": "Install cockpit dependencies from the lockfile.",
+          "cacheable": false
+        },
+        {
+          "id": "unit",
+          "argv": ["make", "test"],
+          "timeout_seconds": 1800,
+          "cost_units": 8,
+          "required": true,
+          "version": "1",
+          "description": "The repository's own test suite passes.",
+          "cacheable": false
+        },
+        {
+          "id": "audit",
+          "argv": ["make", "audit"],
+          "timeout_seconds": 300,
+          "cost_units": 1,
+          "required": true,
+          "version": "1",
+          "description": "Cockpit production dependencies have no known holes.",
+          "cacheable": false
+        },
+        {
+          "id": "build",
+          "argv": ["make", "build"],
+          "timeout_seconds": 600,
+          "cost_units": 2,
+          "required": true,
+          "version": "1",
+          "description": "Cockpit still builds.",
+          "cacheable": false
+        }
+      ]
+    }
+  ]
+}

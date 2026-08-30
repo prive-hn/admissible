@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import unittest
 from pathlib import Path
 
@@ -142,15 +143,35 @@ class PublicRepositorySurface(unittest.TestCase):
                     self.assertNotIn("Exact-head review of PR", text)
                     self.assertNotIn("Working voice", text)
 
-    def test_public_ci_is_read_only_and_dormant_in_the_private_predecessor(self):
-        workflow = (ROOT / ".github/workflows/public-ci.yml").read_text(
+    def test_public_ci_is_a_pinned_admissible_gate_evaluate(self):
+        pin = "bf928dadd057934bfe8c2406f98734804b193290"
+        self.assertFalse((ROOT / ".github/workflows/public-ci.yml").exists())
+        workflow = (ROOT / ".github/workflows/admissible.yml").read_text(
             encoding="utf-8")
         self.assertIn("pull_request:", workflow)
-        self.assertIn("github.event.repository.private == false", workflow)
         self.assertIn("permissions:\n  contents: read", workflow)
         self.assertNotIn("pull_request_target", workflow)
         self.assertNotIn("id-token: write", workflow)
+        self.assertNotIn("${{ secrets.", workflow)
         self.assertNotIn("publish", workflow.lower())
+        self.assertNotRegex(workflow, r"(?m)^  finalize:")
+        uses = (
+            "prive-hn/admissible/.github/workflows/admissible-gate.yml@"
+            + pin)
+        self.assertIn("uses: " + uses, workflow)
+        self.assertIn("tool-sha: " + pin, workflow)
+        self.assertEqual(workflow.count(pin), 2)
+        self.assertNotIn("REPLACE-WITH-FULL-40-HEX", workflow)
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
+        from admissible.config import parse_config
+        policy = json.loads(
+            (ROOT / ".admissible.json").read_text(encoding="utf-8"))
+        parsed = parse_config(policy)
+        self.assertEqual(1, parsed.version)
+        self.assertEqual(0, parsed.classes[0].required_independent_reviews)
+        argv = [check.argv for check in parsed.classes[0].checks]
+        self.assertIn(("make", "test"), argv)
 
     def test_every_arxiv_reference_has_a_canonical_link(self):
         for relative in (
