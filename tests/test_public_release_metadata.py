@@ -172,6 +172,11 @@ class PublicRepositorySurface(unittest.TestCase):
         self.assertEqual(0, parsed.classes[0].required_independent_reviews)
         argv = [check.argv for check in parsed.classes[0].checks]
         self.assertIn(("make", "test"), argv)
+        artifact = parsed.classes[0]
+        self.assertLessEqual(
+            artifact.planned_wall_seconds, artifact.max_wall_seconds)
+        self.assertLessEqual(
+            artifact.planned_cost_units, artifact.max_cost_units)
 
     def test_every_arxiv_reference_has_a_canonical_link(self):
         for relative in (

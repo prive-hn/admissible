@@ -20,7 +20,7 @@
       "review_requirement": "No independent review required; deterministic checks carry this class.",
       "review_max_age_seconds": 604800,
       "max_cost_units": 24,
-      "max_wall_seconds": 3600,
+      "max_wall_seconds": 5400,
       "residual_risks": [
         "Hosted evaluate cannot attest isolation.",
         "A green evaluate is not an admission."
