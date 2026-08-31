@@ -144,10 +144,15 @@ class PublicRepositorySurface(unittest.TestCase):
                     self.assertNotIn("Working voice", text)
 
     def test_public_ci_is_a_pinned_admissible_gate_evaluate(self):
-        pin = "bf928dadd057934bfe8c2406f98734804b193290"
         self.assertFalse((ROOT / ".github/workflows/public-ci.yml").exists())
         workflow = (ROOT / ".github/workflows/admissible.yml").read_text(
             encoding="utf-8")
+        pins = re.findall(
+            r"admissible-gate\.yml@([0-9a-f]{40})", workflow)
+        self.assertEqual(1, len(pins), workflow)
+        pin = pins[0]
+        self.assertNotEqual(pin, "bf928dadd057934bfe8c2406f98734804b193290",
+                            "caller must pin the fail-closed gate, not v0.8.0")
         self.assertIn("pull_request:", workflow)
         self.assertIn("permissions:\n  contents: read", workflow)
         self.assertNotIn("pull_request_target", workflow)
