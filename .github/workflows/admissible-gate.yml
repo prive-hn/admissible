@@ -176,11 +176,13 @@ jobs:
             echo "this input is that it cannot." >&2
             exit 2
           fi
-          if [ -n "$JOB_WORKFLOW_SHA" ] && [ "$JOB_WORKFLOW_SHA" != "$TOOL_SHA" ]; then
-            echo "this workflow is running at commit $JOB_WORKFLOW_SHA but" >&2
+          if [ -z "$JOB_WORKFLOW_SHA" ] || [ "$JOB_WORKFLOW_SHA" != "$TOOL_SHA" ]; then
+            echo "this workflow is running at commit ${JOB_WORKFLOW_SHA:-<empty>} but" >&2
             echo "tool-sha says $TOOL_SHA. The gate you pinned and the program" >&2
             echo "it would run are different commits, so the pin guarantees" >&2
-            echo "nothing. Pin both to the same sha:" >&2
+            echo "nothing. An empty github.job_workflow_sha is a refusal, not a" >&2
+            echo "skip: otherwise a PR can keep uses: pinned and point tool-sha" >&2
+            echo "at candidate-owned code. Pin both to the same sha:" >&2
             echo "  uses: prive-hn/admissible/.github/workflows/admissible-gate.yml@SHA" >&2
             echo "  with: { tool-sha: SHA }" >&2
             exit 2

@@ -672,7 +672,7 @@ CASES = [
      "tests.test_admissible_review_handoff"),
     ("gate workflow accepts a pin that disagrees with the program",
      ".github/workflows/admissible-gate.yml",
-     '          if [ -n "$JOB_WORKFLOW_SHA" ] && [ "$JOB_WORKFLOW_SHA" != "$TOOL_SHA" ]; then',
+     '          if [ -z "$JOB_WORKFLOW_SHA" ] || [ "$JOB_WORKFLOW_SHA" != "$TOOL_SHA" ]; then',
      "          if false; then",
      "tests.test_admissible_final_repair"),
     ("store.py the gate may keep its store inside the candidate",

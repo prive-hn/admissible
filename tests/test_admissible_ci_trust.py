@@ -122,6 +122,12 @@ class ReusableWorkflowTest(unittest.TestCase):
         evaluate = job_block(self.gate(), "evaluate")
         self.assertIn("job_workflow_sha", evaluate)
         self.assertIn('"$JOB_WORKFLOW_SHA" != "$TOOL_SHA"', evaluate)
+        # Hosted GitHub left github.job_workflow_sha empty. Skipping the
+        # comparison then is fail-open: a PR can keep uses: pinned and
+        # point tool-sha at candidate-owned code.
+        self.assertNotIn(
+            '[ -n "$JOB_WORKFLOW_SHA" ] &&', evaluate)
+        self.assertIn('[ -z "$JOB_WORKFLOW_SHA" ]', evaluate)
 
     def test_the_preview_is_published_as_a_workflow_call_output(self):
         header = self.gate().split("jobs:")[0]
