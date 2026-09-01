@@ -392,14 +392,17 @@ class ToolShaPinTest(unittest.TestCase):
         self.assertIn("ref: ${{ inputs.tool-sha }}", self.gate())
 
     def test_the_running_workflow_sha_must_equal_the_tool_sha(self):
-        """``job_workflow_sha`` is the reusable workflow's own commit.
+        """The documented ``job`` context identifies the reusable workflow.
 
-        It is the one value that tells the callee which revision of itself the
-        caller actually pinned, so it is the only honest runtime check that the
-        ``uses:`` pin and the ``tool-sha`` input agree.
+        GitHub exposes the callee's commit and repository as
+        ``job.workflow_sha`` and ``job.workflow_repository``. Both must match
+        the public tool source before candidate code is checked out.
         """
 
-        self.assertIn("job_workflow_sha", self.gate())
+        gate = self.gate()
+        self.assertIn("job.workflow_sha", gate)
+        self.assertIn("job.workflow_repository", gate)
+        self.assertNotIn("github.job_workflow_sha", gate)
 
     def test_the_generated_caller_pins_the_same_sha_twice(self):
         text = CONSUMER.read_text(encoding="utf-8")
