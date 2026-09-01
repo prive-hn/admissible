@@ -852,6 +852,10 @@
     "tests.test_project_registry": [
       "server.project"
     ],
+    "tests.test_public_release_metadata": [
+      "admissible.config",
+      "admissible.runner"
+    ],
     "tests.test_rga_calibration": [
       "fcd.core",
       "rga.calibration",
