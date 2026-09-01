@@ -7,6 +7,15 @@ This directory contains three connected technical reports:
    standing layers).
 3. [`admissible/DRAFT.md`](admissible/DRAFT.md) — the composed Admissible
    kernel and its non-interference results.
+4. [`custody/DRAFT.md`](custody/DRAFT.md) — *Custody theory*: the mathematics
+   the three machines are instances of (custodial semantics, the Asymmetry
+   theorem, the Fréchet algebra of carried power, the rewrite groupoid of
+   journals, stacked custody), read back into the kernel as twenty-eight
+   capabilities and thirteen executable findings about the kernel as it is. Its executable companion is [`custody/custody.py`](custody/custody.py)
+   with `tests/test_custody.py`; the catalogue of capabilities with their
+   verification status is [`custody/IMPROVEMENTS.md`](custody/IMPROVEMENTS.md), and
+   the record of its two adversarial review rounds is [`custody/REVIEWS.md`](custody/REVIEWS.md).
+   A draft not yet reviewed by the author, not part of the volume PDF.
 
 They are versioned technical reports, not peer-reviewed publications. The
 implementation and tests are the source of truth when prose and executable
