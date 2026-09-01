@@ -120,13 +120,12 @@ class ReusableWorkflowTest(unittest.TestCase):
 
     def test_a_pin_that_disagrees_with_the_running_workflow_is_refused(self):
         evaluate = job_block(self.gate(), "evaluate")
-        self.assertIn("job_workflow_sha", evaluate)
+        self.assertIn("job.workflow_sha", evaluate)
+        self.assertIn("job.workflow_repository", evaluate)
+        self.assertNotIn("github.job_workflow_sha", evaluate)
         self.assertIn('"$JOB_WORKFLOW_SHA" != "$TOOL_SHA"', evaluate)
-        # Hosted GitHub left github.job_workflow_sha empty. Skipping the
-        # comparison then is fail-open: a PR can keep uses: pinned and
-        # point tool-sha at candidate-owned code.
-        self.assertNotIn(
-            '[ -n "$JOB_WORKFLOW_SHA" ] &&', evaluate)
+        self.assertIn('"$JOB_WORKFLOW_REPOSITORY" != "prive-hn/admissible"', evaluate)
+        # Missing runtime identity remains a refusal rather than a skipped check.
         self.assertIn('[ -z "$JOB_WORKFLOW_SHA" ]', evaluate)
 
     def test_the_preview_is_published_as_a_workflow_call_output(self):
