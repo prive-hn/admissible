@@ -143,13 +143,14 @@ fell through to a movable tag for the program that actually ran. Pinning the
 workflow by commit while its program came out of a tag pinned nothing that
 mattered.
 
-At run time the gate compares `tool-sha` against `github.job_workflow_sha` —
-the commit GitHub resolved your `uses:` reference to, which is the one value
-that tells the callee which revision of itself you pinned. If they disagree, or
-if GitHub leaves `job_workflow_sha` empty, the job fails with exit 2. An empty
-value is a refusal, not a skip: otherwise a PR can keep `uses:` pinned and
-point `tool-sha` at candidate-owned code. There is no fallback tag anywhere in
-the file.
+At run time the gate compares `tool-sha` against `job.workflow_sha` —
+the commit GitHub resolved your `uses:` reference to — and requires
+`job.workflow_repository` to be exactly `prive-hn/admissible`. Those documented
+`job` context values identify both the immutable revision and repository of the
+reusable callee. If either identity is missing or disagrees, the job fails with
+exit 2. A missing value is a refusal, not a skip: otherwise a PR can keep
+`uses:` pinned and point `tool-sha` at candidate-owned code. There is no
+fallback tag anywhere in the file.
 
 `admissible-ready init --ci github` refuses without `--tool-sha`, because a
 guessed pin would run and would run whatever the tool repository happened to

@@ -128,6 +128,11 @@ class ReusableWorkflowTest(unittest.TestCase):
         # Missing runtime identity remains a refusal rather than a skipped check.
         self.assertIn('[ -z "$JOB_WORKFLOW_SHA" ]', evaluate)
 
+        docs = read(ROOT / "docs" / "GITHUB_ACTIONS.md")
+        self.assertIn("job.workflow_sha", docs)
+        self.assertIn("job.workflow_repository", docs)
+        self.assertNotIn("github.job_workflow_sha", docs)
+
     def test_the_preview_is_published_as_a_workflow_call_output(self):
         header = self.gate().split("jobs:")[0]
         outputs = header.split("    outputs:", 1)
