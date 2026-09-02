@@ -140,6 +140,21 @@ class JointReadingT7(unittest.TestCase):
         self.assertAlmostEqual(custody.power_joint([0.9] * 3), 0.7)
         self.assertIsNone(custody.bonferroni_horizon(1.0))
 
+    def test_the_horizon_is_where_power_joint_first_zeroes(self):
+        """The horizon is defined against `power_joint`'s own rounding, not a
+        pre-`ceil` round of `1/(1-p)`: a p just above a reciprocal boundary has
+        not yet reached the fail-closed zero, so its horizon is one past the
+        boundary, not the boundary itself (R4-28). At an exact boundary the two
+        still agree, and representation noise still collapses."""
+        self.assertEqual(custody.bonferroni_horizon(0.900000000001), 11)
+        self.assertGreater(custody.power_joint([0.900000000001] * 10), 0.0)   # 10 is not yet zero
+        self.assertEqual(custody.power_joint([0.900000000001] * 11), 0.0)
+        # the horizon is exactly where power_joint first reaches zero, for every p
+        for p in (0.5, 0.8, 0.9, 0.99, 0.900000000001, 0.6666666666):
+            h = custody.bonferroni_horizon(p)
+            self.assertGreater(custody.power_joint([p] * (h - 1)), 0.0)
+            self.assertEqual(custody.power_joint([p] * h), 0.0)
+
     def test_the_empty_conjunction_is_the_identity_of_its_event(self):
         """T6/T7 at the empty set: an empty union catches nothing (0), an
         empty intersection is vacuously caught (1) — the value `power_joint([])`

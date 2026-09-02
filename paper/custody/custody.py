@@ -754,6 +754,27 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent, *,
     for e in sorted(cand):                     # keep only what the rebuild cannot do without
         if e in needed and _rebuild_alt(cal, s, needed - {e}, initial_policy):
             needed.discard(e)
+    # completeness net: removing an install anchor can renumber a later run and
+    # break a *further* install that covered it by its old position-derived id
+    # — a downstream reader the analytic enumeration (stamps, E5 closes) does
+    # not name (V). If the alternative still does not rebuild, find the jointly
+    # necessary further installs by re-derivation, carried with their own E5
+    # readers, then re-minimise; if none help, the group stays incoherent.
+    if not _rebuild_alt(cal, s, needed, initial_policy):
+        rest = [j for j, ev in enumerate(cal.events)
+                if ev.get("type") == "cal_install" and ("cal", j) not in needed]
+
+        def with_installs(keep: set) -> set:
+            extra = {("cal", j) for j in keep}
+            extra |= {("cal", k) for j in keep for k in _install_e5_candidates(cal, j)}
+            return needed | extra
+
+        if rest and _rebuild_alt(cal, s, with_installs(set(rest)), initial_policy):
+            keep = set(rest)                   # remove all, add each back the rebuild does not need
+            for j in sorted(rest):
+                if _rebuild_alt(cal, s, with_installs(keep - {j}), initial_policy):
+                    keep.discard(j)
+            needed = with_installs(keep)
     return tuple(sorted(needed))
 
 
@@ -922,13 +943,28 @@ def power_joint(composites: Iterable[float]) -> float:
 
 
 def bonferroni_horizon(p: float) -> Optional[int]:
-    """The number of conjuncts at power p past which the assumption-free joint
-    reading is zero: ceil(1/(1-p)); None at p = 1."""
+    """The smallest number of conjuncts at power p at which the assumption-free
+    joint reading `power_joint` reaches its fail-closed zero (≈ ceil(1/(1−p)));
+    None at p = 1. Defined against `power_joint`'s own rounding (the deficit
+    `1 − n(1−p)` rounded to 12 places), not a pre-`ceil` round of the quotient:
+    that earlier round snapped a genuine near-boundary excess to the boundary
+    (p just above 1−1/k read as the exact k), whereas this walks the same
+    rounded deficit `power_joint` uses, so representation noise around an exact
+    integer still collapses but a real deviation does not."""
     if p >= 1.0:
         return None
     import math
-    # smallest n with n(1 - p) >= 1; rounded first so 1/(1-0.9) is 10, not 11
-    return math.ceil(round(1.0 / (1.0 - p), 9))
+    q = 1.0 - p
+
+    def zeroed(n: int) -> bool:                # power_joint([p]*n) == 0.0
+        return round(1.0 - n * q, 12) <= 0.0
+
+    n = max(1, math.floor(1.0 / q))
+    while not zeroed(n):
+        n += 1
+    while n > 1 and zeroed(n - 1):
+        n -= 1
+    return n
 
 
 def seal_joint(seal: Seal) -> float:
