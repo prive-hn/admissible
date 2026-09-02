@@ -61,7 +61,7 @@
         },
         {
           "id": "unit",
-          "argv": ["make", "test"],
+          "argv": [".venv/bin/python", "scripts/run-tests-clean-env.py"],
           "timeout_seconds": 1800,
           "cost_units": 4,
           "required": true,

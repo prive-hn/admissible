@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -176,7 +177,8 @@ class PublicRepositorySurface(unittest.TestCase):
         self.assertEqual(1, parsed.version)
         self.assertEqual(0, parsed.classes[0].required_independent_reviews)
         argv = [check.argv for check in parsed.classes[0].checks]
-        self.assertIn(("make", "test"), argv)
+        self.assertIn(
+            (".venv/bin/python", "scripts/run-tests-clean-env.py"), argv)
         artifact = parsed.classes[0]
         self.assertLessEqual(
             artifact.planned_wall_seconds, artifact.max_wall_seconds)
@@ -186,6 +188,33 @@ class PublicRepositorySurface(unittest.TestCase):
         ordered = [check.id for check in order_checks(artifact.checks)]
         self.assertEqual(
             ordered, ["venv", "pip", "npm", "unit", "audit", "build"])
+        runner = ROOT / "scripts" / "run-tests-clean-env.py"
+        self.assertTrue(runner.is_file(), runner)
+        completed = subprocess.run(
+            [sys.executable, str(runner), "--print-sanitized-keys"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env={
+                "PATH": "/usr/bin",
+                "HOME": "/tmp/home",
+                "CI": "true",
+                "GITHUB_ACTIONS": "true",
+                "GITHUB_REPOSITORY": "prive-hn/admissible",
+                "ACTIONS_RUNTIME_TOKEN": "secret",
+                "RUNNER_TEMP": "/tmp/runner",
+                "ADMISSIBLE_HOME": "/tmp/control-plane",
+            },
+        )
+        keys = set(json.loads(completed.stdout))
+        self.assertTrue({"HOME", "PATH"}.issubset(keys))
+        self.assertFalse(any(
+            name == "CI" or name.startswith((
+                "ADMISSIBLE_", "ACTIONS_", "GITHUB_", "RUNNER_",
+            ))
+            for name in keys
+        ))
 
     def test_every_arxiv_reference_has_a_canonical_link(self):
         for relative in (
