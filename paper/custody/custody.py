@@ -162,16 +162,18 @@ class SurfaceEvent:
     redundant_with: tuple = ()  # sibling establishing replays of the same run (cal indices)
     refusal_at: Optional[int] = None  # taint events: the rga index of the refusal this group belongs to
     group_with: tuple = ()  # (journal, index) events structurally tied to this one: they must go with it
+    rewrites: tuple = ()    # (journal, index) events a deletion must rewrite, not delete: shared exclusions
 
     @property
     def exposed(self) -> bool:
         """Deletable by a coherent alternative at no cost to any other line,
         and load-bearing: no later event recomputes it and no sibling replay
         stands in for it. Deletable *with its group* (`group_with`): a run's
-        replays, adjudication and exclusions name the run and go with its
-        `cal_run`; a tier-B run's sole establishing replay takes its
-        adjudication; a taint event takes the rest of its refusal group.
-        `deletion_closure` lists anchors and group together."""
+        replays, adjudication and an exclusion naming it alone name the run
+        and go with its `cal_run` (an exclusion naming other runs too is
+        rewritten to keep them, `rewrites`); a tier-B run's sole establishing
+        replay takes its adjudication; a taint event takes the rest of its
+        refusal group. `deletion_closure` lists anchors and group together."""
         return not self.anchored_by and not self.redundant_with
 
 
@@ -213,7 +215,8 @@ def deletion_surface(cal: CalibrationAuthority, line_id: Optional[str] = None, *
                 out.append(SurfaceEvent("rga", j, "rga_close", seal.line_id, "taint", refusal_at=at))
                 j += 1
     anchored = [dataclasses.replace(s, anchored_by=_anchors_of(cal, s, initial_policy),
-                                    redundant_with=_redundant_with(cal, s), group_with=_group_of(cal, s, out))
+                                    redundant_with=_redundant_with(cal, s), group_with=_group_of(cal, s, out),
+                                    rewrites=_rewrites_of(cal, s))
                 for s in set(out)]
     return tuple(sorted(anchored, key=lambda s: (s.journal, s.index, s.line_id)))
 
@@ -232,10 +235,13 @@ def _run_of(cal: CalibrationAuthority, s: SurfaceEvent) -> Optional[Run]:
 def _group_of(cal: CalibrationAuthority, s: SurfaceEvent, surface: list) -> tuple:
     """The events structurally tied to `s`, which a coherent alternative that
     deletes `s` must delete too (they name it, or replay refuses them without
-    it): for a `cal_run`, every replay, discredit, adjudication and exclusion
-    naming its run; for the sole establishing replay of a tier-B run, its
-    adjudication (adjudication requires an established escape); for a taint
-    event, the other events of its refusal group."""
+    it): for a `cal_run`, every replay, discredit and adjudication naming its
+    run and every exclusion naming it alone (one naming other runs too is
+    rewritten instead, `_rewrites_of`); for the sole establishing replay of a
+    tier-B run, its adjudication (adjudication requires an established
+    escape); for a taint event, the other events of its refusal group. Events
+    that name a run are ties, not anchors: their deletion or rewrite costs no
+    line its standing."""
     if s.reason == "taint":
         return tuple(sorted((e.journal, e.index) for e in surface
                             if e.reason == "taint" and e.refusal_at == s.refusal_at
@@ -249,13 +255,56 @@ def _group_of(cal: CalibrationAuthority, s: SurfaceEvent, surface: list) -> tupl
             t = ev.get("type")
             if t in ("cal_replay", "cal_discredit", "cal_adjudicate") and ev.get("run_index") == run.index:
                 group.append(("cal", j))
-            elif t == "cal_exclude" and run.index in ev.get("run_indices", ()):
+            elif t == "cal_exclude" and set(ev.get("run_indices", ())) == {run.index}:
                 group.append(("cal", j))
     elif s.type == "cal_replay" and run.tier == "B" and len(_establishing_replay_indices(cal, run)) == 1:
         adj = _adjudication_index(cal, run)
         if adj is not None:
             group.append(("cal", adj))
     return tuple(sorted(group))
+
+
+def _rewrites_of(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
+    """The events a coherent alternative that deletes `s` must rewrite rather
+    than delete: a `cal_exclude` naming `s`'s run alongside other runs keeps
+    the others (renumbered, T12c). Deleted whole, it would release them into
+    the obligation of every later install, which `_guard_install_covers`
+    recomputes on rebuild from the exclusions before it (D16)."""
+    if s.type != "cal_run":
+        return ()
+    run = _run_of(cal, s)
+    if run is None:
+        return ()
+    return tuple(("cal", j) for j, ev in enumerate(cal.events)
+                 if ev.get("type") == "cal_exclude" and run.index in ev.get("run_indices", ())
+                 and set(ev["run_indices"]) != {run.index})
+
+
+def _excluded_before(cal: CalibrationAuthority, j: int) -> dict:
+    """Class -> run indices excluded by the `cal_exclude` events before `j`,
+    the exclusions replay has accumulated when it recomputes the reader at `j`."""
+    out: dict[str, set[int]] = {}
+    for ev in cal.events[:j]:
+        if ev.get("type") == "cal_exclude":
+            out.setdefault(ev["class"], set()).update(ev.get("run_indices", ()))
+    return out
+
+
+def _install_reads(cal: CalibrationAuthority, pol, run: Run) -> bool:
+    """Whether the ratchet of an install of `pol` fails once `run` is back in
+    the obligation: its class dropped while owing coverage, a bounded-only
+    claim against a nonempty corpus, or a ledger claim whose id-set omits the
+    run's derived id (`_guard_install_covers`, `_guard_install_bounded`)."""
+    spec = pol.classes.get(run.cls)
+    if spec is None:
+        return True
+    did = cal.derived_defect_id(run)
+    for claim in spec.claims:
+        if not cal._claim_is_ledger(claim):
+            return True
+        if did not in cal.adm.defect_ids.get(claim.defect_model_hash, frozenset()):
+            return True
+    return False
 
 
 def _redundant_with(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
@@ -291,16 +340,24 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
       * a later *audit* (`cal_run` with verdict `survived`) filed by this
         escape's checker on a claim where the checker is not pinned, when
         this is the checker's only valid escape of the class at that point
-        (`_guard_audit_checker` needs one; a later escape reads nothing);
-      * a later `cal_exclude` naming this run (`_guard_exclusion` needs it
-        valid as of the exclusion's cut);
+        (`_guard_audit_checker` needs one; a later escape reads nothing).
+      A `cal_exclude` naming the run is a tie, not an anchor (`_group_of`,
+      `_rewrites_of`), and a `cal_install` reads no escape: the ratchet only
+      eases when one vanishes (F5);
     for a refusal group —
       * a later `cal_stamp` of a class in which the refused checker had a run
         valid at the stamp but for the refusal, and whose cut the refusal
         precedes (`refused_at <= sealed_at`): the refusal voids that run, so
         the stamp's corpus and charges differ. A refusal after the stamp's
         cut is invisible to it (`_check_valid(as_of)`), and the group is
-        exposed.
+        exposed;
+      * a later `cal_install` whose cut the refusal precedes
+        (`refused_at <= as_of`), when the refused checker had a run valid at
+        the install but for the refusal, not excluded before it, that the
+        installed policy does not cover (`_install_reads`: its class dropped,
+        a bounded-only claim, or a ledger id-set omitting the run's derived
+        id): the refusal is what emptied the obligation (D16), and with the
+        group deleted the ratchet, recomputed on rebuild, refuses the install.
 
     An anchored witness is still deletable together with its anchors, at the
     cost of the anchors' own lines (T10(b)); `deletion_closure` lists them."""
@@ -341,33 +398,47 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
                         and not any(r is not run and r.checker == run.checker and r.verdict == "refuted"
                                     and r.cls == cls and _valid_at(cal, r, j, None) for r in cal.runs)):
                     anchors.append(("cal", j))
-            elif t == "cal_exclude" and run.index in ev.get("run_indices", ()):
-                if _valid_at(cal, run, j, ev.get("as_of")):
-                    anchors.append(("cal", j))
     else:
         key = next((k for k, at in adm.refused_at.items() if at == s.refusal_at), None)
         refused_at = adm.refused_at.get(key, None)
+        if key is None or refused_at is None:
+            return ()
+
+        def revived(j: int, rga_cut: Optional[int], cls: Optional[str] = None) -> list[Run]:
+            # the refused checker's runs valid at the reader `j` but for the refusal
+            return [r for r in cal.runs
+                    if r.checker == key and r.verdict == "refuted" and (cls is None or r.cls == cls)
+                    and _valid_at(cal, r, j, rga_cut, ignore_refusal=True)]
+
         for j, ev in enumerate(cal.events):
-            if ev.get("type") != "cal_stamp":
-                continue
-            seal = adm.sealed.get(ev.get("line_id"))
-            if seal is None or refused_at is None or refused_at > seal.sealed_at:
-                continue                       # the stamp's cut does not see the refusal
-            voided = any(r.checker == key and r.verdict == "refuted" and r.cls == seal.cls
-                         and _valid_at(cal, r, j, seal.sealed_at, ignore_refusal=True)
-                         for r in cal.runs)
-            if voided:
-                anchors.append(("cal", j))
+            t = ev.get("type")
+            if t == "cal_stamp":
+                seal = adm.sealed.get(ev.get("line_id"))
+                if seal is None or refused_at > seal.sealed_at:
+                    continue                   # the stamp's cut does not see the refusal
+                if revived(j, seal.sealed_at, seal.cls):
+                    anchors.append(("cal", j))
+            elif t == "cal_install":
+                pol = adm._policies.get(ev.get("policy_version"))
+                as_of = ev.get("as_of")
+                if pol is None or (as_of is not None and refused_at > as_of):
+                    continue                   # the install's cut does not see the refusal
+                excluded = _excluded_before(cal, j)
+                if any(r.index not in excluded.get(r.cls, ()) and _install_reads(cal, pol, r)
+                       for r in revived(j, as_of)):
+                    anchors.append(("cal", j))
     return tuple(sorted(set(anchors)))
 
 
 def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
     """What a coherent alternative must remove besides `s` to delete it: the
     events structurally tied to it (`group_with`, at no cost to any other
-    line) and its anchors, each of which is itself exposed in the kernel as
-    it is (a stamp's deletion lowers its own line to IR; an E5 close, an audit
-    or an exclusion is recomputed against by nothing later). The cost of the
-    deletion is the standing those anchors carried."""
+    line) and its anchors. The cost of the deletion is the standing those
+    anchors carried: a stamp's deletion lowers its own line to IR; an E5
+    close or an audit is recomputed against by nothing later; an install is
+    read by whatever ran under the budgets it adopted (`_e_max_at`), so the
+    closure is one step and its own is taken by the same query. Events in
+    `rewrites` are edited, not removed, and are not listed here."""
     return tuple(sorted(set(s.group_with) | set(s.anchored_by)))
 
 

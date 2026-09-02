@@ -319,7 +319,9 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
     @staticmethod
     def _drop_run(events, index):
         """A coherent alternative without run `index`: its events removed and
-        every later run index renumbered, as replay range-checks them."""
+        every later run index renumbered, as replay range-checks them; an
+        exclusion naming it alone removed with it, one naming other runs too
+        rewritten to keep them (`SurfaceEvent.rewrites`)."""
         out = []
         for e in events:
             if e.get("run_index") == index and e.get("type") in (
@@ -328,6 +330,11 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
             e = dict(e)
             if isinstance(e.get("run_index"), int) and e["run_index"] > index:
                 e["run_index"] -= 1
+            if e.get("type") == "cal_exclude":
+                kept = [i - (i > index) for i in e["run_indices"] if i != index]
+                if not kept:
+                    continue
+                e["run_indices"] = kept
             out.append(e)
         return out
 
@@ -458,6 +465,94 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         fallback = custody.deletion_surface(h.cal, "w")
         self.assertTrue(all(("cal", e5) not in e.anchored_by for e in fallback))
 
+
+    def test_a_later_install_anchors_the_refusal_group_whose_escape_it_omits(self):
+        """A refusal voids an established escape, and a later install whose
+        ledger model omits that escape's derived id passes the ratchet only
+        because the refusal emptied the obligation (D16). Deleting the group
+        revives the escape into the corpus at the install's cut, and rebuild
+        refuses the install (`_guard_install_covers`): the install anchors
+        the group. With the id covered the install reads nothing, the group
+        is exposed, and its deletion un-taints the seal and revives the escape."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        for covered in (False, True):
+            h = CalHarness(); h.declare_tests(); h.seal_line("w")
+            run = h.tier_a_escape("w")
+            h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+            h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+            h.a.replay("z", 0, "refuted", "w-same")              # refuses `tests`: voids the escape, taints w
+            self.assertTrue(h.a.tainted("w") and not h.cal.impeached("w"))
+            h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+            ids = [LedgerEntry(f"m{i}", "killed") for i in range(10)]
+            if covered:
+                ids.append(LedgerEntry(h.cal.derived_defect_id(run), "killed"))
+            h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"), ids)
+            succ = AdmissionPolicy({"impl": ClassAdmission(
+                claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+                k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+                residual=(("correct fix", "check_stage"),))}, version="r2")
+            h.cal.install(succ)                                   # the voided escape owes nothing
+            install = len(h.cal.events) - 1
+            self.assertEqual(h.cal.events[install]["type"], "cal_install")
+            taint = [e for e in custody.deletion_surface(h.cal, "w") if e.reason == "taint"]
+            self.assertTrue(taint)
+            drop = {e.index for e in taint}
+            adm2 = Admission.from_events([e for i, e in enumerate(h.a.events) if i not in drop],
+                                         h.e, admission_policy(), succ)
+            self.assertFalse(adm2.tainted("w"))
+            if covered:
+                self.assertTrue(all(e.exposed and ("cal", install) not in e.anchored_by for e in taint))
+                cal2 = CalibrationAuthority.from_events(list(h.cal.events), adm2, h.cal.policy)
+                self.assertTrue(cal2.impeached("w"))              # the revived escape is covered: replays clean
+            else:
+                self.assertTrue(all(("cal", install) in e.anchored_by for e in taint))
+                with self.assertRaises(ValueError):               # the revived escape is not covered
+                    CalibrationAuthority.from_events(list(h.cal.events), adm2, h.cal.policy)
+
+    def test_a_shared_exclusion_is_rewritten_with_the_run_and_a_sole_one_deleted(self):
+        """An exclusion naming this run alone goes with it (`group_with`); one
+        naming other runs too is rewritten to keep them (`rewrites`), because
+        deleted whole it would release the others into the obligation of a
+        later install that covered the class without them, and rebuild
+        refuses the install."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w"); h.seal_line("v")
+        r0 = h.tier_a_escape("w", nonce="e1"); r1 = h.tier_a_escape("v", nonce="e2")
+        h.cal.exclude("impl", [r0.index, r1.index], "owner", "released")
+        excl = len(h.cal.events) - 1
+        h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+        h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"),
+                    [LedgerEntry(f"m{i}", "killed") for i in range(10)])
+        succ = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(succ)                                       # both entries excluded: nothing owed
+        run_ev = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_run")
+        self.assertEqual(run_ev.rewrites, (("cal", excl),))
+        self.assertNotIn(("cal", excl), run_ev.group_with)
+        self.assertNotIn(("cal", excl), custody.deletion_closure(h.cal, run_ev))
+        self.assertTrue(run_ev.exposed)
+        fcd2 = Enforcer.from_events(list(h.e.events), fcd_policy())
+        adm2 = Admission.from_events(list(h.a.events), fcd2, admission_policy(), succ)
+        rewritten = self._drop_run(h.cal.events, r0.index)      # keeps v's run in the exclusion, renumbered
+        self.assertEqual(next(e for e in rewritten if e["type"] == "cal_exclude")["run_indices"], [r1.index - 1])
+        rebuilt = CalibrationAuthority.from_events(rewritten, adm2, h.cal.policy)
+        self.assertFalse(rebuilt.impeached("w"))
+        self.assertTrue(rebuilt.impeached("v"))
+        whole = [e for e in rewritten if e["type"] != "cal_exclude"]   # deleted whole: v's escape owes again
+        with self.assertRaises(ValueError):
+            CalibrationAuthority.from_events(whole, adm2, h.cal.policy)
+        # named alone, the exclusion goes with the run
+        g = CalHarness(); g.declare_tests(); g.seal_line("w")
+        r = g.tier_a_escape("w")
+        g.cal.exclude("impl", [r.index], "owner", "released")
+        sole = next(e for e in custody.deletion_surface(g.cal, "w") if e.type == "cal_run")
+        self.assertIn(("cal", len(g.cal.events) - 1), sole.group_with)
+        self.assertEqual(sole.rewrites, ())
+        self.assertTrue(sole.exposed)
+        self.assertFalse(CalibrationAuthority.from_events(self._drop_run(g.cal.events, r.index),
+                                                          g.a, g.cal.policy).impeached("w"))
 
     def test_a_runs_structural_events_delete_as_a_group(self):
         """A coherent alternative that deletes a `cal_run` must delete every

@@ -178,7 +178,7 @@ All round-3 findings are applied in this revision: D8′ and the custodial premi
 
 ## Round 4 — automated review of the pull request
 
-The repository's pull-request reviewer read the companion after the branch was marked ready and, in four passes (each on the repaired head, on both the public and the internal pull request), returned eight findings against `custody.py` and one against the paper index — all real, all applied, the code findings each with a regression test that fails on the previous companion; the count guards moved with the added checks.
+The repository's pull-request reviewer read the companion after the branch was marked ready and, in five passes (each on the repaired head, on both the public and the internal pull request), returned ten findings — nine against `custody.py` and one against the paper index — all real, all applied, the code findings each with a regression test that fails on the previous companion; the count guards moved with the added checks.
 
 | id | severity | finding | disposition |
 |---|---|---|---|
@@ -190,6 +190,8 @@ The repository's pull-request reviewer read the companion after the branch was m
 | R4-6 | P2 | The E5-close anchor compared the charge count at the historical close with the authority's *final* `e_max`; a later `cal_install` that lowers the budget made an escape the close depends on read as exposed. | applied — `_e_max_at` reads the budget in force at the reader (the last `cal_install` before it; before the first install, replay's own input); `test_an_e5_close_is_read_under_the_budget_in_force_at_the_close` |
 | R4-7 | P2 | A cascaded `rga_close(V4)` was matched to a refusal by dictionary order when several checkers had been refused, so its anchors could come from the wrong checker. | applied — every taint event carries `refusal_at`, the index of the refusal that emitted it; the two-refusal case is unreachable in a one-class policy (a refused pin blocks every later open), so the field is asserted on the single-refusal group |
 | R4-8 | P2 | A tail escape's `cal_run` was reported exposed although deleting it alone leaves a `cal_replay` naming a run the journal no longer has, which replay refuses; likewise a tier-B run's sole establishing replay leaves an adjudication of an unestablished escape. `exposed()` and `deletion_closure()` could recommend alternatives outside `L_rep`. | applied — a run's structural events are a group: every surface event carries `group_with` (the replays, discredit, adjudication and exclusions that name its run; for a sole establishing replay of a tier-B run, its adjudication; for a taint event, the rest of its refusal group), `deletion_closure` lists anchors and group, and *exposed* means deletable with its group at no cost to any other line; `test_a_runs_structural_events_delete_as_a_group` |
+| R4-9 | P2 | The refusal-group branch of `_anchors_of` read only stamps. A refusal that voids an established escape lets a later `cal_install` pass the ratchet with a ledger that omits that escape's derived id (or with the class dropped, or a bounded-only claim); deleting the "exposed" group revives the escape into the corpus at the install's cut and rebuild refuses the install (`_guard_install_covers` and `_guard_install_bounded` are recomputed), so `exposed()` and `deletion_closure()` described an alternative outside `L_rep`. | applied — a later install whose cut the refusal precedes anchors the group when a run of the refused checker, valid at the install but for the refusal and not excluded before it, is one the installed policy does not cover (`_install_reads`); `test_a_later_install_anchors_the_refusal_group_whose_escape_it_omits` shows the group anchored and the rebuild refused with the id omitted, exposed and the rebuild clean with it covered |
+| R4-10 | P2 | `group_with` put a `cal_exclude` naming this run *and other runs* into the run's group, so `deletion_closure()` deleted the siblings' exclusion too; a later install that had covered the class without them is then refused on rebuild, because they re-enter its obligation. | applied — an exclusion naming the run alone goes with it; one naming other runs too is listed in a new `rewrites` field, to be rewritten keeping the others (renumbered, T12c) rather than deleted; exclusions are ties, not anchors — they name the run and cost no line its standing — and the escape branch no longer lists them; `test_a_shared_exclusion_is_rewritten_with_the_run_and_a_sole_one_deleted` |
 
 ## Round 5 — adversarial re-review of the pull request head
 
@@ -338,6 +340,8 @@ Refuted by the verifiers: that D1's "leaves `L_rep`" contradicts the kernel (a m
 | R5-11 | nit | applied — companion and catalogue |
 | R5-12 | minor | applied — paper, catalogue, test comment |
 | R4-8 | P2 | applied — companion and test |
+| R4-9 | P2 | applied — companion and test |
+| R4-10 | P2 | applied — companion and test |
 | R6-1 | minor | applied — paper |
 | R6-2 | nit | applied — paper and companion comment |
 | R6-3 | minor | applied — paper and catalogue |
