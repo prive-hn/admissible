@@ -937,32 +937,35 @@ def verify_certificate(cal: CalibrationAuthority, cert: StandingCertificate) -> 
 def power_joint(composites: Iterable[float]) -> float:
     """max(0, 1 − Σ(1 − p_j)): the greatest aggregator sound for the joint
     reading 'every conjunct caught' under every coupling (T7). Zero is the
-    fail-closed value past the Bonferroni horizon."""
-    # rounded so that exactly-at-horizon sums (ten 0.9s) read 0, not 2e-16
-    return max(0.0, round(1.0 - sum(1.0 - p for p in composites), 12))
+    fail-closed value past the Bonferroni horizon. The floating-point
+    correction is a *downward* clamp only — the accumulation error of the sum
+    is O(n·ε), so a residual within that scale of zero is indistinguishable
+    from the exact horizon zero (ten 0.9s sum to 1, read as 0 not 2e-16) and
+    is clamped to it — never a rounding of a positive residual *upward*, which
+    would over-claim the assumption-free lower bound (a one-element `[p]`
+    stays `p`, not 1; a genuine 6e-13 stays 6e-13, not 1e-12)."""
+    import sys
+    ps = list(composites)
+    residual = 1.0 - sum(1.0 - p for p in ps)
+    if residual < 4.0 * max(1, len(ps)) * sys.float_info.epsilon:
+        return 0.0                             # numerical noise around the horizon, or negative
+    return residual
 
 
 def bonferroni_horizon(p: float) -> Optional[int]:
     """The smallest number of conjuncts at power p at which the assumption-free
     joint reading `power_joint` reaches its fail-closed zero (≈ ceil(1/(1−p)));
-    None at p = 1. Defined against `power_joint`'s own rounding (the deficit
-    `1 − n(1−p)` rounded to 12 places), not a pre-`ceil` round of the quotient:
-    that earlier round snapped a genuine near-boundary excess to the boundary
-    (p just above 1−1/k read as the exact k), whereas this walks the same
-    rounded deficit `power_joint` uses, so representation noise around an exact
-    integer still collapses but a real deviation does not."""
+    None at p = 1. Decided by `power_joint` itself, so the two cannot disagree:
+    a genuine near-boundary excess (p just above 1−1/k) leaves `power_joint`
+    positive and pushes the horizon one past k, while representation noise at
+    an exact boundary still reads zero there."""
     if p >= 1.0:
         return None
     import math
-    q = 1.0 - p
-
-    def zeroed(n: int) -> bool:                # power_joint([p]*n) == 0.0
-        return round(1.0 - n * q, 12) <= 0.0
-
-    n = max(1, math.floor(1.0 / q))
-    while not zeroed(n):
+    n = max(1, math.floor(1.0 / (1.0 - p)))
+    while power_joint([p] * n) > 0.0:
         n += 1
-    while n > 1 and zeroed(n - 1):
+    while n > 1 and power_joint([p] * (n - 1)) == 0.0:
         n -= 1
     return n
 

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import random
 import sys
 import unittest
 
@@ -154,6 +155,27 @@ class JointReadingT7(unittest.TestCase):
             h = custody.bonferroni_horizon(p)
             self.assertGreater(custody.power_joint([p] * (h - 1)), 0.0)
             self.assertEqual(custody.power_joint([p] * h), 0.0)
+
+    def test_the_joint_reading_never_rounds_a_positive_bound_up(self):
+        """`power_joint` is an assumption-free *lower* bound, so its floating-
+        point correction may only clamp numerical noise down to the horizon
+        zero — never round a positive residual up, which would claim more power
+        than any coupling guarantees (R4-29). A one-element conjunction is its
+        own power, and a genuine sub-1e-12 residual is preserved, not lifted to
+        the 12-place grid."""
+        self.assertAlmostEqual(custody.power_joint([0.9999999999996]), 0.9999999999996, places=15)
+        self.assertLess(custody.power_joint([0.5000000000003, 0.5000000000003]), 1e-12)
+        self.assertGreater(custody.power_joint([0.5000000000003, 0.5000000000003]), 0.0)
+        # never above the exact real-valued bound, across a random sweep
+        from fractions import Fraction
+        rng = random.Random(20260902)
+        for _ in range(20000):
+            ps = [rng.random() for _ in range(rng.randint(1, 6))]
+            true = max(Fraction(0), Fraction(1) - sum(Fraction(1) - Fraction(p) for p in ps))
+            self.assertLessEqual(Fraction(custody.power_joint(ps)), true + Fraction(1, 10 ** 9))
+        # the horizon zero and the small-power readings are unchanged
+        self.assertEqual(custody.power_joint([0.9] * 10), 0.0)
+        self.assertAlmostEqual(custody.power_joint([0.9, 0.7]), 0.6)
 
     def test_the_empty_conjunction_is_the_identity_of_its_event(self):
         """T6/T7 at the empty set: an empty union catches nothing (0), an
