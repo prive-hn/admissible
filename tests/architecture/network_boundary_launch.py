@@ -1,12 +1,15 @@
 """Launch a command behind a seccomp network boundary, or refuse to launch it.
 
 This is the Linux half of :func:`separation_guards.network_denied_command`. It
-installs an unprivileged seccomp-bpf filter that fails ``socket(AF_INET, …)``
-and ``socket(AF_INET6, …)`` with ``EPERM`` -- the kernel refusing the call, not
-the network declining to answer -- and then ``execve``s the wrapped command.
-The filter is inherited across ``fork`` and ``execve``, so it binds the command
-and every process underneath it, which is the depth a mutated build backend
-that spawns its own client reaches.
+installs an unprivileged seccomp-bpf filter that allows ``socket()`` only for
+local families (``AF_UNIX``, ``AF_NETLINK``) and fails every other -- internet
+(``AF_INET``/``AF_INET6``), raw link-layer (``AF_PACKET``) and any exotic egress
+family -- with ``EPERM``, the kernel refusing the call, not the network
+declining to answer. It then ``execve``s the wrapped command. The filter is
+inherited across ``fork`` and ``execve``, so it binds the command and every
+process underneath it, which is the depth a mutated build backend that spawns
+its own client reaches; a descendant that execs a foreign-architecture helper
+to slip past the native syscall numbers is killed, not waved through.
 
 Two properties matter and are not negotiable:
 
@@ -39,8 +42,13 @@ _AUDIT_ARCH_AARCH64 = 0xC00000B7
 #: ``arch`` before it trusts ``nr``; a mismatch means "not us, allow").
 _NR_SOCKET = {_AUDIT_ARCH_X86_64: 41, _AUDIT_ARCH_AARCH64: 198}
 
-_AF_INET = 2
-_AF_INET6 = 10
+# Local address families that carry no route off the machine and that a build
+# legitimately needs -- AF_UNIX for IPC, AF_NETLINK for the kernel queries glibc
+# makes (interface enumeration, NSS). Everything else, internet or raw, is
+# denied: an allowlist closes AF_PACKET and any exotic egress family (VSOCK,
+# XDP, ...) that a denylist of AF_INET/AF_INET6 would miss.
+_AF_UNIX = 1
+_AF_NETLINK = 16
 
 # Classic-BPF opcodes and seccomp return values.
 _LD_W_ABS = 0x20        # BPF_LD | BPF_W | BPF_ABS
@@ -48,6 +56,7 @@ _JMP_JEQ_K = 0x15       # BPF_JMP | BPF_JEQ | BPF_K
 _RET_K = 0x06           # BPF_RET | BPF_K
 _RET_ALLOW = 0x7FFF0000        # SECCOMP_RET_ALLOW
 _RET_ERRNO = 0x00050000        # SECCOMP_RET_ERRNO
+_RET_KILL = 0x80000000         # SECCOMP_RET_KILL_PROCESS
 _EPERM = 1
 
 # Byte offsets into ``struct seccomp_data``: nr (u32), arch (u32), then the
@@ -67,25 +76,30 @@ def _machine_arch() -> int | None:
 
 
 def _program(arch: int) -> bytes:
-    """The BPF program that fails an internet ``socket`` and allows the rest.
+    """The BPF program that allows only local sockets and refuses the rest.
 
-    Nine instructions: check the architecture is the one whose syscall numbers
-    we know, then that the call is ``socket``, then that its domain is
-    ``AF_INET``/``AF_INET6``; only that last conjunction returns ``EPERM``.
-    Anything else -- a different arch, a different syscall, a ``AF_UNIX``
-    socket -- falls through to ``ALLOW``.
+    Ten instructions. First the architecture: a filter is inherited across
+    ``execve``, so a mutant that execs a 32-bit helper would present a
+    *different* ``seccomp_data.arch`` whose syscall numbers this filter does not
+    know -- allowing it would leave a compatibility-ABI hole, so any non-native
+    arch is **killed** (`SECCOMP_RET_KILL_PROCESS`), not allowed. Then, for a
+    native ``socket()``, the domain is checked against an allowlist -- ``AF_UNIX``
+    and ``AF_NETLINK`` pass, every other family (``AF_INET``, ``AF_INET6``,
+    ``AF_PACKET`` and any exotic egress family) returns ``EPERM``. Non-``socket``
+    syscalls are allowed.
     """
 
     instructions = [
         (_LD_W_ABS, 0, 0, _OFF_ARCH),
-        (_JMP_JEQ_K, 0, 5, arch),               # not our arch -> ALLOW (idx 7)
+        (_JMP_JEQ_K, 0, 7, arch),               # not our arch -> KILL (idx 9)
         (_LD_W_ABS, 0, 0, _OFF_NR),
-        (_JMP_JEQ_K, 0, 3, _NR_SOCKET[arch]),   # not socket() -> ALLOW (idx 7)
+        (_JMP_JEQ_K, 0, 4, _NR_SOCKET[arch]),   # not socket() -> ALLOW (idx 8)
         (_LD_W_ABS, 0, 0, _OFF_ARG0),
-        (_JMP_JEQ_K, 2, 0, _AF_INET),           # AF_INET  -> DENY (idx 8)
-        (_JMP_JEQ_K, 1, 0, _AF_INET6),          # AF_INET6 -> DENY (idx 8)
-        (_RET_K, 0, 0, _RET_ALLOW),             # idx 7
-        (_RET_K, 0, 0, _RET_ERRNO | _EPERM),    # idx 8
+        (_JMP_JEQ_K, 2, 0, _AF_UNIX),           # AF_UNIX    -> ALLOW (idx 8)
+        (_JMP_JEQ_K, 1, 0, _AF_NETLINK),        # AF_NETLINK -> ALLOW (idx 8)
+        (_RET_K, 0, 0, _RET_ERRNO | _EPERM),    # idx 7: any other family -> EPERM
+        (_RET_K, 0, 0, _RET_ALLOW),             # idx 8
+        (_RET_K, 0, 0, _RET_KILL),              # idx 9: foreign architecture
     ]
     return b"".join(struct.pack("HBBI", *each) for each in instructions)
 
