@@ -1075,6 +1075,40 @@ class TheCommandLineDrivesTheSameThing(FinalizationCase):
         self.assertEqual(1, code)
         self.assertEqual("IMPEACHED", json.loads(out)["state"])
 
+    def test_explain_uses_completion_time_from_a_long_ready_attempt(self):
+        started_at = self.moment + 1000
+        finished_at = started_at + 402
+
+        def delayed_result(check_object, **_kwargs):
+            return legacy_runner.CommandResult(
+                check_id=check_object.id,
+                check_version=check_object.version,
+                argv_digest=check_object.argv_digest,
+                exit_code=0,
+                timed_out=False,
+                launch_failed=False,
+                duration_ms=402000,
+                stdout_sha256="0" * 64,
+                stderr_sha256="0" * 64,
+                stdout_bytes=0,
+                stderr_bytes=0,
+                output_truncated=False,
+                started_at=finished_at - 1,
+                finished_at=finished_at,
+            )
+
+        with mock.patch.object(legacy_runner, "run_check", delayed_result), \
+                mock.patch.object(legacy_cli.time, "time",
+                                  side_effect=(started_at, finished_at)):
+            self.evaluate()
+
+        code, out, err = self.run_cli(
+            "explain", self.sha, "--repo", str(self.repo), "--json")
+        self.assertEqual(1, code, out + err)
+        document = json.loads(out)
+        self.assertEqual(document["recorded_decision"]["state"], "CHECKS_PASSED")
+        self.assertEqual(document["decision"]["state"], "CHECKS_PASSED")
+
     def keyring_file(self) -> Path:
         path = self.tmp / "observers.json"
         path.write_text(json.dumps(

@@ -226,6 +226,40 @@ class RunPreviewParity(ReadyRepositoryCase):
                     check.pop(field, None)
         self.assertEqual(legacy_document, ready_document)
 
+    def test_a_long_ready_run_uses_completion_time_for_its_decision(self):
+        original_run_check = ready_cli.runner_module.run_check
+        original_time = ready_cli.time.time
+        moments = iter((1000, 1402))
+
+        def delayed_result(check_object, **_kwargs):
+            return ready_cli.runner_module.CommandResult(
+                check_id=check_object.id,
+                check_version=check_object.version,
+                argv_digest=check_object.argv_digest,
+                exit_code=0,
+                timed_out=False,
+                launch_failed=False,
+                duration_ms=402000,
+                stdout_sha256="0" * 64,
+                stderr_sha256="0" * 64,
+                stdout_bytes=0,
+                stderr_bytes=0,
+                output_truncated=False,
+                started_at=1401,
+                finished_at=1402,
+            )
+
+        ready_cli.runner_module.run_check = delayed_result
+        ready_cli.time.time = lambda: next(moments)
+        self.addCleanup(lambda: setattr(ready_cli.runner_module, "run_check",
+                                        original_run_check))
+        self.addCleanup(lambda: setattr(ready_cli.time, "time", original_time))
+
+        code, out, err = self.run_ready(
+            ["run", "--preview", "--repo", str(self.repo), "--no-cache", "--json"])
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(json.loads(out)["state"], "CHECKS_PASSED")
+
     def test_the_preview_artefact_agrees_apart_from_its_evidence_digests(self):
         legacy_path = Path(self.scratch("preview-legacy-")) / "preview.json"
         ready_path = Path(self.scratch("preview-ready-")) / "preview.json"

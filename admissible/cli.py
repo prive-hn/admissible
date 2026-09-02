@@ -1408,11 +1408,13 @@ def _command_explain(options, stdout: TextIO, stderr: TextIO) -> int:
                 tree_sha = ((attempt or {}).get("tree_sha")
                             or (receipts[0].tree_sha if receipts else "")
                             or found.tree_sha)
-                # And the moment it was recorded at. Judging yesterday's
-                # reviews against today's clock reports them expired for no
-                # reason anybody observed: history is answered as of when it
-                # happened.
-                moment = ((attempt or {}).get("started_at")
+                # Re-judge at the recorded decision moment. An attempt starts
+                # before its checks complete, so using started_at would treat
+                # valid long-run evidence as future-dated after a successful
+                # completion-time evaluation. Historical attempts without a
+                # stored decision retain the older receipt/start fallback.
+                moment = (((attempt or {}).get("decision") or {}).get("evaluated_at")
+                          or (attempt or {}).get("started_at")
                           or (receipts[0].issued_at if receipts else 0)
                           or int(time.time()))
                 result = evaluate(
