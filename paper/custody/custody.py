@@ -644,6 +644,28 @@ def _shift_adm_positions(events: list, adm_del: set) -> list:
     return out
 
 
+def _runs_unestablished_by(cal: CalibrationAuthority, cal_del: set) -> set:
+    """The runs a cal deletion set leaves unestablished, so a coherent
+    alternative must treat them as invalidated (drop them from exclusions,
+    T12c/D16, and carry their accepting adjudication). A refuted run is
+    unestablished once every establishing replay is deleted, or — tier B —
+    its accepting adjudication is. Generalises `_invalidates` from the single
+    surface event to the whole deletion (a run replayed twice loses its
+    establishment only when both replays go)."""
+    out = set()
+    for run in cal.runs:
+        if run.verdict != "refuted":
+            continue
+        reps = _establishing_replay_indices(cal, run)
+        if reps and all(r in cal_del for r in reps):
+            out.add(run.index)
+        elif run.tier == "B":
+            adj = _adjudication_index(cal, run)
+            if adj is not None and adj in cal_del:
+                out.add(run.index)
+    return out
+
+
 def _rebuild_alt(cal: CalibrationAuthority, s: SurfaceEvent, deletions: set,
                  initial_policy: Optional[CalibrationPolicy]) -> bool:
     """Whether deleting `s` and `deletions` re-derives: the rga events rebuild
@@ -667,8 +689,7 @@ def _rebuild_alt(cal: CalibrationAuthority, s: SurfaceEvent, deletions: set,
             adm = Admission.from_events(alt_adm, adm.fcd, *ordered)
         except Exception:
             return False
-    run = _run_of(cal, s) if s.reason == "escape" else None
-    invalidated = {run.index} if run is not None and _invalidates(cal, s) else set()
+    invalidated = _runs_unestablished_by(cal, cal_del)
     alt_cal = _alt_delete(cal, cal_del, invalidated)
     if rga_del:
         alt_cal = _shift_adm_positions(alt_cal, rga_del)
@@ -706,7 +727,15 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent, *,
         run = _run_of(cal, s)
         if run is not None:
             # the run, once none of its replays remain, is no longer an
-            # established escape; whatever read it as one anchors that removal
+            # established escape: a tier-B accepting adjudication would then be
+            # orphaned (from_events: "adjudication requires an established
+            # escape"), so it goes with the siblings; the invalidation also
+            # rewrites any exclusion naming the run (`_rebuild_alt`). And
+            # whatever read the run as an established escape anchors that removal
+            if run.tier == "B":
+                adj = _adjudication_index(cal, run)
+                if adj is not None:
+                    struct.add(("cal", adj))
             run_ev = SurfaceEvent("cal", run.position, "cal_run", run.line_id, "escape")
             anchors |= set(_anchors_of(cal, run_ev, initial_policy))
     cand: set = set()

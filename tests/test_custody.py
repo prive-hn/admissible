@@ -851,6 +851,41 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
                 [e for i, e in enumerate(h.cal.events) if i not in half], h.a, h.cal.policy)
             self.assertFalse(still.admissible("w"))
 
+    def test_a_tier_b_runs_redundant_replays_carry_its_adjudication(self):
+        """A tier-B escape replayed twice, then adjudicated: removing every
+        establishing replay leaves the run unestablished, so a coherent
+        alternative must also drop the accepting `cal_adjudicate` (else
+        `from_events` refuses it, 'adjudication requires an established
+        escape') and rewrite any exclusion naming the now-invalid run.
+        `deletion_closure` of either replay names the sibling and the
+        adjudication (R4-25)."""
+        h = CalHarness(claims=self.CLAIMS); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel(D1, "mutator"), ledger(8, 10))
+        self._seal(h, "w")
+        run = h.cal.file_escape("w", "tests_pass", "hawk", "v1", "nB", b"w-body-0", "any", "hk", "aud")
+        h.cal.replay_run(run.index, "refuted", "hk")            # replay 1
+        h.cal.replay_run(run.index, "refuted", "hk")            # replay 2, redundant
+        h.cal.adjudicate(run.index, "owner", "accept", "seen")
+        adj = custody._adjudication_index(h.cal, run)
+        surface = custody.deletion_surface(h.cal, "w")
+        replays = sorted((e for e in surface if e.type == "cal_replay"), key=lambda e: e.index)
+        self.assertEqual(len(replays), 2)
+        for s in replays:
+            sibling = next(o for o in replays if o.index != s.index)
+            closure = custody.deletion_closure(h.cal, s)
+            self.assertIn(("cal", sibling.index), closure)      # the sibling replay
+            self.assertIn(("cal", adj), closure)                # and the adjudication it orphans
+            gone = {s.index} | {i for _, i in closure}
+            rebuilt = CalibrationAuthority.from_events(
+                [e for i, e in enumerate(h.cal.events) if i not in gone], h.a, h.cal.policy)
+            self.assertTrue(rebuilt.admissible("w"))            # the demonstration is removed
+            # the sibling-only deletion (adjudication kept) is the refused alternative
+            with self.assertRaises(ValueError):
+                CalibrationAuthority.from_events(
+                    [e for i, e in enumerate(h.cal.events) if i not in {s.index, sibling.index}],
+                    h.a, h.cal.policy)
+
     def test_a_taint_deletion_shifts_a_surviving_stamps_admission_position(self):
         """After a refusal taints a seal, a later mediated seal under a
         switched pin records a `cal_stamp` whose `sealed_at` names an admission
