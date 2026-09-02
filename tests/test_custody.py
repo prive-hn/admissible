@@ -666,6 +666,36 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         both = [e for e in drop_run if e.get("type") != "cal_install"]
         self.assertFalse(CalibrationAuthority.from_events(both, h.a, h.cal.policy).impeached("w"))
 
+    def test_a_run_filed_before_a_later_stamp_is_exposed_once_the_stamp_shifts(self):
+        """A `cal_run` filed before another line's `cal_stamp` but established
+        only after it: deleting the run and its replay shifts the stamp by one,
+        and the stamp's `track_records[*].as_of` (its own `_position()`, which
+        `from_events` recomputes) must move with it. `_alt_delete` renumbers
+        that field, so the deletion re-derives and the run is exposed; leaving
+        the field at the old position is refused (R4-19)."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        r0 = h.tier_a_escape("w", nonce="e1", replay=False)    # cal_run, not yet established
+        h.seal_line("x")                                       # x's stamp, after r0's cal_run
+        h.cal.replay_run(r0.index, "refuted", "kill-w")        # establish r0 after the stamp
+        self.assertTrue(h.cal.impeached("w"))
+        run_w = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_run")
+        self.assertTrue(run_w.exposed)                         # coherent: the shifted stamp recomputes
+        self.assertEqual(run_w.anchored_by, ())
+        gone = {run_w.index} | {i for _, i in run_w.group_with}
+        rebuilt = CalibrationAuthority.from_events(custody._alt_delete(h.cal, gone, set()), h.cal.adm, h.cal.policy)
+        self.assertFalse(rebuilt.impeached("w"))               # un-impeached; the stamp recomputes at its new index
+        # the shift is load-bearing: renumbering run_index but not the stamp's as_of is refused
+        naive = []
+        for i, e in enumerate(h.cal.events):
+            if i in gone:
+                continue
+            e = dict(e)
+            if isinstance(e.get("run_index"), int):
+                e["run_index"] -= sum(1 for d in {r0.index} if d < e["run_index"])
+            naive.append(e)
+        with self.assertRaises(ValueError):
+            CalibrationAuthority.from_events(naive, h.cal.adm, h.cal.policy)
+
     def test_an_escape_needing_both_a_stamp_and_an_install_anchor_names_both(self):
         """An escape can need two anchors of different kinds at once: a later
         same-class stamp (R4-3) and a later install its deletion's renumbering

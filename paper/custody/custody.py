@@ -253,11 +253,16 @@ def _invalidates(cal: CalibrationAuthority, s: SurfaceEvent) -> bool:
 
 
 def _alt_delete(cal: CalibrationAuthority, delete: set, invalidated=()) -> list:
-    """The journal a coherent alternative leaves: the cal events at indices
-    `delete` removed, every later `run_index` renumbered as replay
-    range-checks them (T12c), and every `cal_exclude` that named a deleted or
-    `invalidated` run dropping it (and emptied ones removed). `invalidated`
-    covers a run whose `cal_run` stays but whose sole witness is gone."""
+    """The journal a coherent alternative leaves, consistently renumbered as
+    the move set of §5 allows (T12c): the cal events at indices `delete`
+    removed, every later `run_index` renumbered as replay range-checks them,
+    every `cal_exclude` that named a deleted or `invalidated` run dropping it
+    (emptied ones removed), and every `cal_stamp`'s `track_records[*].as_of`
+    reset to the stamp's new position — that field records `_position()` at
+    the stamp and `from_events` recomputes it, so a stamp shifted by a
+    deletion before it must carry its new index or the recompute refuses an
+    otherwise valid alternative. `invalidated` covers a run whose `cal_run`
+    stays but whose sole witness is gone."""
     deleted_runs = {cal.events[i].get("run_index") for i in delete
                     if cal.events[i].get("type") == "cal_run"}
     drop = {r for r in (set(deleted_runs) | set(invalidated)) if r is not None}
@@ -277,6 +282,14 @@ def _alt_delete(cal: CalibrationAuthority, delete: set, invalidated=()) -> list:
             if not kept:
                 continue
             ev["run_indices"] = kept
+        if ev.get("type") == "cal_stamp" and ev.get("track_records"):
+            # as_of is the stamp's own `_position()`; on rebuild it is
+            # recomputed at the shifted index, so carry the new position
+            records = {k: dict(v) for k, v in dict(ev["track_records"]).items()}
+            for rec in records.values():
+                if "as_of" in rec:
+                    rec["as_of"] = len(out)
+            ev["track_records"] = records
         out.append(ev)
     return out
 
