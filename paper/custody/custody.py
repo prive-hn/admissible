@@ -344,26 +344,25 @@ def _install_anchors_for_escape(cal: CalibrationAuthority, s: SurfaceEvent,
             run = _run_at_index(cal, j)
             if run is not None:
                 delete |= {k for k in _run_structural(cal, run)}
-    base = _alt_delete(cal, delete, invalidated)
-    if _rebuilds(cal, base, initial_policy):
+    if _rebuilds(cal, _alt_delete(cal, delete, invalidated), initial_policy):
         return []
 
-    installs = [(j, cal.events[j].get("policy_version"))
-                for j, ev in enumerate(cal.events) if ev.get("type") == "cal_install"]
+    # probe installs by journal index, not policy version: the same version can
+    # be installed twice (unchanged content), and deleting the target may break
+    # only one of them, so removing a version would over-state the deletion
+    installs = [j for j, ev in enumerate(cal.events) if ev.get("type") == "cal_install"]
 
-    def without(remove: set) -> list:
-        return [e for e in base
-                if not (e.get("type") == "cal_install" and e.get("policy_version") in remove)]
+    def rebuilds_without(remove: set) -> bool:
+        return _rebuilds(cal, _alt_delete(cal, delete | remove, invalidated), initial_policy)
 
-    all_pv = {pv for _, pv in installs}
-    if not _rebuilds(cal, without(all_pv), initial_policy):
+    if not rebuilds_without(set(installs)):
         return []       # not curable by installs alone; `coherent` still keeps the event off exposed
 
-    needed = set(all_pv)
-    for _, pv in installs:            # add each back; keep removed only if the rebuild needs it gone
-        if pv in needed and _rebuilds(cal, without(needed - {pv}), initial_policy):
-            needed.discard(pv)
-    return [("cal", j) for j, pv in installs if pv in needed]
+    needed = set(installs)
+    for j in installs:                # add each back; keep removed only if the rebuild needs it gone
+        if j in needed and rebuilds_without(needed - {j}):
+            needed.discard(j)
+    return [("cal", j) for j in sorted(needed)]
 
 
 def _run_of(cal: CalibrationAuthority, s: SurfaceEvent) -> Optional[Run]:
