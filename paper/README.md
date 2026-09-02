@@ -14,7 +14,7 @@ This directory contains four connected technical reports:
    capabilities and fourteen executable findings about the kernel as it is. Its executable companion is [`custody/custody.py`](custody/custody.py)
    with `tests/test_custody.py`; the catalogue of capabilities with their
    verification status is [`custody/IMPROVEMENTS.md`](custody/IMPROVEMENTS.md), and
-   the record of its seven review rounds (three adversarial referee rounds, the pull request's automated review, two seven-referee re-reviews of the pull request head, and an internal six-reviewer adversarial re-review) is [`custody/REVIEWS.md`](custody/REVIEWS.md).
+   the record of its eight review rounds (three adversarial referee rounds, the pull request's automated review, two seven-referee re-reviews of the pull request head, and two internal six-reviewer adversarial re-reviews) is [`custody/REVIEWS.md`](custody/REVIEWS.md).
    A draft not yet reviewed by the author, not part of the volume PDF.
 
 They are versioned technical reports, not peer-reviewed publications. The

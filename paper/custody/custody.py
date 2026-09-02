@@ -718,8 +718,10 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent, *,
     """What a coherent alternative must remove besides `s` to delete it: the
     events structurally tied to it (`group_with`, at no cost to any other
     line) and the anchors, each carried with its own structural group — an
-    anchored `cal_run` (an audit) takes its replays and adjudication, an
-    anchored `cal_install` its later `cal_close(E5)` readers. When `s` is one
+    anchored `cal_run` takes its structural events (for a tier-B run only the
+    accepting adjudication is required to invalidate it; its `cal_run` and
+    establishing replays are prunable), an anchored `cal_install` its later
+    `cal_close(E5)` readers. When `s` is one
     of several establishing replays of its run (`redundant_with`), deleting it
     alone leaves a sibling to establish the run, so the closure carries every
     sibling replay too, and — the run then no longer an established escape —
@@ -765,7 +767,22 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent, *,
         if t in ("cal_run", "cal_replay", "cal_adjudicate"):
             run = _run_at_index(cal, j)
             if run is not None:
-                struct |= {("cal", k) for k in _run_structural(cal, run)}
+                adj = _adjudication_index(cal, run) if run.tier == "B" else None
+                if adj is not None:
+                    # tier B: the accepting adjudication alone invalidates the
+                    # run (an unadjudicated tier-B run is not a valid escape), so
+                    # only it is required and goes in `struct`; the run's `cal_run`
+                    # and establishing replays are then redundant with it and join
+                    # the candidate pool the minimisation tests, not `struct`. This
+                    # is the R7-2 rule the `redundant_with` branch already applies,
+                    # extended to the anchor path an F1 second-path run reaches — a
+                    # refused tier-B escape whose `cal_run` R7-1 anchors (R8-1).
+                    struct.add(("cal", adj))
+                    cand |= {("cal", k) for k in _run_structural(cal, run) if k != adj}
+                else:
+                    # tier A (or an unadjudicated tier-B run): every structural
+                    # event must go to unestablish the run; none is prunable.
+                    struct |= {("cal", k) for k in _run_structural(cal, run)}
         elif t == "cal_install":
             cand |= {("cal", k) for k in _install_e5_candidates(cal, j)}
     # completeness net: removing an install anchor can renumber a later run and
@@ -982,20 +999,38 @@ def power_joint(composites: Iterable[float]) -> float:
     return residual
 
 
+def _power_joint_uniform(p: float, n: int) -> float:
+    """`power_joint([p] * n)` without materialising the length-`n` list. The
+    sum of `n` identical `(1 − p)` terms is `n · (1 − p)`, and the same downward
+    clamp applies: the sequential sum `power_joint` forms accumulates O(n·ε) of
+    rounding error, which is exactly the scale the clamp `4·n·ε` absorbs, so the
+    closed form and the list build agree on the sign at the horizon — and the
+    horizon is the only thing `bonferroni_horizon` reads. Evaluating it in O(1)
+    space keeps the query from allocating an ~`1/(1−p)`-length list (and
+    crashing) when `p` sits close to 1, as a bounded refuter's `1−(1−ε)^N`
+    figure legitimately can."""
+    import sys
+    residual = 1.0 - n * (1.0 - p)
+    if residual < 4.0 * max(1, n) * sys.float_info.epsilon:
+        return 0.0
+    return residual
+
+
 def bonferroni_horizon(p: float) -> Optional[int]:
     """The smallest number of conjuncts at power p at which the assumption-free
     joint reading `power_joint` reaches its fail-closed zero (≈ ceil(1/(1−p)));
-    None at p = 1. Decided by `power_joint` itself, so the two cannot disagree:
-    a genuine near-boundary excess (p just above 1−1/k) leaves `power_joint`
-    positive and pushes the horizon one past k, while representation noise at
-    an exact boundary still reads zero there."""
+    None at p = 1. Decided by `power_joint`'s own clamp (via its O(1)-space twin
+    `_power_joint_uniform`, so the two cannot disagree at the horizon): a genuine
+    near-boundary excess (p just above 1−1/k) leaves the reading positive and
+    pushes the horizon one past k, while representation noise at an exact
+    boundary still reads zero there."""
     if p >= 1.0:
         return None
     import math
     n = max(1, math.floor(1.0 / (1.0 - p)))
-    while power_joint([p] * n) > 0.0:
+    while _power_joint_uniform(p, n) > 0.0:
         n += 1
-    while n > 1 and power_joint([p] * (n - 1)) == 0.0:
+    while n > 1 and _power_joint_uniform(p, n - 1) == 0.0:
         n -= 1
     return n
 

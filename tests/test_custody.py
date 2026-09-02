@@ -177,6 +177,31 @@ class JointReadingT7(unittest.TestCase):
         self.assertEqual(custody.power_joint([0.9] * 10), 0.0)
         self.assertAlmostEqual(custody.power_joint([0.9, 0.7]), 0.6)
 
+    def test_the_horizon_of_a_near_one_power_is_finite_and_needs_no_giant_list(self):
+        """A bounded refuter's `1-(1-eps)^N` figure (D13) can sit arbitrarily
+        close to but below 1, and flows unchanged to a seal's `power_min` — a
+        legal input to `bonferroni_horizon`. Its horizon is a finite ~1/(1-p),
+        but must be reached WITHOUT materialising an ~1/(1-p)-length list, or the
+        query allocates ~1TB and crashes (R8-2). `_power_joint_uniform` decides
+        the horizon in O(1) space and agrees with `power_joint`'s clamp at the
+        boundary for every reachable p."""
+        p = 1.0 - 0.8 ** 115            # ~0.9999999999928, a valid bounded (eps=0.2,N=115) figure
+        h = custody.bonferroni_horizon(p)
+        self.assertIsInstance(h, int)
+        self.assertGreater(h, 10 ** 11)                          # finite, near 1/(1-p)
+        # the defining property holds at the (huge) horizon, in O(1) space
+        self.assertEqual(custody._power_joint_uniform(p, h), 0.0)
+        self.assertGreater(custody._power_joint_uniform(p, h - 1), 0.0)
+        # the closed form agrees with the list build wherever the list is buildable
+        rng = random.Random(20260902)
+        for _ in range(2000):
+            q = rng.random(); n = rng.randint(1, 300)
+            self.assertEqual(custody._power_joint_uniform(q, n) == 0.0,
+                             custody.power_joint([q] * n) == 0.0)
+        # the small-p horizons the list build pins are unchanged
+        self.assertEqual(custody.bonferroni_horizon(0.9), 10)
+        self.assertEqual(custody.bonferroni_horizon(0.99), 100)
+
     def test_the_empty_conjunction_is_the_identity_of_its_event(self):
         """T6/T7 at the empty set: an empty union catches nothing (0), an
         empty intersection is vacuously caught (1) — the value `power_joint([])`
@@ -988,6 +1013,58 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
             custody._shift_adm_positions(list(h.cal.events), grp), adm2, h.cal.policy)
         self.assertTrue(alone.admissible("w"))
         self.assertFalse(alone.admissible("v"))
+
+    def test_a_refusal_props_closure_carries_the_adjudication_not_the_replay(self):
+        """The escape R7-1 anchors is a tier-B run against v, and a tier-B run is
+        invalidated by deleting its accepting `cal_adjudicate` alone (an
+        unadjudicated tier-B run is not a valid escape). So the coherent
+        alternative that raises w at no cost to v deletes the adjudication and
+        the refusal group — NOT the run's establishing replay, which is redundant
+        with the adjudication. The R7-2 tier-B rule must reach the anchor path an
+        F1 second-path run travels, or `deletion_closure` over-counts the replay
+        and misstates the deletion cost T11 rests on (R8-1)."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel("d-hawk", "mutator"), ledger(8, 10))
+        h.seal_line("w")
+        r2 = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("hawk", "v1")}), "d-hawk"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(r2)
+        h.fcd_open("v"); h.cal.open("v", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("v"); h.sample("v", f"v-{i}".encode())
+            h.trial("v", i, refuter=("hawk", "v1"), claim="tests_pass", witness="h-same")
+        h.replay_all("v"); h.fcd_check("v"); h.cal.seal("v")
+        esc = h.cal.file_escape("v", "tests_pass", "tests", "v1", "nB", b"v-0", "seed", "hk", "aud")
+        h.cal.replay_run(esc.index, "refuted", "hk")
+        h.cal.adjudicate(esc.index, "owner", "accept", "reproduced")
+        h.a.replay("w", 0, "refuted", "diverge")
+        run = custody._run_at_index(h.cal, esc.position)
+        self.assertEqual(run.tier, "B")
+        adj = custody._adjudication_index(h.cal, run)
+        replays = [k for k in custody._run_structural(h.cal, run)
+                   if h.cal.events[k].get("type") == "cal_replay"]
+        self.assertTrue(replays)                                 # there is an establishing replay
+        for s in [e for e in custody.deletion_surface(h.cal, "w") if e.reason == "taint"]:
+            closure = custody.deletion_closure(h.cal, s)
+            cal_idx = {i for jr, i in closure if jr == "cal"}
+            self.assertIn(adj, cal_idx)                          # the adjudication is required
+            for r in replays:
+                self.assertNotIn(r, cal_idx)                     # the establishing replay is pruned
+            # and the minimal closure still rebuilds, raising w at no cost to v
+            self.assertTrue(custody._rebuild_alt(h.cal, s, set(closure), None))
+            drop = {s.index} | {i for jr, i in closure if jr == "rga"}
+            cal_del = {i for jr, i in closure if jr == "cal"}
+            adm_full = Admission.from_events(
+                [e for i, e in enumerate(h.a.events) if i not in drop], h.e, admission_policy(), r2)
+            cal_full = CalibrationAuthority.from_events(
+                custody._shift_adm_positions(custody._alt_delete(h.cal, cal_del, set()), drop),
+                adm_full, h.cal.policy)
+            self.assertTrue(cal_full.admissible("w"))
+            self.assertTrue(cal_full.admissible("v"))
 
     def test_a_taint_deletion_shifts_a_surviving_stamps_admission_position(self):
         """After a refusal taints a seal, a later mediated seal under a
