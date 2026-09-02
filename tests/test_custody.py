@@ -554,6 +554,72 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         self.assertFalse(CalibrationAuthority.from_events(self._drop_run(g.cal.events, r.index),
                                                           g.a, g.cal.policy).impeached("w"))
 
+    def test_a_cal_run_whose_deletion_renumbers_a_covered_run_is_anchored_by_the_install(self):
+        """`derived_defect_id` embeds the run's journal position, so deleting an
+        earlier escape renumbers a later covered run and the install's ledger no
+        longer covers the new id (`_guard_install_covers`). The companion
+        re-derives the group deletion (`coherent`) and names the install that
+        refuses it: the run is not exposed and its `deletion_closure` includes
+        the install, and deleting run and install together rebuilds. The last
+        escape renumbers nothing before it and stays exposed."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w"); h.seal_line("v")
+        r0 = h.tier_a_escape("w", nonce="e1"); r1 = h.tier_a_escape("v", nonce="e2")
+        h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+        ids = [LedgerEntry(f"m{i}", "killed") for i in range(10)] + [
+            LedgerEntry(h.cal.derived_defect_id(r0), "killed"),
+            LedgerEntry(h.cal.derived_defect_id(r1), "killed")]
+        h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"), ids)
+        succ = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(succ)                                       # covers both position-derived ids
+        install = len(h.cal.events) - 1
+        run_w = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_run")
+        self.assertFalse(run_w.exposed)
+        self.assertIn(("cal", install), run_w.anchored_by)
+        self.assertIn(("cal", install), custody.deletion_closure(h.cal, run_w))
+        self.assertNotIn(install, [i for _, i in run_w.group_with])   # a reader, not a tie
+        with self.assertRaises(ValueError):                      # the group alone: v's renumbered id is uncovered
+            CalibrationAuthority.from_events(self._drop_run(h.cal.events, r0.index), h.a, h.cal.policy)
+        closure = [e for e in self._drop_run(h.cal.events, r0.index) if e.get("type") != "cal_install"]
+        self.assertFalse(CalibrationAuthority.from_events(closure, h.a, h.cal.policy).impeached("w"))
+        run_v = next(e for e in custody.deletion_surface(h.cal, "v") if e.type == "cal_run")
+        self.assertTrue(run_v.exposed)                           # the last escape renumbers nothing before it
+
+    def test_a_sole_replay_named_by_an_exclusion_is_deletable_only_with_it(self):
+        """Deleting the sole establishing replay leaves the run unestablished,
+        so a `cal_exclude` that named it names a non-valid escape on rebuild.
+        The replay carries that exclusion in its group (a shared one in
+        `rewrites`): exposed only *with* the exclusion, the group deletes
+        clean, the replay alone is refused. The accepting adjudication of a
+        tier-B run does the same."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        r = h.tier_a_escape("w")
+        h.cal.exclude("impl", [r.index], "owner", "released")
+        excl = len(h.cal.events) - 1
+        rep = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_replay")
+        self.assertIn(("cal", excl), rep.group_with)
+        self.assertTrue(rep.exposed)
+        self.assertIn(("cal", excl), custody.deletion_closure(h.cal, rep))
+        with self.assertRaises(ValueError):                      # the replay alone orphans the exclusion
+            CalibrationAuthority.from_events([e for i, e in enumerate(h.cal.events) if i != rep.index],
+                                             h.a, h.cal.policy)
+        gone = {rep.index} | {i for _, i in rep.group_with}
+        rebuilt = CalibrationAuthority.from_events([e for i, e in enumerate(h.cal.events) if i not in gone],
+                                                   h.a, h.cal.policy)
+        self.assertFalse(rebuilt.impeached("w"))                 # un-impeached, exclusion gone
+        # a shared exclusion is rewritten, not grouped
+        g = CalHarness(); g.declare_tests(); g.seal_line("w"); g.seal_line("v")
+        rw = g.tier_a_escape("w", nonce="e1"); g.tier_a_escape("v", nonce="e2")
+        g.cal.exclude("impl", [rw.index, rw.index + 1], "owner", "released")
+        shared = len(g.cal.events) - 1
+        repw = next(e for e in custody.deletion_surface(g.cal, "w")
+                    if e.type == "cal_replay" and custody._run_of(g.cal, e).index == rw.index)
+        self.assertIn(("cal", shared), repw.rewrites)
+        self.assertNotIn(("cal", shared), repw.group_with)
+
     def test_a_runs_structural_events_delete_as_a_group(self):
         """A coherent alternative that deletes a `cal_run` must delete every
         event naming its run (they are refused without it); a tier-B run's
