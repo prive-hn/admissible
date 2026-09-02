@@ -140,6 +140,20 @@ class JointReadingT7(unittest.TestCase):
         self.assertAlmostEqual(custody.power_joint([0.9] * 3), 0.7)
         self.assertIsNone(custody.bonferroni_horizon(1.0))
 
+    def test_the_empty_conjunction_is_the_identity_of_its_event(self):
+        """T6/T7 at the empty set: an empty union catches nothing (0), an
+        empty intersection is vacuously caught (1) — the value `power_joint([])`
+        already returns. `frechet_bounds` must resolve emptiness per event, not
+        to one fail-closed pair, or a caller folding a dynamically empty
+        conjunctive set reads a contradictory zero-power interval (R4-23)."""
+        self.assertEqual(custody.frechet_bounds([], "intersection"), (1.0, 1.0))
+        self.assertEqual(custody.power_joint([]), 1.0)          # the two agree at the empty set
+        self.assertEqual(custody.frechet_bounds([], "union"), (0.0, 0.0))
+        # non-empty is unchanged
+        self.assertEqual(custody.frechet_bounds([0.9, 0.7], "intersection"), (custody.power_joint([0.9, 0.7]), 0.7))
+        with self.assertRaises(ValueError):
+            custody.frechet_bounds([], "neither")
+
     def test_union_bounds_contain_the_kernels_composite(self):
         """T6: the kernel's labelled max is the lower Fréchet bound across models."""
         lo, hi = custody.frechet_bounds([0.9, 0.5], "union")
@@ -804,6 +818,78 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         taint = custody.deletion_surface(h2.cal, "w")
         for e in taint:
             self.assertEqual(set(e.group_with), {("rga", o.index) for o in taint if o.index != e.index})
+
+    def test_a_redundant_replays_closure_names_its_siblings_and_their_reader(self):
+        """A run replayed twice has two establishing witnesses; neither is
+        exposed alone. To delete either demonstration every sibling replay
+        must go too, and — the run then no longer an established escape — a
+        later same-class stamp that recomputed its corpus from that escape
+        anchors the collective removal. `deletion_closure` must name the
+        sibling and the stamp, or deleting the reported closure leaves the
+        sibling establishing the run and the line impeached (R4-24)."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        run = h.tier_a_escape("w")
+        h.cal.replay_run(run.index, "refuted", "kill-w")        # a second, redundant witness
+        h.seal_line("v")                                        # a later same-class stamp reads w's escape
+        surface = custody.deletion_surface(h.cal, "w")
+        replays = sorted((e for e in surface if e.type == "cal_replay"), key=lambda e: e.index)
+        self.assertEqual(len(replays), 2)
+        stamp_v = next(i for i, e in enumerate(h.cal.events)
+                       if e.get("type") == "cal_stamp" and e.get("line_id") == "v")
+        for s in replays:
+            sibling = next(o for o in replays if o.index != s.index)
+            closure = custody.deletion_closure(h.cal, s)
+            self.assertIn(("cal", sibling.index), closure)      # the sibling must go too
+            self.assertIn(("cal", stamp_v), closure)            # and v's stamp read the escape
+            gone = {s.index} | {i for _, i in closure}
+            rebuilt = CalibrationAuthority.from_events(
+                [e for i, e in enumerate(h.cal.events) if i not in gone], h.a, h.cal.policy)
+            self.assertTrue(rebuilt.admissible("w"))            # the demonstration is actually removed
+            # deleting the replay and the stamp but NOT the sibling leaves w impeached
+            half = {s.index, stamp_v}
+            still = CalibrationAuthority.from_events(
+                [e for i, e in enumerate(h.cal.events) if i not in half], h.a, h.cal.policy)
+            self.assertFalse(still.admissible("w"))
+
+    def test_a_taint_deletion_shifts_a_surviving_stamps_admission_position(self):
+        """After a refusal taints a seal, a later mediated seal under a
+        switched pin records a `cal_stamp` whose `sealed_at` names an admission
+        position. Deleting the refusal group shortens the admission journal, so
+        that stamp — which no revived escape makes an analytic anchor — must
+        have its `sealed_at` (and any close/exclude/install `as_of`) rewritten
+        with the shift, or `_rebuild_alt` refuses the advertised closure as a
+        stamp not bound to its seal (R4-21)."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")                 # refuses tests v1, taints w
+        h.a.declare(Refuter("pbt", "v1", "prop-author", "ledger"))
+        h.a.measure("pbt", "v1", DefectModel(D1, "mutator"), ledger(9, 10))
+        pol = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("pbt", "v1")}), D1),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.a.install(pol)                                        # switch the pin to pbt
+        h.fcd_open("y"); h.cal.open("y", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("y"); h.sample("y", f"y-{i}".encode()); h.trial("y", i, refuter=("pbt", "v1"))
+        h.replay_all("y"); h.fcd_check("y"); h.cal.seal("y")    # a mediated stamp for y, after the refusal
+        self.assertTrue(h.cal.mediated("y"))
+        taint = [e for e in custody.deletion_surface(h.cal, "w") if e.reason == "taint"]
+        self.assertTrue(taint and all(e.exposed for e in taint))
+        s = taint[0]
+        closure = set(custody.deletion_closure(h.cal, s))
+        self.assertIn(("rga", s.index), set(custody.deletion_closure(h.cal, s)) | {("rga", s.index)})
+        self.assertTrue(custody._rebuild_alt(h.cal, s, closure, None))   # the shift makes it coherent
+        # the shift is what does it: without rewriting sealed_at the rebuild refuses
+        rga_del = {s.index} | {i for jr, i in closure if jr == "rga"}
+        alt_adm = [e for i, e in enumerate(h.a.events) if i not in rga_del]
+        adm2 = Admission.from_events(alt_adm, h.e, admission_policy(), h.a.policy)
+        self.assertFalse(adm2.tainted("w"))                              # w un-tainted
+        unshifted = custody._alt_delete(h.cal, set(), set())             # the cal journal, positions unshifted
+        with self.assertRaises(ValueError):
+            CalibrationAuthority.from_events(unshifted, adm2, h.cal.policy)   # stamp not bound to its seal
 
 
 class SupportDetermination(unittest.TestCase):

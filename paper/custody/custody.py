@@ -366,7 +366,12 @@ def _install_anchors_for_escape(cal: CalibrationAuthority, s: SurfaceEvent,
     installs = [j for j, ev in enumerate(cal.events) if ev.get("type") == "cal_install"]
 
     def rebuilds_without(remove: set) -> bool:
-        return _rebuilds(cal, _alt_delete(cal, delete | remove, invalidated), initial_policy)
+        # a removed install's downstream E5 close reads the budget it set, so it
+        # must go with the install while probing (else the E5 replays under the
+        # pre-install budget and refuses); `deletion_closure` adds it back per
+        # anchored install and minimises which E5 the deletion truly needs
+        extra = {k for j in remove for k in _install_e5_candidates(cal, j)}
+        return _rebuilds(cal, _alt_delete(cal, delete | remove | extra, invalidated), initial_policy)
 
     if not rebuilds_without(set(installs)):
         return []       # not curable by installs alone; `coherent` still keeps the event off exposed
@@ -619,27 +624,56 @@ def _install_e5_candidates(cal: CalibrationAuthority, j: int) -> list:
             and line.cls in budgets]
 
 
+def _shift_adm_positions(events: list, adm_del: set) -> list:
+    """Rewrite the cal journal's recorded admission positions after deleting
+    `adm_del` from the admission journal: `cal_stamp.sealed_at` and the `as_of`
+    of a `cal_close`, `cal_exclude` or `cal_install` each name an admission
+    position, and `from_events` checks them against the rebuilt admission, so
+    each shifts by the deletions before it (T12c)."""
+    def shift(p: int) -> int:
+        return p - sum(1 for d in adm_del if d < p)
+
+    out = []
+    for ev in events:
+        ev = dict(ev)
+        if ev.get("type") == "cal_stamp" and isinstance(ev.get("sealed_at"), int):
+            ev["sealed_at"] = shift(ev["sealed_at"])
+        if ev.get("type") in ("cal_close", "cal_exclude", "cal_install") and isinstance(ev.get("as_of"), int):
+            ev["as_of"] = shift(ev["as_of"])
+        out.append(ev)
+    return out
+
+
 def _rebuild_alt(cal: CalibrationAuthority, s: SurfaceEvent, deletions: set,
                  initial_policy: Optional[CalibrationPolicy]) -> bool:
     """Whether deleting `s` and `deletions` re-derives: the rga events rebuild
-    the admission (its own starting policy is the first in `_policies`, and it
-    re-applies the journalled installs), the cal events rebuild calibration
-    against it. A cross-journal generalisation of `_rebuilds` for closures."""
+    the admission, the cal events rebuild calibration against it, both
+    consistently renumbered (T12c). Deleting rga events shifts admission
+    positions, so the surviving cal journal's admission-position fields
+    (`cal_stamp.sealed_at`, the `as_of` of a close, exclusion or install) move
+    with them, and the rebuilt admission is seeded so its live policy — which
+    `from_events` restores from the last supplied policy — is preserved even
+    when a version was re-installed. A cross-journal generalisation of
+    `_rebuilds` for closures."""
     adm = cal.adm
     rga_del = {i for jr, i in deletions if jr == "rga"} | ({s.index} if s.journal == "rga" else set())
     cal_del = {i for jr, i in deletions if jr == "cal"} | ({s.index} if s.journal == "cal" else set())
     if rga_del:
         try:
-            pols = list(adm._policies.values())
+            live = adm.policy
+            pols = list(adm._policies.values())         # first is the initial policy
+            ordered = [pols[0]] + [p for p in pols[1:] if p.version != live.version] + [live]
             alt_adm = [e for i, e in enumerate(adm.events) if i not in rga_del]
-            adm = Admission.from_events(alt_adm, adm.fcd, pols[0], *pols[1:])
+            adm = Admission.from_events(alt_adm, adm.fcd, *ordered)
         except Exception:
             return False
     run = _run_of(cal, s) if s.reason == "escape" else None
     invalidated = {run.index} if run is not None and _invalidates(cal, s) else set()
+    alt_cal = _alt_delete(cal, cal_del, invalidated)
+    if rga_del:
+        alt_cal = _shift_adm_positions(alt_cal, rga_del)
     try:
-        CalibrationAuthority.from_events(_alt_delete(cal, cal_del, invalidated),
-                                         adm, initial_policy or cal.policy)
+        CalibrationAuthority.from_events(alt_cal, adm, initial_policy or cal.policy)
         return True
     except Exception:
         return False
@@ -651,7 +685,13 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent, *,
     events structurally tied to it (`group_with`, at no cost to any other
     line) and the anchors, each carried with its own structural group — an
     anchored `cal_run` (an audit) takes its replays and adjudication, an
-    anchored `cal_install` its later `cal_close(E5)` readers. The set is then
+    anchored `cal_install` its later `cal_close(E5)` readers. When `s` is one
+    of several establishing replays of its run (`redundant_with`), deleting it
+    alone leaves a sibling to establish the run, so the closure carries every
+    sibling replay too, and — the run then no longer an established escape —
+    whatever reads it as one (a later stamp, E5 close or audit) anchors the
+    collective removal exactly as it anchors the run's own deletion (R4-24).
+    The set is then
     *minimised by re-derivation*: a candidate anchor or downstream reader is
     dropped whenever the alternative still rebuilds without deleting it (an E5
     whose charge count clears the pre-install budget survives the install's
@@ -660,8 +700,17 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent, *,
     standing those events carried. Events in `rewrites` are edited, not
     removed, and are not listed here."""
     struct = set(s.group_with)
+    anchors = set(s.anchored_by)
+    if s.redundant_with:
+        struct |= {("cal", k) for k in s.redundant_with}   # every sibling must go too
+        run = _run_of(cal, s)
+        if run is not None:
+            # the run, once none of its replays remain, is no longer an
+            # established escape; whatever read it as one anchors that removal
+            run_ev = SurfaceEvent("cal", run.position, "cal_run", run.line_id, "escape")
+            anchors |= set(_anchors_of(cal, run_ev, initial_policy))
     cand: set = set()
-    for jr, j in s.anchored_by:
+    for jr, j in anchors:
         cand.add((jr, j))
         if jr != "cal":
             continue
@@ -860,14 +909,16 @@ def seal_joint(seal: Seal) -> float:
 def frechet_bounds(powers: Iterable[float], event: str) -> tuple[float, float]:
     """The interval every coupling's value of the composite lies in.
     event='union' (some refuter catches): [max, min(1, Σ)] — T6(b).
-    event='intersection' (every conjunct caught): [max(0, 1−Σ(1−p)), min] — T7."""
+    event='intersection' (every conjunct caught): [max(0, 1−Σ(1−p)), min] — T7.
+    The empty conjunction is the identity of its event: an empty union
+    catches nothing (0) and an empty intersection is vacuously caught (1,
+    the value `power_joint([])` already returns), so emptiness is resolved
+    per event, not to a single fail-closed pair."""
     ps = list(powers)
-    if not ps:
-        return (0.0, 0.0)
     if event == "union":
-        return (max(ps), min(1.0, sum(ps)))
+        return (max(ps), min(1.0, sum(ps))) if ps else (0.0, 0.0)
     if event == "intersection":
-        return (power_joint(ps), min(ps))
+        return (power_joint(ps), min(ps) if ps else 1.0)
     raise ValueError(f"unknown event {event!r}")
 
 
