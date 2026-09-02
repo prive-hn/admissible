@@ -52,3 +52,36 @@ jobs:
       # config-path: .admissible.json
       # class: default
       # evaluate-runs-on: '["self-hosted","linux","x64","your-label"]'
+
+  # TEMPORARY diagnostic (this branch only): the gate captures each check's
+  # output and publishes only a digest, so a red `unit` never names the test
+  # that failed. This non-gating job reproduces `make test` on the same runner
+  # and prints the failing tests verbatim, so the residual can be fixed. Remove
+  # before merge.
+  diagnose-unit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - run: |
+          set -uo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install -q -e '.[dev]'
+          id -un; umask
+          set +e
+          .venv/bin/python -m unittest discover -s tests -p 'test_*.py' > unit.out 2>&1
+          echo "tests/ exit: $?"
+          .venv/bin/python -m unittest discover -s atlas/tests -p 'test_*.py' > atlas.out 2>&1
+          echo "atlas exit: $?"
+          set -e
+          echo "===== FAIL/ERROR names (tests/) ====="
+          grep -E '^(FAIL|ERROR):' unit.out | sed -E 's/ \(.*//' | sort | uniq -c || true
+          echo "===== grouped by module (tests/) ====="
+          grep -E '^(FAIL|ERROR):' unit.out | grep -oE '\(([a-zA-Z0-9_.]+)\.[A-Za-z0-9_]+\.' | sed -E 's/\(([a-zA-Z0-9_.]+)\.[A-Za-z0-9_]+\./\1/' | sort | uniq -c | sort -rn || true
+          echo "===== summary lines ====="
+          grep -E '^Ran |^OK|^FAILED' unit.out atlas.out || true
+          echo "===== first 120 lines of failure detail (tests/) ====="
+          awk '/^={70}/{p=1} p' unit.out | head -120 || true
