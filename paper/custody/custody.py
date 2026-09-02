@@ -7,7 +7,7 @@ Research code beside the paper, in the paper's discipline — each function
 names the theorem it computes — and not part of the gate.
 
     N1  deletion_surface        T4.1   the events whose removal raises standing;
-        exposed / support        §5     the deletable part of it, and the signed support
+        exposed / support        §5     the part deletable at no cost, and the signed support
     N2  standing_certificate    T11    the line-scoped anchor, and its verifier
     N3  POLARITY / polarity_of  D6,T3  the event alphabet signed for admissible
     N4  power_joint, horizon    T7     the Bonferroni reading beside power_min
@@ -50,8 +50,9 @@ POLARITY: dict[str, str] = {
     # standing journal
     "cal_run": "0",             # filed is not established (C1); see cal_replay
     "cal_replay": "-",          # an establishing replay of a refuted run impeaches
-    "cal_discredit": "±",       # neutral for the discredited checker's own line; POSITIVE
-                                # for every line its escapes impeached (validity degrades) — T3
+    "cal_discredit": "+",       # strictly positive, by a second-order route: never lowers
+                                # admissible of any line, raises it for every line the checker's
+                                # escapes impeached (discredited enters only via _check_valid) — T3
     "cal_adjudicate": "-",      # decision=accept impeaches a tier-B run; reject is neutral
     "cal_exclude": "0", "cal_install": "0", "cal_close": "0",
     "cal_stamp": "+",           # mediated
@@ -225,9 +226,10 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
 
 
 def exposed(cal: CalibrationAuthority, line_id: Optional[str] = None) -> tuple[SurfaceEvent, ...]:
-    """The deletable part of the surface: witnesses no later event recomputes
-    against. This, not the whole surface, is what a coherent alternative can
-    remove, and it is what an anchor must pin (T4.1 as corrected in §5)."""
+    """The part of the surface deletable at no cost to any other line: witnesses
+    no later event recomputes against. Anchored witnesses are deletable too,
+    together with their anchors (T10b); the anchor of T11 must therefore count
+    every valid witness, not only these."""
     return tuple(s for s in deletion_surface(cal, line_id) if s.exposed)
 
 
@@ -246,9 +248,10 @@ class Support:
 
 def _degraders(cal: CalibrationAuthority, line_id: str) -> list[tuple[str, int, str]]:
     """The events that void a refuted run against line_id — the diverged
-    replay and discredit of its checker, the refusal group of its checker, a
-    rejecting adjudication — which are POSITIVE atoms of admissible(line_id):
-    deleting one revives the witness and lowers standing (T17(i))."""
+    replay and discredit of its checker, the refusal group of its checker —
+    which are POSITIVE atoms of admissible(line_id): deleting one revives the
+    witness and lowers standing (T17(i)). A rejecting adjudication is not one:
+    deleting it leaves a tier-B run unadjudicated and still invalid."""
     adm = cal.adm
     out: list[tuple[str, int, str]] = []
     for run in cal.runs:
@@ -260,8 +263,6 @@ def _degraders(cal: CalibrationAuthority, line_id: str) -> list[tuple[str, int, 
                 out.append(("cal", j, t))
                 if j >= 1 and cal.events[j - 1].get("type") == "cal_replay" and cal.events[j - 1].get("diverged"):
                     out.append(("cal", j - 1, "cal_replay"))
-            elif t == "cal_adjudicate" and ev.get("run_index") == run.index and ev.get("decision") == "reject":
-                out.append(("cal", j, t))
         at = adm.refused_at.get(run.checker)
         if at is not None:
             out.append(("rga", at, "rga_refuse"))

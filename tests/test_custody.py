@@ -46,7 +46,7 @@ class PolarityD6(unittest.TestCase):
         self.assertEqual(custody.polarity_of("cal_stamp"), "+")       # the event at which admissible flips
         self.assertEqual(custody.polarity_of("rga_seal"), "e")        # enabling: never lowers, never the flip
         self.assertEqual(custody.polarity_of("cal_replay"), "-")
-        self.assertEqual(custody.polarity_of("cal_discredit"), "±")
+        self.assertEqual(custody.polarity_of("cal_discredit"), "+")   # never lowers; raises second-order
         self.assertEqual(custody.polarity_of("rga_refuse"), "±")
         self.assertEqual(run.tier, "A")
 
@@ -353,7 +353,33 @@ class FindingF1DiscreditIsFailOpen(unittest.TestCase):
         self.assertFalse(h.cal.demoted("tests", "v1", "impl"))
         self.assertFalse(h.a.tainted("w"))
         self.assertEqual(h.a.refused, set())
-        self.assertEqual(custody.polarity_of("cal_discredit"), "±")
+        self.assertEqual(custody.polarity_of("cal_discredit"), "+")
+
+
+class FindingF14RefusedCheckerAcceptedOnRebuild(unittest.TestCase):
+    """F14: from_events' cal_run branch does not re-check Admission.refused; a
+    filing by an already-refused checker, refused live, is accepted on rebuild
+    (standing-neutral: _check_valid voids it), a fail-open replay seam."""
+
+    def test_filing_by_a_refused_checker_is_refused_live_and_accepted_on_rebuild(self):
+        from rga.core import derive_seed
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")                  # `tests` refused
+        seal = h.a.sealed["w"]
+        seed = derive_seed("n", seal.artifact_hash, "tests", "v1", "tests_pass")
+        with self.assertRaises(ValueError):
+            h.cal.file_escape("w", "tests_pass", "tests", "v1", "n", b"w-body-0", seed, "k", "f")   # live: refused
+        forged = list(h.cal.events) + [{"type": "cal_run", "run_index": len(h.cal.runs), "line_id": "w",
+                                        "class": "impl", "claim_id": "tests_pass", "checker_id": "tests",
+                                        "checker_version": "v1", "tier": "A", "nonce": "n",
+                                        "artifact_hash": seal.artifact_hash, "seed": seed,
+                                        "verdict": "refuted", "witness_hash": "k", "finder": "f", "ts": 0.0}]
+        rebuilt = CalibrationAuthority.from_events(forged, h.a, h.cal.policy)   # accepted on rebuild
+        self.assertEqual(len(rebuilt.runs), 1)
+        self.assertFalse(rebuilt._check_valid(rebuilt.runs[0]))
+        self.assertFalse(rebuilt.impeached("w"))
 
 
 class FindingF1RefusalPath(unittest.TestCase):
