@@ -205,6 +205,9 @@ Seven referees over the pull request head (mathematical soundness, kernel corres
 | R5-7 | minor | The F11 test never built the unmediated seal its name and F11's row describe. | applied — the test installs a successor pinning an unrefused refuter, seals a line through `Admission.seal` around the authority, and checks it is unmediated and survives the deletion |
 | R5-8 | minor | §1.1 cited the "stochastic witness source" sentence to RGA §5 (it is in §7); N28 used *nondeterministic* in the sense §1.1 reserves for the identity contrast. | applied |
 | R5-9 | minor | The paper and this file counted their review rounds as two in four places. | applied |
+| R5-10 | nit | D6's definition of *enabling* did not yield the labelling the paper assigns (most of the vocabulary is required by some guard on the path). | applied — *enabling* is read as a direct premise of the rising transition's own guard, and D6's polarity paragraph says so |
+| R5-11 | nit | `derived_tier` applies the pinned-membership rule it is said to explain, so "agrees with the kernel" was tautological. | applied — docstring and the N9 row say it is a restatement in trust-base vocabulary, not a derivation |
+| R5-12 | minor | Label slips: N5, N6 and N14 cited capabilities as C5, C4, C6 and C2 (the kernel's theorem labels); §8a's closing paragraph enumerated F2–F13; §8's preamble said no capability changes `admissible` while N28 is a semantics change; T14 was still titled "Padoa"; T14 and K8 cited a `../admissible/DRAFT.md` §7.1 that does not exist; the F3 row said the seal-path rollback restores `adm.policy`; N23 attributed the harness's nonce format to the bench; the N2 status omitted the `standing` component; the abstract said "stochastic generators" against §1.1's own convention; a test comment gave `cal_discredit` the polarity the test refutes. | applied |
 
 
 ## Disposition
@@ -304,3 +307,6 @@ Seven referees over the pull request head (mathematical soundness, kernel corres
 | R5-7 | minor | applied — test |
 | R5-8 | minor | applied — paper |
 | R5-9 | minor | applied — paper and this file |
+| R5-10 | nit | applied — paper |
+| R5-11 | nit | applied — companion and catalogue |
+| R5-12 | minor | applied — paper, catalogue, test comment |

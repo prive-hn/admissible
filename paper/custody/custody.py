@@ -298,9 +298,11 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
             elif (t == "cal_run" and ev.get("verdict") == "survived"
                   and (ev.get("checker_id"), ev.get("checker_version")) == run.checker):
                 # only an AUDIT reads an earlier escape (_guard_audit_checker fires
-                # under expect == "survived"); a later escape by the checker reads nothing
+                # under expect == "survived", over escapes(cls) of the audit's own
+                # class); a later escape by the checker reads nothing
                 seal = adm.sealed.get(ev.get("line_id"))
-                if (seal is not None and run.checker not in cal._pinned_on_claim(seal, ev.get("claim_id"))
+                if (seal is not None and seal.cls == cls
+                        and run.checker not in cal._pinned_on_claim(seal, ev.get("claim_id"))
                         and _valid_at(cal, run, j, None)
                         and not any(r is not run and r.checker == run.checker and r.verdict == "refuted"
                                     and r.cls == cls and _valid_at(cal, r, j, None) for r in cal.runs)):
@@ -697,7 +699,9 @@ def run_base(cal: CalibrationAuthority, run: Run) -> frozenset[str]:
 
 
 def derived_tier(cal: CalibrationAuthority, run: Run) -> str:
-    """Tier A iff base(run) ⊆ base(seal) — the reason the kernel's pinned-
-    membership rule is the right rule (N9)."""
+    """Tier A iff base(run) ⊆ base(seal): the kernel's pinned-membership rule
+    restated in trust-base vocabulary (N9). `run_base` applies that same rule,
+    so this cannot disagree with the kernel; the restatement is the point,
+    not an independent derivation."""
     seal = cal.adm.sealed[run.line_id]
     return "A" if run_base(cal, run) <= trust_base(cal.adm, seal) else "B"

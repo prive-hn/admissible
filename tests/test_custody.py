@@ -42,7 +42,7 @@ class PolarityD6(unittest.TestCase):
         run = h.tier_a_escape(nonce="e1")                       # establishing cal_replay: '-'
         self.assertFalse(h.cal.admissible("w"))
         second = h.tier_a_escape(nonce="e2", replay=False)
-        h.cal.replay_run(second.index, "refuted", "other")      # cal_discredit: '±'
+        h.cal.replay_run(second.index, "refuted", "other")      # cal_discredit: '+' (second-order)
         self.assertTrue(h.cal.admissible("w"))                  # validity of the first degraded
         self.assertEqual(custody.polarity_of("cal_stamp"), "+")       # the event at which admissible flips
         self.assertEqual(custody.polarity_of("rga_seal"), "e")        # enabling: never lowers, never the flip
