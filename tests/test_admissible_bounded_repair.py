@@ -1526,14 +1526,14 @@ class DiscoveredCountsTest(unittest.TestCase):
         self.assertEqual(collected - self.PRODUCT_DIRECTORIES, set())
 
     def test_the_research_kernel_count_is_what_the_paper_cites(self):
-        # 541 is the number the paper cites, and the kernel scope is where a
+        # 574 is the number the paper cites, and the kernel scope is where a
         # cockpit-server or release-integrity check lands when its top-level
         # filename carries neither the product prefix nor a product directory.
         # The paper, README, and this assertion move with those guards instead
         # of holding the count still by leaving release fixes untested.
         kernel = sum(1 for item in self.ids if not self._is_product(item))
-        self.assertEqual(kernel + 37 + 71, 541)
-        self.assertIn("| Research kernel — the number the paper cites | 541 |",
+        self.assertEqual(kernel + 37 + 71, 574)
+        self.assertIn("| Research kernel — the number the paper cites | 574 |",
                       self.readme)
 
     def test_the_atlas_count_is_what_the_readme_states(self):
