@@ -1,6 +1,6 @@
 # Custody theory — review rounds
 
-Two rounds of adversarial review. Round 1 took five branch formalizations written against the kernel (Fréchet Ledger, Polar Standing, Cut Custody, Refuser Calculus, Preimage Games), each refereed by three lenses — adversarial mathematical (soundness: circularity, vacuity, falsity, proof gaps), nearest-prior-art (novelty: the existing theory each object instantiates, audit of the branch's own novelty ledger), and kernel-adversarial (fidelity: non-claims, every `file:line` citation, feasibility of each proposed change under R11/C7 and fail-closed) — fifteen verdicts, followed by a completeness critic over the five. Round 2 took the unified paper (`DRAFT.md`, with `IMPROVEMENTS.md`, `custody.py`, `tests/test_custody.py`) through the same three lenses. Every referee had the repository and executed probes on the unmodified kernel (`rga/core.py`, `rga/calibration.py`, `fcd/core.py`, `fcd/head.py`) before ruling; a claim counts as a kernel fact below only where a referee re-drove it. Round-1 verdicts returned: repairable (9), broken (1), derivative (5) — no branch scored better than repairable on soundness or fidelity, every novelty verdict was derivative, Cut Custody's soundness verdict was broken. Round 2 returned a journal verdict: all three lenses, major revision. Severities are the referees' own; nothing was softened. Branch documents live only in the session scratchpad, not in the repository.
+Five rounds of review, recorded in order. Round 1 took five branch formalizations written against the kernel (Fréchet Ledger, Polar Standing, Cut Custody, Refuser Calculus, Preimage Games), each refereed by three lenses — adversarial mathematical (soundness: circularity, vacuity, falsity, proof gaps), nearest-prior-art (novelty: the existing theory each object instantiates, audit of the branch's own novelty ledger), and kernel-adversarial (fidelity: non-claims, every `file:line` citation, feasibility of each proposed change under R11/C7 and fail-closed) — fifteen verdicts, followed by a completeness critic over the five. Round 2 took the unified paper (`DRAFT.md`, with `IMPROVEMENTS.md`, `custody.py`, `tests/test_custody.py`) through the same three lenses. Every referee had the repository and executed probes on the unmodified kernel (`rga/core.py`, `rga/calibration.py`, `fcd/core.py`, `fcd/head.py`) before ruling; a claim counts as a kernel fact below only where a referee re-drove it. Round-1 verdicts returned: repairable (9), broken (1), derivative (5) — no branch scored better than repairable on soundness or fidelity, every novelty verdict was derivative, Cut Custody's soundness verdict was broken. Round 2 returned a journal verdict: all three lenses, major revision. Severities are the referees' own; nothing was softened. Branch documents live only in the session scratchpad, not in the repository.
 
 ## Round 1 — five branch formalizations
 
@@ -187,6 +187,25 @@ The repository's pull-request reviewer read the companion after the branch was m
 | R4-3 | P2 | The refusal-group anchor marked every later same-class stamp as an anchor if the refused checker had an established run before it, without asking whether the refusal existed by the stamp's cut; `from_events` recomputes a stamp with `_check_valid(as_of=sealed_at)`, which ignores a later refusal, so a tail refusal group after the stamp was reported anchored although deleting it rebuilds the stamp unchanged. The same false anchor arose for an escape whose establishing replay came after the stamp. | applied — every reader is now evaluated as replay evaluates it, through `_valid_at` (established before the reader, refusal within the reader's cut, tier B adjudicated before it); the E5 close and audit anchors are exact (C2's one-charge-per-cell; the checker's only valid escape); `test_a_refusal_after_the_stamps_cut_is_exposed_and_deletes_clean` |
 | R4-4 | P2 | `deletion_surface` took only the first establishing replay of a run; the kernel accepts a second successful replay, so deleting the first alone left the run established while the second was missing from the surface and from the certificate's count. | applied — every establishing replay is a witness event, marked `redundant_with` its siblings and exposed only when load-bearing; `test_repeated_establishing_replays_are_redundant_witnesses` |
 | R4-5 | P3 | `paper/README.md` said three reports, thirteen findings and two review rounds. | applied |
+| R4-6 | P2 | The E5-close anchor compared the charge count at the historical close with the authority's *final* `e_max`; a later `cal_install` that lowers the budget made an escape the close depends on read as exposed. | applied — `_e_max_at` reads the budget in force at the reader (the last `cal_install` before it; before the first install, replay's own input); `test_an_e5_close_is_read_under_the_budget_in_force_at_the_close` |
+| R4-7 | P2 | A cascaded `rga_close(V4)` was matched to a refusal by dictionary order when several checkers had been refused, so its anchors could come from the wrong checker. | applied — every taint event carries `refusal_at`, the index of the refusal that emitted it; the two-refusal case is unreachable in a one-class policy (a refused pin blocks every later open), so the field is asserted on the single-refusal group |
+
+## Round 5 — adversarial re-review of the pull request head
+
+Seven referees over the pull request head (mathematical soundness, kernel correspondence, the companion as code, the tests, documentation consistency, repository hygiene, the word *stochastic*), each finding then put to three independent refuters. What survived, all applied:
+
+| id | severity | finding | disposition |
+|---|---|---|---|
+| R5-1 | blocking | T8 stated the composite as the density of the *top concept's* extent and redundancy as lying below the *join* of the others in the concept lattice. The top concept's extent is all of `D`; the union of the kill records is in general not an extent; the join closes the union, so "below the join" does not imply an empty unique-kill set (`D = {1,2,3}`, singleton kills: the join of two has extent `D`). The proof only ever proved the set-theoretic clause, and the companion computes the union. | applied — T8 restated as a set fact with the lattice remark demoted to a caveat; companion docstring and test comment |
+| R5-2 | major | D16 called the obligation a monus that shrinks only through `exclude`, and T9(a)'s proof said `corpus` shrinks only via exclusions; `corpus` is `escapes` filtered through `_check_valid`, which voids a run when its checker is discredited or refused, with no exclusion event (the F1 shape the paper itself states elsewhere). | applied — D16, T9(a) and its proof name the second exit |
+| R5-3 | minor | D13 glossed `1 − (1−ε)^N` as the probability that all `N` trials fail; it is one minus that. | applied |
+| R5-4 | minor | T6(c) claimed strict exceedance whenever two `p_ρ` are positive and equality "iff the product coupling"; both fail at `p_ρ = 1` (a boundary F6 reaches), and for three or more events a non-product coupling attains noisy-OR. Round 2's minor 13 had recorded this and been marked applied without the text changing. | applied — statement and proof; the round-2 disposition row was inaccurate until now |
+| R5-5 | minor | T9's heading still said "id-containment is the only decidable non-discretionary coverage" while its own caveat retracts "only", and "weakest that distinguishes" lacked the quantifier over id-sets that makes it true. | applied — heading, (c), proof, N13 |
+| R5-6 | blocking | The companion listed a later *escape* by the same unpinned checker as an audit anchor; only an audit (verdict `survived`) invokes `_guard_audit_checker`, so the first escape was reported anchored while deleting it replays clean. | applied — the audit anchor requires verdict `survived`; `test_a_later_escape_by_the_same_checker_is_not_an_audit_anchor` |
+| R5-7 | minor | The F11 test never built the unmediated seal its name and F11's row describe. | applied — the test installs a successor pinning an unrefused refuter, seals a line through `Admission.seal` around the authority, and checks it is unmediated and survives the deletion |
+| R5-8 | minor | §1.1 cited the "stochastic witness source" sentence to RGA §5 (it is in §7); N28 used *nondeterministic* in the sense §1.1 reserves for the identity contrast. | applied |
+| R5-9 | minor | The paper and this file counted their review rounds as two in four places. | applied |
+
 
 ## Disposition
 
@@ -274,3 +293,14 @@ The repository's pull-request reviewer read the companion after the branch was m
 | R4-3 | P2 | applied — companion and test |
 | R4-4 | P2 | applied — companion and test |
 | R4-5 | P3 | applied — paper index |
+| R4-6 | P2 | applied — companion and test |
+| R4-7 | P2 | applied — companion and test |
+| R5-1 | blocking | applied — paper, companion docstring, test comment |
+| R5-2 | major | applied — paper |
+| R5-3 | minor | applied — paper |
+| R5-4 | minor | applied — paper |
+| R5-5 | minor | applied — paper and catalogue |
+| R5-6 | blocking | applied — companion and test |
+| R5-7 | minor | applied — test |
+| R5-8 | minor | applied — paper |
+| R5-9 | minor | applied — paper and this file |

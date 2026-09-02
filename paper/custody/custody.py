@@ -21,12 +21,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import dataclasses
 from dataclasses import dataclass, field
 from typing import Iterable, Optional
 
 from fcd.core import norm
 from rga.core import Admission, Seal
-from rga.calibration import CalibrationAuthority, Run
+from rga.calibration import CalibrationAuthority, CalibrationPolicy, Run
 
 
 # -- N3: polarity of the event alphabet for `admissible` (D6, T3) -------------
@@ -105,6 +106,21 @@ def _valid_at(cal: CalibrationAuthority, run: Run, j: int, rga_cut: Optional[int
     return True
 
 
+def _e_max_at(cal: CalibrationAuthority, cls: str, j: int,
+              initial_policy: Optional[CalibrationPolicy] = None) -> int:
+    """The budget in force when the reader at cal index `j` was written: the
+    last `cal_install` before `j` carries the successor budgets replay adopts
+    (`from_events`, `cal_install` branch). Before the first install the budget
+    is replay's *input*, not a journal fact — `from_events` takes the initial
+    policy as a parameter, and so does this query (`initial_policy`); without
+    it the authority's current policy stands in, which is exact only while no
+    install has replaced it."""
+    for ev in reversed(cal.events[:j]):
+        if ev.get("type") == "cal_install" and ev.get("budgets") and cls in ev["budgets"]:
+            return int(ev["budgets"][cls]["e_max"])
+    return (initial_policy or cal.policy).classes[cls].e_max
+
+
 def _charges_without(cal: CalibrationAuthority, run: Run, refuter: tuple[str, str],
                      cls: str, j: int, rga_cut: Optional[int]) -> int:
     """The refuter's charge count as the reader at `j` recomputes it with
@@ -144,6 +160,7 @@ class SurfaceEvent:
     reason: str             # "escape" | "taint"
     anchored_by: tuple = () # later (journal, index) events whose recomputation refuses its deletion
     redundant_with: tuple = ()  # sibling establishing replays of the same run (cal indices)
+    refusal_at: Optional[int] = None  # taint events: the rga index of the refusal this group belongs to
 
     @property
     def exposed(self) -> bool:
@@ -153,7 +170,8 @@ class SurfaceEvent:
         return not self.anchored_by and not self.redundant_with
 
 
-def deletion_surface(cal: CalibrationAuthority, line_id: Optional[str] = None) -> tuple[SurfaceEvent, ...]:
+def deletion_surface(cal: CalibrationAuthority, line_id: Optional[str] = None, *,
+                     initial_policy: Optional[CalibrationPolicy] = None) -> tuple[SurfaceEvent, ...]:
     """Every journal event whose removal would raise the standing of some
     sealed line (of `line_id`, if given): the witnesses of the negated
     demonstrations of `admissible` — established escapes with their
@@ -180,17 +198,17 @@ def deletion_surface(cal: CalibrationAuthority, line_id: Optional[str] = None) -
                 continue                       # refused before sealing: the seal never relied on it
             if line_id is not None and seal.line_id != line_id:
                 continue
-            out.append(SurfaceEvent("rga", at, "rga_refuse", seal.line_id, "taint"))
+            out.append(SurfaceEvent("rga", at, "rga_refuse", seal.line_id, "taint", refusal_at=at))
             if at >= 1 and adm.events[at - 1].get("type") == "rga_replay" and adm.events[at - 1].get("diverged"):
-                out.append(SurfaceEvent("rga", at - 1, "rga_replay", seal.line_id, "taint"))
+                out.append(SurfaceEvent("rga", at - 1, "rga_replay", seal.line_id, "taint", refusal_at=at))
             # _refuse cascades a V4 close onto every open line pinning the refuter,
             # immediately after rga_refuse; the group is not deletable without them
             j = at + 1
             while j < len(adm.events) and adm.events[j].get("type") == "rga_close" and adm.events[j].get("fault") == "V4":
-                out.append(SurfaceEvent("rga", j, "rga_close", seal.line_id, "taint"))
+                out.append(SurfaceEvent("rga", j, "rga_close", seal.line_id, "taint", refusal_at=at))
                 j += 1
-    anchored = [SurfaceEvent(s.journal, s.index, s.type, s.line_id, s.reason,
-                             _anchors_of(cal, s), _redundant_with(cal, s))
+    anchored = [dataclasses.replace(s, anchored_by=_anchors_of(cal, s, initial_policy),
+                                    redundant_with=_redundant_with(cal, s))
                 for s in set(out)]
     return tuple(sorted(anchored, key=lambda s: (s.journal, s.index, s.line_id)))
 
@@ -215,7 +233,8 @@ def _redundant_with(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
     return tuple(k for k in _establishing_replay_indices(cal, run) if k != s.index)
 
 
-def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
+def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
+                initial_policy: Optional[CalibrationPolicy] = None) -> tuple:
     """The later events whose replay guard or recomputation reads what `s`
     contributed, so that deleting `s` alone is refused on rebuild. Enumerated
     from the readers in rga/calibration.py:from_events, each evaluated as
@@ -233,10 +252,12 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
       * a later `cal_close(E5)` of the same class naming a refuter this
         escape charges, when the demotion it records (`demoted(..., as_of)`)
         would no longer hold without this escape's charge cell (C2: one
-        charge per cell however many witnesses);
-      * a later `cal_run` filed by this escape's checker on a claim where the
-        checker is not pinned, when this is the checker's only valid escape
-        of the class at that point (`_guard_audit_checker` needs one);
+        charge per cell however many witnesses) under the budget in force
+        at the close (`_e_max_at`);
+      * a later *audit* (`cal_run` with verdict `survived`) filed by this
+        escape's checker on a claim where the checker is not pinned, when
+        this is the checker's only valid escape of the class at that point
+        (`_guard_audit_checker` needs one; a later escape reads nothing);
       * a later `cal_exclude` naming this run (`_guard_exclusion` needs it
         valid as of the exclusion's cut);
     for a refusal group —
@@ -272,9 +293,12 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
                 if (line is not None and line.cls == cls and refuter in charged
                         and _valid_at(cal, run, j, ev.get("as_of"))
                         and _charges_without(cal, run, refuter, cls, j, ev.get("as_of"))
-                        <= cal.policy.classes[cls].e_max):
+                        <= _e_max_at(cal, cls, j, initial_policy)):
                     anchors.append(("cal", j))
-            elif t == "cal_run" and (ev.get("checker_id"), ev.get("checker_version")) == run.checker:
+            elif (t == "cal_run" and ev.get("verdict") == "survived"
+                  and (ev.get("checker_id"), ev.get("checker_version")) == run.checker):
+                # only an AUDIT reads an earlier escape (_guard_audit_checker fires
+                # under expect == "survived"); a later escape by the checker reads nothing
                 seal = adm.sealed.get(ev.get("line_id"))
                 if (seal is not None and run.checker not in cal._pinned_on_claim(seal, ev.get("claim_id"))
                         and _valid_at(cal, run, j, None)
@@ -285,11 +309,7 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
                 if _valid_at(cal, run, j, ev.get("as_of")):
                     anchors.append(("cal", j))
     else:
-        key = next((k for k, at in adm.refused_at.items() if at == s.index), None)
-        if key is None:
-            key = next((k for k, at in adm.refused_at.items() if s.index < at <= s.index + 1), None)
-        if key is None:
-            key = next((k for k, at in adm.refused_at.items() if at < s.index), None)
+        key = next((k for k, at in adm.refused_at.items() if at == s.refusal_at), None)
         refused_at = adm.refused_at.get(key, None)
         for j, ev in enumerate(cal.events):
             if ev.get("type") != "cal_stamp":
@@ -314,12 +334,14 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
     return tuple(a for a in s.anchored_by)
 
 
-def exposed(cal: CalibrationAuthority, line_id: Optional[str] = None) -> tuple[SurfaceEvent, ...]:
+def exposed(cal: CalibrationAuthority, line_id: Optional[str] = None, *,
+            initial_policy: Optional[CalibrationPolicy] = None) -> tuple[SurfaceEvent, ...]:
     """The part of the surface deletable at no cost to any other line: witnesses
     no later event recomputes against. Anchored witnesses are deletable too,
     together with their anchors (T10b); the anchor of T11 must therefore count
-    every valid witness, not only these."""
-    return tuple(s for s in deletion_surface(cal, line_id) if s.exposed)
+    every valid witness, not only these. `initial_policy` is the calibration
+    policy in force before the first install, replay's own input (`_e_max_at`)."""
+    return tuple(s for s in deletion_surface(cal, line_id, initial_policy=initial_policy) if s.exposed)
 
 
 @dataclass(frozen=True)
@@ -518,8 +540,8 @@ class KillContext:
 
 
 def kill_context(adm: Admission, line_id: str, claim_id: str) -> KillContext:
-    """The incidence the seal stores and does not report: the top extent's
-    size (the union), the uncovered set, each ledger refuter's unique kills,
+    """The incidence the seal stores and does not report: the union's size,
+    the uncovered set, each ledger refuter's unique kills,
     and the refuters redundant on D (empty unique-kill set) — T8."""
     line = adm.lines[line_id]
     claim = adm._claim(line, claim_id)

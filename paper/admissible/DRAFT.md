@@ -120,7 +120,7 @@ The verification discipline is a contribution independent of the theorems it che
 3. **Premise before kernel.** Each layer's design brief was attacked by independent adversarial reviewers *before* any code — five lenses and 38 verified findings for R; four lenses and 28 for C — with every finding handed to a skeptic instructed to refute it. Two of the author's pre-registered designs were killed at this stage (a Wilson-interval power bound; sibling-item sampling), which is the cheap time to kill them.
 4. **Review after build.** The finished kernels were re-attacked (five lenses for R; two for C). Both rounds returned REVISE; all confirmed findings were applied, including five reproduced R-kernel defects, three of which invalidated published proofs, two latent soundness bugs in layer I itself, and a C-replay that trusted its own journal. Every round is journaled in `eval/reviews/`, and every repair carries a red-first test.
 
-Current state: 506 executable Python checks (469 kernel/server/context/RGA/calibration/paper/custody and 37 evidence-store), of which 43 are per-guard deletion proofs and 2 are citation binders; all green. The cockpit adds 71 UI checks, for 577 repository checks total.
+Current state: 509 executable Python checks (472 kernel/server/context/RGA/calibration/paper/custody and 37 evidence-store), of which 43 are per-guard deletion proofs and 2 are citation binders; all green. The cockpit adds 71 UI checks, for 580 repository checks total.
 
 ## 8. Implementation
 

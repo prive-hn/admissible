@@ -164,7 +164,7 @@ class KillContextT8(unittest.TestCase):
         self.assertEqual((ctx.size, ctx.union, ctx.uncovered), (10, 8, 2))
         self.assertEqual(ctx.unique_kills, {TESTS: 4, PBT: 2})
         self.assertEqual(ctx.redundant, ())
-        self.assertAlmostEqual(seal.claims[0].composite, 0.8)   # union = top extent's density
+        self.assertAlmostEqual(seal.claims[0].composite, 0.8)   # union's density (T8)
         self.assertEqual(seal.claims[0].composition, "union")
 
 
@@ -263,6 +263,8 @@ class AnchoredAndExposedSurface(unittest.TestCase):
         surface = custody.deletion_surface(h.cal, "w")
         self.assertEqual({e.type for e in surface}, {"rga_replay", "rga_refuse", "rga_close"})   # the cascaded V4 too
         self.assertTrue(all(e.exposed for e in surface))
+        refuse_at = next(e.index for e in surface if e.type == "rga_refuse")
+        self.assertTrue(all(e.refusal_at == refuse_at for e in surface))   # every event of the group names its refusal
         drop = {e.index for e in surface}
         pruned = [e for i, e in enumerate(h.a.events) if i not in drop]
         rebuilt = Admission.from_events(pruned, h.e, h.a.policy)
@@ -400,6 +402,61 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         self.assertTrue(CalibrationAuthority.from_events(one, h.a, h.cal.policy).impeached("w"))
         both = [e for i, e in enumerate(h.cal.events) if i not in {replays[0].index, replays[1].index}]
         self.assertTrue(CalibrationAuthority.from_events(both, h.a, h.cal.policy).admissible("w"))
+
+
+    def test_a_later_escape_by_the_same_checker_is_not_an_audit_anchor(self):
+        """Only an audit (a surviving run) reads an earlier escape by its
+        checker; a second ESCAPE by the same unpinned checker reads nothing,
+        so the first escape's events are exposed and deleting them replays
+        clean with the line still impeached by the second."""
+        h = CalHarness(claims=self.CLAIMS); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel(D1, "mutator"), ledger(8, 10))
+        self._seal(h, "w")
+        for n, nonce in enumerate(("nB1", "nB2")):
+            run = h.cal.file_escape("w", "tests_pass", "hawk", "v1", nonce, b"w-body-0", "any", f"hk{n}", "aud")
+            h.cal.replay_run(run.index, "refuted", f"hk{n}")
+            h.cal.adjudicate(run.index, "owner", "accept", "reproduced by hand")
+        surface = custody.deletion_surface(h.cal, "w")
+        self.assertEqual(len(surface), 6)
+        self.assertTrue(all(e.exposed for e in surface))
+        rebuilt = CalibrationAuthority.from_events(self._drop_run(h.cal.events, 0), h.a, h.cal.policy)
+        self.assertTrue(rebuilt.impeached("w"))
+
+    def test_an_e5_close_is_read_under_the_budget_in_force_at_the_close(self):
+        """A later install that lowers e_max does not change what the E5 close
+        recomputes against: replay adopts the budgets the journal installed,
+        in order, so the anchor is judged under the budget at the close."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(e_max=1, gate="seal"); h.declare_tests()
+        h.seal_line("w"); h.seal_line("v")
+        runs = [h.tier_a_escape("w", nonce="e1"), h.tier_a_escape("v", nonce="e2")]   # two cells > e_max: demoted
+        h.fcd_open("x"); h.a.open("x", "gen", "temp=0.7")         # around CalOpen, which would refuse the pin
+        for i in range(h.k):
+            h.fcd_write("x"); h.sample("x", f"x-{i}".encode()); h.trial("x", i)
+        h.replay_all("x"); h.fcd_check("x")
+        with self.assertRaises(ValueError):
+            h.cal.seal("x")                                      # E5 close, recomputed on rebuild
+        e5 = next(i for i, e in enumerate(h.cal.events) if e.get("type") == "cal_close" and e.get("fault") == "E5")
+        before = custody.deletion_surface(h.cal, "w")
+        self.assertTrue(before and all(("cal", e5) in e.anchored_by for e in before))
+        h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+        ids = [LedgerEntry(f"m{i}", "killed") for i in range(10)] + [
+            LedgerEntry(h.cal.derived_defect_id(r), "killed") for r in runs]
+        h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"), ids)
+        succ = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(succ, CalibrationPolicy({"impl": CalibrationClass(e_max=0, demotion_gate="seal")}, version="c2"))
+        self.assertEqual(h.cal.policy.classes["impl"].e_max, 0)
+        initial = CalibrationPolicy({"impl": CalibrationClass(e_max=1, demotion_gate="seal")})
+        after = custody.deletion_surface(h.cal, "w", initial_policy=initial)
+        self.assertTrue(after and all(("cal", e5) in e.anchored_by for e in after))   # still read under e_max=1
+        # The pre-install budget is replay's input, not a journal fact: without
+        # it the companion falls back to the current policy and loses the anchor.
+        fallback = custody.deletion_surface(h.cal, "w")
+        self.assertTrue(all(("cal", e5) not in e.anchored_by for e in fallback))
 
 
 class SupportDetermination(unittest.TestCase):
@@ -695,20 +752,37 @@ class FindingF7CalOpenLeavesNoTrace(unittest.TestCase):
 
 class FindingF11UnmediatedSealIsUnanchored(unittest.TestCase):
     """F11: only cal_stamp.sealed_at anchors the scrutiny journal's length; a
-    refusal group before an unmediated (IR) seal deletes clean."""
+    refusal group before an unmediated (IR) seal deletes clean, because the
+    IR seal — produced by Admission.seal around the authority — carries no
+    stamp and nothing later recomputes against the group."""
 
     def test_refusal_group_before_an_ir_seal_deletes_clean(self):
+        from rga.core import AdmissionPolicy, ClassAdmission
         h = CalHarness(); h.declare_tests(); h.seal_line("w")
         h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
         h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
         h.a.replay("z", 0, "refuted", "w-same")                  # refusal group: taints w; closes z
         h.a.declare(Refuter("pbt", "v1", "prop-author", "ledger"))
-        h.a.measure("pbt", "v1", DefectModel(D1, "mutator"), ledger(9, 10))   # later scrutiny events, no stamp
+        h.a.measure("pbt", "v1", DefectModel(D1, "mutator"), ledger(9, 10))
+        pol = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("pbt", "v1")}), D1),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.a.install(pol)                                          # a successor pinning only pbt (tests is refused)
+        h.fcd_open("y"); h.a.open("y", "gen", "temp=0.7")         # around CalOpen: an IR line
+        for i in range(h.k):
+            h.fcd_write("y"); h.sample("y", f"y-{i}".encode()); h.trial("y", i, refuter=("pbt", "v1"))
+        h.replay_all("y"); h.fcd_check("y")
+        h.a.seal("y")                                             # Admission.seal directly: sealed, never stamped
+        self.assertIn("y", h.a.sealed)
+        self.assertFalse(h.cal.mediated("y"))                     # IR, not IRC
         surface = custody.deletion_surface(h.cal, "w")
         self.assertTrue(surface and all(e.exposed for e in surface))
         drop = {e.index for e in surface}
         pruned = [e for i, e in enumerate(h.a.events) if i not in drop]
-        self.assertTrue(Admission.from_events(pruned, h.e, h.a.policy).admissible("w"))
+        rebuilt = Admission.from_events(pruned, h.e, admission_policy(), pol)
+        self.assertTrue(rebuilt.admissible("w"))                  # un-tainted by a deletion replay accepts
+        self.assertIn("y", rebuilt.sealed)                        # and the unanchored IR seal survives it
         cert_w = custody.standing_certificate(h.cal, "w")
         self.assertEqual(custody.verify_certificate(h.cal, cert_w), [])
 
