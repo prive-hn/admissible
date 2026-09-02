@@ -459,6 +459,49 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         self.assertTrue(all(("cal", e5) not in e.anchored_by for e in fallback))
 
 
+    def test_a_runs_structural_events_delete_as_a_group(self):
+        """A coherent alternative that deletes a `cal_run` must delete every
+        event naming its run (they are refused without it); a tier-B run's
+        sole establishing replay takes its adjudication; a taint event takes
+        the rest of its refusal group. `deletion_closure` lists the group."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.tier_a_escape("w")                                     # tail: cal_run, cal_replay
+        surface = custody.deletion_surface(h.cal, "w")
+        run_ev = next(e for e in surface if e.type == "cal_run")
+        rep_ev = next(e for e in surface if e.type == "cal_replay")
+        self.assertEqual(run_ev.group_with, (("cal", rep_ev.index),))
+        self.assertEqual(rep_ev.group_with, ())                  # tier A: nothing needs the replay
+        self.assertTrue(run_ev.exposed and rep_ev.exposed)
+        self.assertEqual(custody.deletion_closure(h.cal, run_ev), (("cal", rep_ev.index),))
+        with self.assertRaises(ValueError):                      # the cal_run alone leaves an orphan replay
+            CalibrationAuthority.from_events([e for i, e in enumerate(h.cal.events) if i != run_ev.index],
+                                             h.a, h.cal.policy)
+        gone = {run_ev.index} | {i for _, i in run_ev.group_with}
+        rebuilt = CalibrationAuthority.from_events([e for i, e in enumerate(h.cal.events) if i not in gone],
+                                                   h.a, h.cal.policy)
+        self.assertTrue(rebuilt.admissible("w"))                 # the group deletes clean and raises standing
+        # a tier-B run: the sole establishing replay carries the adjudication
+        g = CalHarness(claims=AnchorsReadAsReplayReads.CLAIMS); g.declare_tests()
+        g.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        g.a.measure("hawk", "v1", DefectModel(D1, "mutator"), ledger(8, 10))
+        AnchorsReadAsReplayReads._seal(AnchorsReadAsReplayReads(), g, "w")
+        run = g.cal.file_escape("w", "tests_pass", "hawk", "v1", "nB", b"w-body-0", "any", "hk", "aud")
+        g.cal.replay_run(run.index, "refuted", "hk"); g.cal.adjudicate(run.index, "owner", "accept", "seen")
+        by_type = {e.type: e for e in custody.deletion_surface(g.cal, "w")}
+        self.assertEqual(by_type["cal_replay"].group_with, (("cal", by_type["cal_adjudicate"].index),))
+        with self.assertRaises(ValueError):                      # the replay alone leaves an unestablished adjudication
+            CalibrationAuthority.from_events([e for i, e in enumerate(g.cal.events) if i != by_type["cal_replay"].index],
+                                             g.a, g.cal.policy)
+        # a taint event: the rest of its refusal group
+        h2 = CalHarness(); h2.declare_tests(); h2.seal_line("w")
+        h2.fcd_open("z"); h2.a.open("z", "gen", "temp=0.7")
+        h2.fcd_write("z"); h2.sample("z", b"z0"); h2.trial("z")
+        h2.a.replay("z", 0, "refuted", "w-same")
+        taint = custody.deletion_surface(h2.cal, "w")
+        for e in taint:
+            self.assertEqual(set(e.group_with), {("rga", o.index) for o in taint if o.index != e.index})
+
+
 class SupportDetermination(unittest.TestCase):
     """The value of admissible(w) depends on the record only through its
     signed support: a later, unrelated line can be removed entirely."""
@@ -476,7 +519,9 @@ class SupportDetermination(unittest.TestCase):
                 h.tier_a_escape("w")
             h.seal_line("x")
             sup = custody.support(h.cal, "w")
-            self.assertFalse(any(t == "x" for _, _, t in sup.positive))
+            events = {"fcd": h.e.events, "rga": h.a.events, "cal": h.cal.events}
+            self.assertFalse(any(events[j][i].get("work_item_id") == "x" or events[j][i].get("line_id") == "x"
+                                 for j, i, _ in sup.positive))
             before = h.cal.admissible("w")
             self.assertEqual(before, not impeach)
             rebuilt = self._prune(h, "x")
@@ -639,7 +684,10 @@ class FindingF3RollbackWritesTheLowerMachine(unittest.TestCase):
     def test_failed_calibration_attempt_retracts_a_committed_admission_seal(self):
         h = Harness(); h.declare_tests(); h.run_to_seal_ready()
 
+        seen = []
+
         def clock():
+            seen.append((len(h.a.events), "w" in h.a.sealed))   # what Admission holds at the moment of failure
             raise RuntimeError("clock unavailable")     # _emit maps it to JournalValueError
 
         cal = CalibrationAuthority(h.a, CalibrationPolicy({"impl": CalibrationClass(e_max=1, demotion_gate="seal")}),
@@ -647,7 +695,8 @@ class FindingF3RollbackWritesTheLowerMachine(unittest.TestCase):
         before = len(h.a.events)
         with self.assertRaises(JournalValueError):
             cal.seal("w")
-        self.assertEqual(len(h.a.events), before)          # the committed rga_seal is gone
+        self.assertEqual(seen, [(before + 1, True)])       # the rga_seal had been committed when the attempt failed
+        self.assertEqual(len(h.a.events), before)          # and the committed rga_seal is gone
         self.assertNotIn("w", h.a.sealed)
         self.assertEqual(h.a.lines["w"].pc, "Open")
         self.assertEqual(cal.events, ())
@@ -784,7 +833,8 @@ class FindingF11UnmediatedSealIsUnanchored(unittest.TestCase):
         self.assertTrue(rebuilt.admissible("w"))                  # un-tainted by a deletion replay accepts
         self.assertIn("y", rebuilt.sealed)                        # and the unanchored IR seal survives it
         cert_w = custody.standing_certificate(h.cal, "w")
-        self.assertEqual(custody.verify_certificate(h.cal, cert_w), [])
+        cal2 = CalibrationAuthority.from_events(list(h.cal.events), rebuilt, h.cal.policy)
+        self.assertEqual(custody.verify_certificate(cal2, cert_w), ["demonstrations", "lengths", "standing"])
 
 
 class FindingF6SortlessFloor(unittest.TestCase):

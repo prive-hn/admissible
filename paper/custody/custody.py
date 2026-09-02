@@ -51,7 +51,7 @@ POLARITY: dict[str, str] = {
     # standing journal
     "cal_run": "0",             # filed is not established (C1); see cal_replay
     "cal_replay": "-",          # an establishing replay of a refuted run impeaches
-    "cal_discredit": "+",       # strictly positive, by a second-order route: never lowers
+    "cal_discredit": "+",       # strictly positive, second-order: never lowers; raises a line impeached only by its escapes
                                 # admissible of any line, raises it for every line the checker's
                                 # escapes impeached (discredited enters only via _check_valid) — T3
     "cal_adjudicate": "-",      # decision=accept impeaches a tier-B run; reject is neutral
@@ -161,12 +161,17 @@ class SurfaceEvent:
     anchored_by: tuple = () # later (journal, index) events whose recomputation refuses its deletion
     redundant_with: tuple = ()  # sibling establishing replays of the same run (cal indices)
     refusal_at: Optional[int] = None  # taint events: the rga index of the refusal this group belongs to
+    group_with: tuple = ()  # (journal, index) events structurally tied to this one: they must go with it
 
     @property
     def exposed(self) -> bool:
-        """Deletable alone by a coherent alternative, and load-bearing: no
-        later event recomputes it and no sibling replay stands in for it. A
-        redundant replay is deletable alone at no change to any standing."""
+        """Deletable by a coherent alternative at no cost to any other line,
+        and load-bearing: no later event recomputes it and no sibling replay
+        stands in for it. Deletable *with its group* (`group_with`): a run's
+        replays, adjudication and exclusions name the run and go with its
+        `cal_run`; a tier-B run's sole establishing replay takes its
+        adjudication; a taint event takes the rest of its refusal group.
+        `deletion_closure` lists anchors and group together."""
         return not self.anchored_by and not self.redundant_with
 
 
@@ -208,7 +213,7 @@ def deletion_surface(cal: CalibrationAuthority, line_id: Optional[str] = None, *
                 out.append(SurfaceEvent("rga", j, "rga_close", seal.line_id, "taint", refusal_at=at))
                 j += 1
     anchored = [dataclasses.replace(s, anchored_by=_anchors_of(cal, s, initial_policy),
-                                    redundant_with=_redundant_with(cal, s))
+                                    redundant_with=_redundant_with(cal, s), group_with=_group_of(cal, s, out))
                 for s in set(out)]
     return tuple(sorted(anchored, key=lambda s: (s.journal, s.index, s.line_id)))
 
@@ -222,6 +227,35 @@ def _run_of(cal: CalibrationAuthority, s: SurfaceEvent) -> Optional[Run]:
     if isinstance(run_index, int) and 0 <= run_index < len(cal.runs):
         return cal.runs[run_index]
     return None
+
+
+def _group_of(cal: CalibrationAuthority, s: SurfaceEvent, surface: list) -> tuple:
+    """The events structurally tied to `s`, which a coherent alternative that
+    deletes `s` must delete too (they name it, or replay refuses them without
+    it): for a `cal_run`, every replay, discredit, adjudication and exclusion
+    naming its run; for the sole establishing replay of a tier-B run, its
+    adjudication (adjudication requires an established escape); for a taint
+    event, the other events of its refusal group."""
+    if s.reason == "taint":
+        return tuple(sorted((e.journal, e.index) for e in surface
+                            if e.reason == "taint" and e.refusal_at == s.refusal_at
+                            and (e.journal, e.index) != (s.journal, s.index)))
+    run = _run_of(cal, s)
+    if run is None:
+        return ()
+    group = []
+    if s.type == "cal_run":
+        for j, ev in enumerate(cal.events):
+            t = ev.get("type")
+            if t in ("cal_replay", "cal_discredit", "cal_adjudicate") and ev.get("run_index") == run.index:
+                group.append(("cal", j))
+            elif t == "cal_exclude" and run.index in ev.get("run_indices", ()):
+                group.append(("cal", j))
+    elif s.type == "cal_replay" and run.tier == "B" and len(_establishing_replay_indices(cal, run)) == 1:
+        adj = _adjudication_index(cal, run)
+        if adj is not None:
+            group.append(("cal", adj))
+    return tuple(sorted(group))
 
 
 def _redundant_with(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
@@ -328,12 +362,13 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
 
 
 def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
-    """What a coherent alternative must remove besides `s` to delete it: its
-    anchors, each of which is itself exposed in the kernel as it is (a stamp's
-    deletion lowers its own line to IR; an E5 close, an audit or an exclusion
-    is recomputed against by nothing later). The cost of the deletion is the
-    standing those anchors carried."""
-    return tuple(a for a in s.anchored_by)
+    """What a coherent alternative must remove besides `s` to delete it: the
+    events structurally tied to it (`group_with`, at no cost to any other
+    line) and its anchors, each of which is itself exposed in the kernel as
+    it is (a stamp's deletion lowers its own line to IR; an E5 close, an audit
+    or an exclusion is recomputed against by nothing later). The cost of the
+    deletion is the standing those anchors carried."""
+    return tuple(sorted(set(s.group_with) | set(s.anchored_by)))
 
 
 def exposed(cal: CalibrationAuthority, line_id: Optional[str] = None, *,
@@ -650,19 +685,23 @@ def _bind_key(line) -> tuple:
 
 
 def exposure(adm: Admission, line_id: str) -> Exposure:
-    """The journaled part of what the generator may have seen: every earlier
-    line on the same bind key, and every published refutation on those lines
-    (read from their trials, not from the close's reason string)."""
+    """The journaled part of what the generator may have seen (D25): every
+    earlier line on the same bind key, and every refutation on those lines
+    journaled before this line's open — read from the `rga_trial` events in
+    `r[0 : open(ℓ)]`, not from a close's reason string and not from the
+    lines' final trial lists, which may hold refutations published later."""
     line = adm.lines[line_id]
     key = _bind_key(line)
     prior = [l for l in adm.lines.values()
              if l.id != line_id and _bind_key(l) == key and l.opened_at < line.opened_at]
     prior.sort(key=lambda l: l.opened_at)
+    prior_ids = {l.id for l in prior}
     refs = []
-    for l in prior:
-        for t in l.trials:
-            if t.verdict == "refuted":
-                refs.append((t.refuter_id, t.refuter_version, t.claim_id, t.sample_index, l.id))
+    for ev in adm.events[:line.opened_at]:
+        if (ev.get("type") == "rga_trial" and ev.get("verdict") == "refuted"
+                and ev.get("work_item_id") in prior_ids):
+            refs.append((ev.get("refuter_id"), ev.get("refuter_version"), ev.get("claim_id"),
+                         ev.get("sample_index"), ev.get("work_item_id")))
     return Exposure(line_id, 1 + len(prior), tuple(l.id for l in prior), tuple(refs))
 
 

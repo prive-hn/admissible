@@ -1,6 +1,6 @@
 # Custody theory — review rounds
 
-Five rounds of review, recorded in order. Round 1 took five branch formalizations written against the kernel (Fréchet Ledger, Polar Standing, Cut Custody, Refuser Calculus, Preimage Games), each refereed by three lenses — adversarial mathematical (soundness: circularity, vacuity, falsity, proof gaps), nearest-prior-art (novelty: the existing theory each object instantiates, audit of the branch's own novelty ledger), and kernel-adversarial (fidelity: non-claims, every `file:line` citation, feasibility of each proposed change under R11/C7 and fail-closed) — fifteen verdicts, followed by a completeness critic over the five. Round 2 took the unified paper (`DRAFT.md`, with `IMPROVEMENTS.md`, `custody.py`, `tests/test_custody.py`) through the same three lenses. Every referee had the repository and executed probes on the unmodified kernel (`rga/core.py`, `rga/calibration.py`, `fcd/core.py`, `fcd/head.py`) before ruling; a claim counts as a kernel fact below only where a referee re-drove it. Round-1 verdicts returned: repairable (9), broken (1), derivative (5) — no branch scored better than repairable on soundness or fidelity, every novelty verdict was derivative, Cut Custody's soundness verdict was broken. Round 2 returned a journal verdict: all three lenses, major revision. Severities are the referees' own; nothing was softened. Branch documents live only in the session scratchpad, not in the repository.
+Six rounds of review, recorded in order. Round 1 took five branch formalizations written against the kernel (Fréchet Ledger, Polar Standing, Cut Custody, Refuser Calculus, Preimage Games), each refereed by three lenses — adversarial mathematical (soundness: circularity, vacuity, falsity, proof gaps), nearest-prior-art (novelty: the existing theory each object instantiates, audit of the branch's own novelty ledger), and kernel-adversarial (fidelity: non-claims, every `file:line` citation, feasibility of each proposed change under R11/C7 and fail-closed) — fifteen verdicts, followed by a completeness critic over the five. Round 2 took the unified paper (`DRAFT.md`, with `IMPROVEMENTS.md`, `custody.py`, `tests/test_custody.py`) through the same three lenses. Every referee had the repository and executed probes on the unmodified kernel (`rga/core.py`, `rga/calibration.py`, `fcd/core.py`, `fcd/head.py`) before ruling; a claim counts as a kernel fact below only where a referee re-drove it. Round-1 verdicts returned: repairable (9), broken (1), derivative (5) — no branch scored better than repairable on soundness or fidelity, every novelty verdict was derivative, Cut Custody's soundness verdict was broken. Round 2 returned a journal verdict: all three lenses, major revision. Severities are the referees' own; nothing was softened. Branch documents live only in the session scratchpad, not in the repository.
 
 ## Round 1 — five branch formalizations
 
@@ -178,7 +178,7 @@ All round-3 findings are applied in this revision: D8′ and the custodial premi
 
 ## Round 4 — automated review of the pull request
 
-The repository's pull-request reviewer read the companion after the branch was marked ready and, in two passes (the second on the repaired head, on both the public and the internal pull request), returned four findings against `custody.py` and one against the paper index — all real, all applied, the four code findings each with a regression test that fails on the previous companion; the count guards moved with the added checks.
+The repository's pull-request reviewer read the companion after the branch was marked ready and, in four passes (each on the repaired head, on both the public and the internal pull request), returned eight findings against `custody.py` and one against the paper index — all real, all applied, the code findings each with a regression test that fails on the previous companion; the count guards moved with the added checks.
 
 | id | severity | finding | disposition |
 |---|---|---|---|
@@ -189,6 +189,7 @@ The repository's pull-request reviewer read the companion after the branch was m
 | R4-5 | P3 | `paper/README.md` said three reports, thirteen findings and two review rounds. | applied |
 | R4-6 | P2 | The E5-close anchor compared the charge count at the historical close with the authority's *final* `e_max`; a later `cal_install` that lowers the budget made an escape the close depends on read as exposed. | applied — `_e_max_at` reads the budget in force at the reader (the last `cal_install` before it; before the first install, replay's own input); `test_an_e5_close_is_read_under_the_budget_in_force_at_the_close` |
 | R4-7 | P2 | A cascaded `rga_close(V4)` was matched to a refusal by dictionary order when several checkers had been refused, so its anchors could come from the wrong checker. | applied — every taint event carries `refusal_at`, the index of the refusal that emitted it; the two-refusal case is unreachable in a one-class policy (a refused pin blocks every later open), so the field is asserted on the single-refusal group |
+| R4-8 | P2 | A tail escape's `cal_run` was reported exposed although deleting it alone leaves a `cal_replay` naming a run the journal no longer has, which replay refuses; likewise a tier-B run's sole establishing replay leaves an adjudication of an unestablished escape. `exposed()` and `deletion_closure()` could recommend alternatives outside `L_rep`. | applied — a run's structural events are a group: every surface event carries `group_with` (the replays, discredit, adjudication and exclusions that name its run; for a sole establishing replay of a tier-B run, its adjudication; for a taint event, the rest of its refusal group), `deletion_closure` lists anchors and group, and *exposed* means deletable with its group at no cost to any other line; `test_a_runs_structural_events_delete_as_a_group` |
 
 ## Round 5 — adversarial re-review of the pull request head
 
@@ -209,6 +210,32 @@ Seven referees over the pull request head (mathematical soundness, kernel corres
 | R5-11 | nit | `derived_tier` applies the pinned-membership rule it is said to explain, so "agrees with the kernel" was tautological. | applied — docstring and the N9 row say it is a restatement in trust-base vocabulary, not a derivation |
 | R5-12 | minor | Label slips: N5, N6 and N14 cited capabilities as C5, C4, C6 and C2 (the kernel's theorem labels); §8a's closing paragraph enumerated F2–F13; §8's preamble said no capability changes `admissible` while N28 is a semantics change; T14 was still titled "Padoa"; T14 and K8 cited a `../admissible/DRAFT.md` §7.1 that does not exist; the F3 row said the seal-path rollback restores `adm.policy`; N23 attributed the harness's nonce format to the bench; the N2 status omitted the `standing` component; the abstract said "stochastic generators" against §1.1's own convention; a test comment gave `cal_discredit` the polarity the test refutes. | applied |
 
+
+## Round 6 — second adversarial re-review of the pull request head
+
+The same seven referees and three-refuter verification, run again on the head that carries round 5. Seventeen findings survived, none blocking, all applied:
+
+| id | severity | finding | disposition |
+|---|---|---|---|
+| R6-1 | minor | K3 stated the joint value along a dependency chain as `1 − n(1−f)`, one conjunct per edge at `power_min` — the per-node form T7.2 forbids two lines above; it is an upper bound, and the exact figure is the ideal sum over the claims of each dependency. | applied |
+| R6-2 | nit | D6 said `cal_discredit` raises `admissible` for every line the checker's escapes impeached; only lines impeached by nothing else (and otherwise admissible). | applied — paper and the companion's polarity comment |
+| R6-3 | minor | N7 said Admission already reads the I11 package receipt; it reads a harness-reported `package_categories` set (B1). | applied — paper and catalogue |
+| R6-4 | minor | F14's repair column pointed at N17 while the paper's N17 repaired one seam and the catalogue's two. | applied — N17 names both seams |
+| R6-5 | nit | K8 cited the wrong paragraph of `INVARIANTS.md` §2. | applied |
+| R6-6 | minor | `exposure()` read every refuted trial of the prior lines, including ones published after `open(ℓ)`; D25 bounds exposure at `open(ℓ)`. | applied — refutations are read from the journal before the line's open |
+| R6-7 | minor | The support-determination test compared an event-type slot to a line id, vacuously. | applied — the atom is resolved to its event and its line is checked |
+| R6-8 | minor | The F3 test observed only the post-rollback state, never that the Admission seal had been committed. | applied — the failing clock records the committed seal at the moment it raises |
+| R6-9 | nit | The F11 test's closing certificate check verified a certificate against the custody that issued it. | applied — verified against the authority rebuilt over the pruned record; `demonstrations`, `lengths`, `standing` |
+| R6-10 | minor | `paper/README.md` still counted four review rounds. | applied — six |
+| R6-11 | minor | This file's round-4 preamble counted two passes and four code findings. | applied |
+| R6-12 | minor | F10's repair column pointed at N24; the per-checker certificate is N12. | applied |
+| R6-13 | nit | N17's title said one seam in the paper and two in the catalogue. | applied |
+| R6-14 | nit | The catalogue's N28 row still said "nondeterministic". | applied |
+| R6-15 | nit | T10's proof called round 2 "the final review". | applied |
+| R6-16 | nit | The catalogue's status vocabulary omitted *reproduced* and *restated*, which it uses. | applied |
+| R6-17 | minor | The review-round count was stale in the paper's §0, §9 and §10. | applied — six |
+
+Refuted by the verifiers: that D1's "leaves `L_rep`" contradicts the kernel (a misreading of the idiom, which means *exits*); that a tier-B establishing replay's exposure is wrong (superseded by R4-8, which treats the run's structural events as a group); that the report lacks a copyright holder (the project author is named on line 3).
 
 ## Disposition
 
@@ -310,3 +337,21 @@ Seven referees over the pull request head (mathematical soundness, kernel corres
 | R5-10 | nit | applied — paper |
 | R5-11 | nit | applied — companion and catalogue |
 | R5-12 | minor | applied — paper, catalogue, test comment |
+| R4-8 | P2 | applied — companion and test |
+| R6-1 | minor | applied — paper |
+| R6-2 | nit | applied — paper and companion comment |
+| R6-3 | minor | applied — paper and catalogue |
+| R6-4 | minor | applied — paper |
+| R6-5 | nit | applied — paper |
+| R6-6 | minor | applied — companion |
+| R6-7 | minor | applied — test |
+| R6-8 | minor | applied — test |
+| R6-9 | nit | applied — test |
+| R6-10 | minor | applied — paper index |
+| R6-11 | minor | applied — this file |
+| R6-12 | minor | applied — paper |
+| R6-13 | nit | applied — paper |
+| R6-14 | nit | applied — catalogue |
+| R6-15 | nit | applied — paper |
+| R6-16 | nit | applied — catalogue |
+| R6-17 | minor | applied — paper |
