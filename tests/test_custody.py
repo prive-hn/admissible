@@ -177,22 +177,41 @@ class JointReadingT7(unittest.TestCase):
         self.assertEqual(custody.power_joint([0.9] * 10), 0.0)
         self.assertAlmostEqual(custody.power_joint([0.9, 0.7]), 0.6)
 
-    def test_the_horizon_of_a_near_one_power_is_finite_and_needs_no_giant_list(self):
+    def test_the_horizon_of_a_near_one_power_is_finite_in_bounded_work(self):
         """A bounded refuter's `1-(1-eps)^N` figure (D13) can sit arbitrarily
         close to but below 1, and flows unchanged to a seal's `power_min` — a
         legal input to `bonferroni_horizon`. Its horizon is a finite ~1/(1-p),
-        but must be reached WITHOUT materialising an ~1/(1-p)-length list, or the
-        query allocates ~1TB and crashes (R8-2). `_power_joint_uniform` decides
-        the horizon in O(1) space and agrees with `power_joint`'s clamp at the
-        boundary for every reachable p."""
-        p = 1.0 - 0.8 ** 115            # ~0.9999999999928, a valid bounded (eps=0.2,N=115) figure
-        h = custody.bonferroni_horizon(p)
-        self.assertIsInstance(h, int)
-        self.assertGreater(h, 10 ** 11)                          # finite, near 1/(1-p)
-        # the defining property holds at the (huge) horizon, in O(1) space
-        self.assertEqual(custody._power_joint_uniform(p, h), 0.0)
-        self.assertGreater(custody._power_joint_uniform(p, h - 1), 0.0)
-        # the closed form agrees with the list build wherever the list is buildable
+        but must be reached in O(1) work: without materialising an
+        ~1/(1-p)-length list (R8-2, ~1TB crash) AND without a scan from
+        1/(1-p), whose length is ~4*eps/(1-p)^2 and hangs for p closer to 1
+        than ~1e-12 (R9-1). The seed is the clamp-shifted boundary, so the
+        refinement is bounded however close p is to 1."""
+        import math
+        # cap the number of `_power_joint_uniform` evaluations so a reintroduced
+        # linear scan fails FAST here instead of hanging the suite
+        real = custody._power_joint_uniform
+        budget = {"calls": 0}
+        def capped(p, n):
+            budget["calls"] += 1
+            if budget["calls"] > 5000:
+                raise AssertionError("bonferroni_horizon did not converge in bounded work")
+            return real(p, n)
+        custody._power_joint_uniform = capped
+        try:
+            # every one of these p is a legal bounded (eps, N) figure below 1;
+            # the last is the largest double below 1 — all must return in O(1)
+            for p in (1.0 - 0.5 ** 45, 1.0 - 0.8 ** 130, 1.0 - 0.8 ** 115,
+                      0.999999999999, math.nextafter(1.0, 0.0)):
+                budget["calls"] = 0
+                h = custody.bonferroni_horizon(p)
+                self.assertIsInstance(h, int)
+                self.assertGreater(h, 10 ** 11)                  # finite, near the boundary
+                self.assertLess(budget["calls"], 64)             # O(1) refinement, no scan
+                self.assertEqual(real(p, h), 0.0)                # h is the horizon
+                self.assertGreater(real(p, h - 1), 0.0)          # h-1 is not yet zero
+        finally:
+            custody._power_joint_uniform = real
+        # the closed form agrees with the list build's sign wherever it is buildable
         rng = random.Random(20260902)
         for _ in range(2000):
             q = rng.random(); n = rng.randint(1, 300)

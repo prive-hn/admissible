@@ -1023,12 +1023,22 @@ def bonferroni_horizon(p: float) -> Optional[int]:
     `_power_joint_uniform`, so the two cannot disagree at the horizon): a genuine
     near-boundary excess (p just above 1−1/k) leaves the reading positive and
     pushes the horizon one past k, while representation noise at an exact
-    boundary still reads zero there."""
+    boundary still reads zero there.
+
+    The horizon is seeded in closed form and refined in O(1) steps, never by a
+    scan from `1/(1−p)`. `_power_joint_uniform(p, n)` is zero iff
+    `1 − n·(1−p) < 4·n·ε`, i.e. iff `n > 1/((1−p) + 4·ε)`, so the horizon is the
+    first integer past that boundary. Seeding at `1/(1−p)` instead sits a
+    `≈ 4·ε/(1−p)²` gap above the clamp-shifted horizon — an unbounded back-walk
+    as `p → 1` (`~10¹²` steps at `p = 1 − 0.5⁴⁵`); seeding at the boundary keeps
+    the ± refinement below bounded however close `p` is to 1 (R9-1)."""
     if p >= 1.0:
         return None
     import math
-    n = max(1, math.floor(1.0 / (1.0 - p)))
-    while _power_joint_uniform(p, n) > 0.0:
+    import sys
+    eps4 = 4.0 * sys.float_info.epsilon
+    n = max(1, math.floor(1.0 / ((1.0 - p) + eps4)))   # the clamp-shifted boundary
+    while _power_joint_uniform(p, n) > 0.0:            # O(1): seed is at the horizon
         n += 1
     while n > 1 and _power_joint_uniform(p, n - 1) == 0.0:
         n -= 1
