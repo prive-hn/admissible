@@ -592,6 +592,19 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
                 if any(r.index not in excluded.get(r.cls, ()) and _install_reads(cal, pol, r)
                        for r in revived(j, as_of)):
                     anchors.append(("cal", j))
+        # the F1 second path (T13(b)): the refusal also props up any OTHER
+        # sealed line whose only impeaching escape by the refused checker it
+        # voids. Deleting the refusal revives that escape and impeaches the
+        # line — a real cost to another line that from_events does not refuse
+        # and the stamp/install readers above do not see, so `exposed` would
+        # wrongly call the group "deletable at no cost to any other line". The
+        # revived escape's `cal_run` anchors the group: to delete the refusal
+        # at no cost to that line one must also delete its escape. (`support`
+        # already records this refusal as a positive degrader of that line.)
+        for r in revived(len(cal.events), None):
+            if (r.line_id != s.line_id and adm.sealed.get(r.line_id) is not None
+                    and cal.admissible(r.line_id)):
+                anchors.append(("cal", r.position))
     return tuple(sorted(set(anchors)))
 
 
@@ -722,23 +735,28 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent, *,
     removed, and are not listed here."""
     struct = set(s.group_with)
     anchors = set(s.anchored_by)
+    cand: set = set()
     if s.redundant_with:
-        struct |= {("cal", k) for k in s.redundant_with}   # every sibling must go too
         run = _run_of(cal, s)
+        adj = _adjudication_index(cal, run) if (run is not None and run.tier == "B") else None
+        if adj is not None:
+            # tier B: deleting the accepting adjudication alone invalidates the
+            # run (an unadjudicated tier-B run is not a valid escape) and, being
+            # deleted, is not orphaned; it is required and goes in `struct`. The
+            # sibling replays are then redundant with it — deleting them changes
+            # nothing once the run is invalid — so they are only *candidate*
+            # deletions the minimisation drops, not part of the closure (R7-2).
+            struct.add(("cal", adj))
+            cand |= {("cal", k) for k in s.redundant_with}
+        else:
+            # tier A: there is no adjudication shortcut, so every establishing
+            # replay must go to unestablish the run; none is prunable.
+            struct |= {("cal", k) for k in s.redundant_with}
         if run is not None:
-            # the run, once none of its replays remain, is no longer an
-            # established escape: a tier-B accepting adjudication would then be
-            # orphaned (from_events: "adjudication requires an established
-            # escape"), so it goes with the siblings; the invalidation also
-            # rewrites any exclusion naming the run (`_rebuild_alt`). And
-            # whatever read the run as an established escape anchors that removal
-            if run.tier == "B":
-                adj = _adjudication_index(cal, run)
-                if adj is not None:
-                    struct.add(("cal", adj))
+            # the run, once no longer an established/valid escape, is read by a
+            # later stamp, E5 close or audit exactly as its own deletion is
             run_ev = SurfaceEvent("cal", run.position, "cal_run", run.line_id, "escape")
             anchors |= set(_anchors_of(cal, run_ev, initial_policy))
-    cand: set = set()
     for jr, j in anchors:
         cand.add((jr, j))
         if jr != "cal":

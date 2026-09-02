@@ -889,13 +889,15 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
             self.assertFalse(still.admissible("w"))
 
     def test_a_tier_b_runs_redundant_replays_carry_its_adjudication(self):
-        """A tier-B escape replayed twice, then adjudicated: removing every
-        establishing replay leaves the run unestablished, so a coherent
-        alternative must also drop the accepting `cal_adjudicate` (else
-        `from_events` refuses it, 'adjudication requires an established
-        escape') and rewrite any exclusion naming the now-invalid run.
-        `deletion_closure` of either replay names the sibling and the
-        adjudication (R4-25)."""
+        """A tier-B escape replayed twice, then adjudicated: deleting either
+        replay, the coherent alternative that raises standing deletes only the
+        accepting `cal_adjudicate` — that alone invalidates the run (an
+        unadjudicated tier-B run is not a valid escape) and, being deleted, is
+        not orphaned. The sibling replay is *redundant* with it, so a minimal
+        closure names the adjudication and NOT the sibling (R4-25 corrected by
+        R7-2). Deleting all establishing replays without the adjudication is
+        the refused alternative ('adjudication requires an established
+        escape')."""
         h = CalHarness(claims=self.CLAIMS); h.declare_tests()
         h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
         h.a.measure("hawk", "v1", DefectModel(D1, "mutator"), ledger(8, 10))
@@ -911,17 +913,81 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         for s in replays:
             sibling = next(o for o in replays if o.index != s.index)
             closure = custody.deletion_closure(h.cal, s)
-            self.assertIn(("cal", sibling.index), closure)      # the sibling replay
-            self.assertIn(("cal", adj), closure)                # and the adjudication it orphans
+            self.assertEqual(closure, (("cal", adj),))          # minimal: the adjudication alone
+            self.assertNotIn(("cal", sibling.index), closure)   # the sibling is redundant, not carried
             gone = {s.index} | {i for _, i in closure}
             rebuilt = CalibrationAuthority.from_events(
                 [e for i, e in enumerate(h.cal.events) if i not in gone], h.a, h.cal.policy)
             self.assertTrue(rebuilt.admissible("w"))            # the demonstration is removed
-            # the sibling-only deletion (adjudication kept) is the refused alternative
+            # deleting all establishing replays but keeping the adjudication is refused
             with self.assertRaises(ValueError):
                 CalibrationAuthority.from_events(
                     [e for i, e in enumerate(h.cal.events) if i not in {s.index, sibling.index}],
                     h.a, h.cal.policy)
+
+    def test_a_refusal_propping_up_another_admissible_line_is_not_exposed(self):
+        """A refusal taints line w and, being F1's second path, also voids a
+        tier-B escape by the refused checker against a DIFFERENT sealed line v
+        (on which the checker is not pinned), leaving v admissible. Deleting
+        the refusal revives that escape and impeaches v — a real cost to
+        another line that `from_events` does not refuse and the stamp/install
+        readers miss. So the refusal group is NOT exposed ('deletable at no
+        cost to any other line'); it is anchored by v's escape, and a coherent
+        alternative that raises w at no cost to v must also delete that escape
+        (R7-1, corroborated by the companion's own `_degraders(v)`)."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel("d-hawk", "mutator"), ledger(8, 10))
+        h.seal_line("w")                                        # w pins tests
+        r2 = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("hawk", "v1")}), "d-hawk"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(r2)                                       # switch the pin to hawk
+        h.fcd_open("v"); h.cal.open("v", "gen", "temp=0.7")     # v pins hawk, not tests
+        for i in range(h.k):
+            h.fcd_write("v"); h.sample("v", f"v-{i}".encode())
+            h.trial("v", i, refuter=("hawk", "v1"), claim="tests_pass", witness="h-same")
+        h.replay_all("v"); h.fcd_check("v"); h.cal.seal("v")
+        esc = h.cal.file_escape("v", "tests_pass", "tests", "v1", "nB", b"v-0", "seed", "hk", "aud")
+        h.cal.replay_run(esc.index, "refuted", "hk")
+        h.cal.adjudicate(esc.index, "owner", "accept", "reproduced")   # tests impeaches v
+        h.a.replay("w", 0, "refuted", "diverge")               # refuse tests: taints w, voids v's escape
+        self.assertFalse(h.cal.admissible("w"))
+        self.assertTrue(h.cal.admissible("v"))
+        surface = custody.deletion_surface(h.cal, "w")
+        taint = [s for s in surface if s.reason == "taint"]
+        self.assertTrue(taint)
+        self.assertEqual(custody.exposed(h.cal, "w"), ())      # nothing freely deletable
+        for s in taint:
+            self.assertIn(("cal", esc.position), s.anchored_by)   # anchored by v's escape
+            self.assertFalse(s.exposed)
+        # the closure carries v's escape (its establishing witnesses), so
+        # deleting the group with the closure rebuilds, raises w, and leaves v
+        # admissible — the deletion is now genuinely at no cost to v
+        s = taint[0]
+        closure = set(custody.deletion_closure(h.cal, s))
+        self.assertTrue(closure)
+        self.assertTrue(custody._rebuild_alt(h.cal, s, closure, None))
+        drop = {s.index} | {i for jr, i in closure if jr == "rga"}
+        cal_del = {i for jr, i in closure if jr == "cal"}
+        adm_full = Admission.from_events([e for i, e in enumerate(h.a.events) if i not in drop],
+                                         h.e, admission_policy(), r2)
+        cal_full = CalibrationAuthority.from_events(
+            custody._shift_adm_positions(custody._alt_delete(h.cal, cal_del, set()), drop),
+            adm_full, h.cal.policy)
+        self.assertTrue(cal_full.admissible("w"))       # w raised
+        self.assertTrue(cal_full.admissible("v"))       # and v kept admissible: no cost
+        # deleting the refusal group ALONE raises w but lowers v — the cost that
+        # makes the group non-exposed
+        grp = {t.index for t in taint}
+        adm2 = Admission.from_events([e for i, e in enumerate(h.a.events) if i not in grp],
+                                     h.e, admission_policy(), r2)
+        alone = CalibrationAuthority.from_events(
+            custody._shift_adm_positions(list(h.cal.events), grp), adm2, h.cal.policy)
+        self.assertTrue(alone.admissible("w"))
+        self.assertFalse(alone.admissible("v"))
 
     def test_a_taint_deletion_shifts_a_surviving_stamps_admission_position(self):
         """After a refusal taints a seal, a later mediated seal under a
