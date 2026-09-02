@@ -359,6 +359,8 @@ def _run_of(cal: CalibrationAuthority, s: SurfaceEvent) -> Optional[Run]:
     replay or adjudication by the run its own event names."""
     if s.type == "cal_run":
         return next((r for r in cal.runs if r.position == s.index), None)
+    if s.journal != "cal" or s.index >= len(cal.events):
+        return None                            # a taint event's index is an rga position
     run_index = cal.events[s.index].get("run_index")
     if isinstance(run_index, int) and 0 <= run_index < len(cal.runs):
         return cal.runs[run_index]
@@ -367,14 +369,15 @@ def _run_of(cal: CalibrationAuthority, s: SurfaceEvent) -> Optional[Run]:
 
 def _group_of(cal: CalibrationAuthority, s: SurfaceEvent, surface: list) -> tuple:
     """The events structurally tied to `s`, which a coherent alternative that
-    deletes `s` must delete too (they name it, or replay refuses them without
-    it): for a `cal_run`, every replay, discredit and adjudication naming its
-    run and every exclusion naming it alone (one naming other runs too is
-    rewritten instead, `_rewrites_of`); for the sole establishing replay of a
-    tier-B run, its adjudication (adjudication requires an established
-    escape); for a taint event, the other events of its refusal group. Events
-    that name a run are ties, not anchors: their deletion or rewrite costs no
-    line its standing."""
+    deletes `s` must delete too because replay range-checks their `run_index`
+    without it: for a `cal_run`, every replay, discredit and adjudication
+    naming its run; for the sole establishing replay of a tier-B run (or its
+    accepting adjudication), the adjudication (adjudication requires an
+    established escape); for a taint event, the other events of its refusal
+    group. An exclusion that names the run is a *rewrite*, not a tie — the run
+    is dropped from its `run_indices` (`_rewrites_of`, `_alt_delete`), which
+    empties and so removes one that named the run alone — so it is not here.
+    Events that name a run cost no line its standing."""
     if s.reason == "taint":
         return tuple(sorted((e.journal, e.index) for e in surface
                             if e.reason == "taint" and e.refusal_at == s.refusal_at
@@ -385,38 +388,32 @@ def _group_of(cal: CalibrationAuthority, s: SurfaceEvent, surface: list) -> tupl
     group = []
     if s.type == "cal_run":
         for j, ev in enumerate(cal.events):
-            t = ev.get("type")
-            if t in ("cal_replay", "cal_discredit", "cal_adjudicate") and ev.get("run_index") == run.index:
-                group.append(("cal", j))
-            elif t == "cal_exclude" and set(ev.get("run_indices", ())) == {run.index}:
+            if (ev.get("type") in ("cal_replay", "cal_discredit", "cal_adjudicate")
+                    and ev.get("run_index") == run.index):
                 group.append(("cal", j))
     elif s.type == "cal_replay" and run.tier == "B" and len(_establishing_replay_indices(cal, run)) == 1:
         adj = _adjudication_index(cal, run)
         if adj is not None:
             group.append(("cal", adj))
-    if _invalidates(cal, s):
-        # deleting the sole witness leaves the run unestablished; an exclusion
-        # naming it alone must go too (one naming other runs is rewritten)
-        for j, ev in enumerate(cal.events):
-            if ev.get("type") == "cal_exclude" and set(ev.get("run_indices", ())) == {run.index}:
-                group.append(("cal", j))
     return tuple(sorted(set(group)))
 
 
 def _rewrites_of(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
-    """The events a coherent alternative that deletes `s` must rewrite rather
-    than delete: a `cal_exclude` naming `s`'s run alongside other runs keeps
-    the others (renumbered, T12c). Deleted whole, it would release them into
-    the obligation of every later install, which `_guard_install_covers`
-    recomputes on rebuild from the exclusions before it (D16)."""
+    """The `cal_exclude` events a coherent alternative that deletes `s` must
+    rewrite rather than delete: deleting a `cal_run`, or invalidating a run by
+    deleting its sole witness (`_invalidates`), drops the run from every
+    exclusion that named it (renumbered, T12c) — one that named it alongside
+    other runs keeps them (deleted whole it would release them into the
+    obligation of a later install, D16), one that named it alone empties and
+    is removed. `_alt_delete` applies this from the deleted or invalidated
+    run, so the closure need not list the exclusion as a deletion."""
     if s.type != "cal_run" and not _invalidates(cal, s):
         return ()
     run = _run_of(cal, s)
     if run is None:
         return ()
     return tuple(("cal", j) for j, ev in enumerate(cal.events)
-                 if ev.get("type") == "cal_exclude" and run.index in ev.get("run_indices", ())
-                 and set(ev["run_indices"]) != {run.index})
+                 if ev.get("type") == "cal_exclude" and run.index in ev.get("run_indices", ()))
 
 
 def _excluded_before(cal: CalibrationAuthority, j: int) -> dict:
@@ -569,37 +566,93 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
     return tuple(sorted(set(anchors)))
 
 
+def _run_at_index(cal: CalibrationAuthority, j: int) -> Optional[Run]:
+    ev = cal.events[j]
+    if ev.get("type") == "cal_run":
+        return next((r for r in cal.runs if r.position == j), None)
+    ri = ev.get("run_index")
+    return cal.runs[ri] if isinstance(ri, int) and 0 <= ri < len(cal.runs) else None
+
+
+def _run_structural(cal: CalibrationAuthority, run: Run) -> list:
+    """Every event that names `run` and must go if its `cal_run` is deleted:
+    the run's replays, discredit and adjudication (from_events range-checks
+    each `run_index`)."""
+    return [k for k, ev in enumerate(cal.events)
+            if ev.get("run_index") == run.index
+            and ev.get("type") in ("cal_run", "cal_replay", "cal_adjudicate", "cal_discredit")]
+
+
+def _install_e5_candidates(cal: CalibrationAuthority, j: int) -> list:
+    """Later `cal_close(E5)` events of a class the install at `j` budgets — a
+    superset the minimizer prunes to those whose demotion the install actually
+    carries (a close whose charge count clears the pre-install budget too
+    survives the install's deletion; an intervening install supersedes it)."""
+    budgets = cal.events[j].get("budgets") or {}
+    return [k for k in range(j + 1, len(cal.events))
+            if cal.events[k].get("type") == "cal_close" and cal.events[k].get("fault") == "E5"
+            and (line := cal.adm.lines.get(cal.events[k].get("line_id"))) is not None
+            and line.cls in budgets]
+
+
+def _rebuild_alt(cal: CalibrationAuthority, s: SurfaceEvent, deletions: set,
+                 initial_policy: Optional[CalibrationPolicy]) -> bool:
+    """Whether deleting `s` and `deletions` re-derives: the rga events rebuild
+    the admission (its own starting policy is the first in `_policies`, and it
+    re-applies the journalled installs), the cal events rebuild calibration
+    against it. A cross-journal generalisation of `_rebuilds` for closures."""
+    adm = cal.adm
+    rga_del = {i for jr, i in deletions if jr == "rga"} | ({s.index} if s.journal == "rga" else set())
+    cal_del = {i for jr, i in deletions if jr == "cal"} | ({s.index} if s.journal == "cal" else set())
+    if rga_del:
+        try:
+            pols = list(adm._policies.values())
+            alt_adm = [e for i, e in enumerate(adm.events) if i not in rga_del]
+            adm = Admission.from_events(alt_adm, adm.fcd, pols[0], *pols[1:])
+        except Exception:
+            return False
+    run = _run_of(cal, s) if s.reason == "escape" else None
+    invalidated = {run.index} if run is not None and _invalidates(cal, s) else set()
+    try:
+        CalibrationAuthority.from_events(_alt_delete(cal, cal_del, invalidated),
+                                         adm, initial_policy or cal.policy)
+        return True
+    except Exception:
+        return False
+
+
 def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent, *,
                      initial_policy: Optional[CalibrationPolicy] = None) -> tuple:
     """What a coherent alternative must remove besides `s` to delete it: the
     events structurally tied to it (`group_with`, at no cost to any other
-    line) and its anchors. The cost of the deletion is the standing those
-    anchors carried: a stamp's deletion lowers its own line to IR; an E5
-    close or an audit is recomputed against by nothing later; an install is
-    read by whatever ran under the budgets it adopted (`_e_max_at`), so the
-    closure is one step and its own is taken by the same query. Events in
-    `rewrites` are edited, not removed, and are not listed here.
-    An anchored `cal_install` that lowered a class budget carries its own
-    downstream reader: a later `cal_close(E5)` of that class recomputes the
-    demotion under the budget the install adopted, so it goes in the closure
-    too (installs are not `SurfaceEvent`s, R4-13)."""
-    closure = set(s.group_with) | set(s.anchored_by)
-    for jr, j in list(closure):
-        if jr != "cal" or cal.events[j].get("type") != "cal_install":
+    line) and the anchors, each carried with its own structural group — an
+    anchored `cal_run` (an audit) takes its replays and adjudication, an
+    anchored `cal_install` its later `cal_close(E5)` readers. The set is then
+    *minimised by re-derivation*: a candidate anchor or downstream reader is
+    dropped whenever the alternative still rebuilds without deleting it (an E5
+    whose charge count clears the pre-install budget survives the install's
+    deletion, R4-16; an audit's replay does not, R4-15). So the closure is
+    exactly the deletion the kernel refuses to do without, and its cost is the
+    standing those events carried. Events in `rewrites` are edited, not
+    removed, and are not listed here."""
+    struct = set(s.group_with)
+    cand: set = set()
+    for jr, j in s.anchored_by:
+        cand.add((jr, j))
+        if jr != "cal":
             continue
-        budgets = cal.events[j].get("budgets") or {}
-        # only a class whose e_max the install actually changed makes a later
-        # E5 close read a different budget once the install is gone
-        changed = {c for c, b in budgets.items()
-                   if int(b["e_max"]) != _e_max_at(cal, c, j, initial_policy)}
-        for k in range(j + 1, len(cal.events)):
-            ev = cal.events[k]
-            if ev.get("type") != "cal_close" or ev.get("fault") != "E5":
-                continue
-            line = cal.adm.lines.get(ev.get("line_id"))
-            if line is not None and line.cls in changed:
-                closure.add(("cal", k))
-    return tuple(sorted(closure))
+        t = cal.events[j].get("type")
+        if t in ("cal_run", "cal_replay", "cal_adjudicate"):
+            run = _run_at_index(cal, j)
+            if run is not None:
+                struct |= {("cal", k) for k in _run_structural(cal, run)}
+        elif t == "cal_install":
+            cand |= {("cal", k) for k in _install_e5_candidates(cal, j)}
+    needed = set(struct) | set(cand)
+    for e in sorted(cand):                     # keep only what the rebuild cannot do without
+        if e in needed and _rebuild_alt(cal, s, needed - {e}, initial_policy):
+            needed.discard(e)
+    return tuple(sorted(needed))
 
 
 def exposed(cal: CalibrationAuthority, line_id: Optional[str] = None, *,

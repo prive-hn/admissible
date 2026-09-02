@@ -6,7 +6,7 @@
 |---|---|
 | Name | **Admissible** — the admissibility kernel. Argued from the code's top predicate `admissible(id) = sealed ∧ mediated ∧ ¬tainted ∧ ¬impeached` and the evidence-law/Daubert mapping (testability→refuters, known error rate→carried power, controlling standards→pinned policy, impeachment→escape ledger). Certifies procedure, never truth |
 | Unified paper | `paper/admissible/DRAFT.md`: model, threat model, three layer summaries, Theorem 1 (soundness of the record) + Theorem 2 (loudness of deviation) as compositions by citation, methodology (delete-the-guard, citation binding, premise-first rounds), consolidated related work and limits. Adds framing and composition, not new mathematics, and says so |
-| Counts (measured) | 585 checks green: 477 `tests/` + 37 atlas + 71 cockpit; 43 per-guard deletion proofs + 2 joint; 2 citation binders |
+| Counts (measured) | 586 checks green: 478 `tests/` + 37 atlas + 71 cockpit; 43 per-guard deletion proofs + 2 joint; 2 citation binders |
 | Empirical (§9) | Three studies, none admissible evidence. Kernel bench (`eval/bench/`, Fig. 8) — machinery only; honest is the oracle, sloppy is drawn from D, and the figure says so; 7/7 latent-defect seals impeached, 3 unstable seals stand as misses. Real generator (`eval/generators/`) — 48 samples, 16/16 lines sealed, **zero defective**, ceiling structural. Real defects (`eval/realdefects/`, Fig. 9) — **8 hand-verified**, no defensible rate. Full account and every voided run: `eval/LOG.md` |
 
 Canonical machine: `fcd/`. Round 4 conditions applied. Metrics empty until a named cut.
@@ -16,7 +16,7 @@ Canonical machine: `fcd/`. Round 4 conditions applied. Metrics empty until a nam
 | Name | Fail-closed class dispatch. Work item → accepted artifact |
 | Observe vs Bind | `fcd/core.py`. Bind writes `m_decl`. Observe writes `m_exec` |
 | Proofs I1–I17 | `paper/PROOFS.md` |
-| Tests | 585 repository checks total: 477 Python kernel/server/context/RGA/calibration/paper/custody + 37 atlas/protocol + 71 cockpit |
+| Tests | 586 repository checks total: 478 Python kernel/server/context/RGA/calibration/paper/custody + 37 atlas/protocol + 71 cockpit |
 | Context authority | `fcd/context.py`; attempt/nonce, package receipts, steering, CAS promotion |
 | Execution boundary | `server/execution.py`; mature executor internals stay external |
 | Watchdog | `fcd/watchdog.py` (injected `alive_fn`) |
