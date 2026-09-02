@@ -178,7 +178,7 @@ All round-3 findings are applied in this revision: D8′ and the custodial premi
 
 ## Round 4 — automated review of the pull request
 
-The repository's pull-request reviewer read the companion after the branch was marked ready and, in six passes (each on the repaired head, on both the public and the internal pull request), returned thirteen findings — twelve against `custody.py` and one against the paper index — all real, all applied, the code findings each with a regression test that fails on the previous companion; the count guards moved with the added checks.
+The repository's pull-request reviewer read the companion after the branch was marked ready and, in seven passes (each on the repaired head, on both the public and the internal pull request), returned fourteen findings — thirteen against `custody.py` and one against the paper index — all real, all applied, the code findings each with a regression test that fails on the previous companion; the count guards moved with the added checks.
 
 | id | severity | finding | disposition |
 |---|---|---|---|
@@ -195,6 +195,7 @@ The repository's pull-request reviewer read the companion after the branch was m
 | R4-11 | P2 | `derived_defect_id` embeds a run's journal position, so deleting an earlier `cal_run` renumbers a later valid, non-excluded corpus run; a subsequent install whose ledger covered the original id then fails `_guard_install_covers` (`escape-v-tests_pass-2` uncovered). The `cal_run` was reported exposed with no anchor, so `deletion_closure` was not a coherent alternative. | applied — a later `cal_install` is enumerated as an anchor of the escape when deleting its group renumbers a covered run out of the ledger; found by re-derivation (`_install_anchors_for_escape`), and the surface as a whole re-derives every candidate deletion (`coherent`) so no reader is assumed. `test_a_cal_run_whose_deletion_renumbers_a_covered_run_is_anchored_by_the_install` |
 | R4-12 | P2 | For a run with exactly one establishing replay (or an accepting adjudication) that a later `cal_exclude` named, the witness carried neither `group_with` nor `rewrites`, and — exclusions no longer being anchors — was reported exposed; deleting it alone leaves the run unestablished and `from_events` rejects the exclusion as naming a non-valid escape. | applied — a sole establishing replay and the accepting adjudication take the run's exclusions (naming it alone in `group_with`, sharing in `rewrites`) the way a `cal_run` does (`_invalidates`); the coherence re-derivation catches any that slip. `test_a_sole_replay_named_by_an_exclusion_is_deletable_only_with_it` |
 | R4-13 | P2 | A `cal_install` newly enumerated as an anchor can also lower a class budget; a later `cal_close(E5)` of that class recomputes the demotion under the budget the install adopted, but `deletion_closure()` added the install and — installs not being `SurfaceEvent`s — had no way to add that downstream close, so deleting the group plus install replays the E5 under the pre-install budget and is refused when the charge count falls between the two. | applied — `deletion_closure` adds a later `cal_close(E5)` of a class whose budget the anchored install changed (`_e_max_at`); the concrete trigger (an E5 of the anchored install's class after it, charge count between the budgets) is contrived under a one-class policy, as R4-7, so the reader is enumerated and the closure re-derivation covers it |
+| R4-14 | P2 | The install-anchor probe of R4-11 accepted an install only when deleting it *alone* repaired the alternative. Two installs can each cover a renumbered survivor only by its original id, so retaining either still refuses `_guard_install_covers`: the probe found no anchor, leaving `coherent` false and `deletion_closure` with only the structural group. | applied — the jointly necessary install set is found by re-derivation (remove all, add back each the rebuild does not need); `test_two_installs_that_only_jointly_cover_a_renumbered_run_are_both_anchors` shows both installs anchored, the closure naming both, and retaining either refused |
 
 ## Round 5 — adversarial re-review of the pull request head
 
@@ -346,6 +347,7 @@ Refuted by the verifiers: that D1's "leaves `L_rep`" contradicts the kernel (a m
 | R4-11 | P2 | applied — companion and test |
 | R4-12 | P2 | applied — companion and test |
 | R4-13 | P2 | applied — companion (closure and re-derivation) |
+| R4-14 | P2 | applied — companion and test |
 | R4-9 | P2 | applied — companion and test |
 | R4-10 | P2 | applied — companion and test |
 | R6-1 | minor | applied — paper |

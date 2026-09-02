@@ -588,6 +588,46 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         run_v = next(e for e in custody.deletion_surface(h.cal, "v") if e.type == "cal_run")
         self.assertTrue(run_v.exposed)                           # the last escape renumbers nothing before it
 
+    def test_two_installs_that_only_jointly_cover_a_renumbered_run_are_both_anchors(self):
+        """Two installs can each cover a run only by its original position-derived
+        id, so deleting an earlier `cal_run` renumbers the survivor out of both
+        ledgers and retaining either still refuses `_guard_install_covers`. The
+        jointly necessary set is found (not a singly-sufficient probe): both
+        installs anchor the deletion and its `deletion_closure` names both, so
+        the alternative it advertises rebuilds."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w"); h.seal_line("v")
+        r0 = h.tier_a_escape("w", nonce="e1"); r1 = h.tier_a_escape("v", nonce="e2")
+        d0, d1 = h.cal.derived_defect_id(r0), h.cal.derived_defect_id(r1)
+        h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+        h.a.measure("tests", "v2", DefectModel("d1", "mutator"),
+                    [LedgerEntry(f"m{i}", "killed") for i in range(10)] + [LedgerEntry(d0, "killed"), LedgerEntry(d1, "killed")])
+        succ1 = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d1"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(succ1); i1 = len(h.cal.events) - 1
+        h.a.declare(Refuter("tests", "v3", "tester", "ledger"))
+        h.a.measure("tests", "v3", DefectModel("d2", "mutator"),
+                    [LedgerEntry(f"n{i}", "killed") for i in range(10)] + [LedgerEntry(d0, "killed"), LedgerEntry(d1, "killed")])
+        succ2 = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v3")}), "d2"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r3")
+        h.cal.install(succ2); i2 = len(h.cal.events) - 1
+        run_w = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_run")
+        self.assertFalse(run_w.exposed)
+        self.assertIn(("cal", i1), run_w.anchored_by)
+        self.assertIn(("cal", i2), run_w.anchored_by)          # jointly necessary, not singly sufficient
+        closure = custody.deletion_closure(h.cal, run_w)
+        self.assertIn(("cal", i1), closure); self.assertIn(("cal", i2), closure)
+        drop_run = self._drop_run(h.cal.events, r0.index)
+        one = [e for e in drop_run if not (e.get("type") == "cal_install" and e.get("policy_version") == "r3")]
+        with self.assertRaises(ValueError):                    # succ1 alone still refuses the renumbered id
+            CalibrationAuthority.from_events(one, h.a, h.cal.policy)
+        both = [e for e in drop_run if e.get("type") != "cal_install"]
+        self.assertFalse(CalibrationAuthority.from_events(both, h.a, h.cal.policy).impeached("w"))
+
     def test_a_sole_replay_named_by_an_exclusion_is_deletable_only_with_it(self):
         """Deleting the sole establishing replay leaves the run unestablished,
         so a `cal_exclude` that named it names a non-valid escape on rebuild.

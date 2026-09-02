@@ -324,22 +324,34 @@ def _install_anchors_for_escape(cal: CalibrationAuthority, s: SurfaceEvent,
     position-derived corpus id (`derived_defect_id`), so deleting an earlier
     `cal_run` renumbers a later covered run and its ledger no longer covers
     the new id (`_guard_install_covers`); the install anchors the deletion.
-    Found by re-derivation so no reader is assumed (T4.1 conjectural (iv))."""
+    The needed installs are jointly necessary, not singly sufficient: two
+    installs may each cover only the original id, so retaining either still
+    refuses — the whole set is found (remove all, then add back each that the
+    rebuild does not need), so `deletion_closure` names every one. Found by
+    re-derivation so no reader is assumed (T4.1 conjectural (iv))."""
     if _run_of(cal, s) is None:
         return []
     delete, invalidated = _group_deletion(cal, s)
     base = _alt_delete(cal, delete, invalidated)
     if _rebuilds(cal, base, initial_policy):
         return []
-    out = []
-    for j, ev in enumerate(cal.events):
-        if ev.get("type") != "cal_install":
-            continue
-        probe = [e for e in base
-                 if not (e.get("type") == "cal_install" and e.get("policy_version") == ev.get("policy_version"))]
-        if _rebuilds(cal, probe, initial_policy):
-            out.append(("cal", j))
-    return out
+
+    installs = [(j, cal.events[j].get("policy_version"))
+                for j, ev in enumerate(cal.events) if ev.get("type") == "cal_install"]
+
+    def without(remove: set) -> list:
+        return [e for e in base
+                if not (e.get("type") == "cal_install" and e.get("policy_version") in remove)]
+
+    all_pv = {pv for _, pv in installs}
+    if not _rebuilds(cal, without(all_pv), initial_policy):
+        return []       # not curable by installs alone; `coherent` still keeps the event off exposed
+
+    needed = set(all_pv)
+    for _, pv in installs:            # add each back; keep removed only if the rebuild needs it gone
+        if pv in needed and _rebuilds(cal, without(needed - {pv}), initial_policy):
+            needed.discard(pv)
+    return [("cal", j) for j, pv in installs if pv in needed]
 
 
 def _run_of(cal: CalibrationAuthority, s: SurfaceEvent) -> Optional[Run]:
