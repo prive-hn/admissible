@@ -230,17 +230,17 @@ class ConversionIsTotal(unittest.TestCase):
         self.assertIn("authenticated", seal_text)
         self.assertNotIn("forgetting is impossible", seal_text)
         self.assertIn("sealed ∧ mediated ∧ ¬tainted ∧ ¬impeached", sections)
-        self.assertIn("575", sections)
+        self.assertIn("577", sections)
         # The paper counts the research kernel, and that is the number this
         # test owns: it belongs beside the figures and the sections that cite
         # it. The README's other two figures -- the developer-product count and
         # the repository total -- are *derived* from collection and compared in
         # tests/test_admissible_bounded_repair.py, because a test that searches
         # the README for a number somebody typed only proves somebody typed it.
-        self.assertIn("575", readme)
+        self.assertIn("577", readme)
         self.assertIn(
-            "| Research kernel — the number the paper cites | 575 |", readme)
-        self.assertNotIn("575 tests", readme)
+            "| Research kernel — the number the paper cites | 577 |", readme)
+        self.assertNotIn("577 tests", readme)
         self.assertIn("fault codes are E1–E9", metrics)
         self.assertIn("B0–B14", draft)
 

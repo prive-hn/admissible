@@ -178,12 +178,15 @@ All round-3 findings are applied in this revision: D8′ and the custodial premi
 
 ## Round 4 — automated review of the pull request
 
-The repository's pull-request reviewer read the companion after the branch was marked ready and returned two findings against `custody.py`, both real, both applied with a regression test; the count guards and the import census moved with the added check.
+The repository's pull-request reviewer read the companion after the branch was marked ready and, in two passes (the second on the repaired head, on both the public and the internal pull request), returned four findings against `custody.py` and one against the paper index — all real, all applied, the four code findings each with a regression test that fails on the previous companion; the count guards moved with the added checks.
 
 | id | severity | finding | disposition |
 |---|---|---|---|
-| R4-1 | P2 | `_anchors_of` resolved a `cal_replay` or `cal_adjudicate` surface event to the *first* valid refuted run on its line instead of the run its `run_index` names, so a later escape's replay inherited the first escape's anchors and was reported exposed while an audit by its own checker depended on it; deleting that "exposed" set failed on rebuild. | applied — resolved by `run_index`; `AnchorsFollowTheEventsOwnRun` builds two escapes by different checkers and an audit by the second, checks the anchors, rebuilds after deleting exactly the exposed part, and shows the anchored pair is refused alone |
+| R4-1 | P2 | `_anchors_of` resolved a `cal_replay` or `cal_adjudicate` surface event to the *first* valid refuted run on its line instead of the run its `run_index` names, so a later escape's replay inherited the first escape's anchors and was reported exposed while an audit by its own checker depended on it; deleting that "exposed" set failed on rebuild. | applied — resolved by `run_index`; `AnchorsReadAsReplayReads` builds two escapes by different checkers and an audit by the second, checks the anchors, rebuilds after deleting exactly the exposed part, and shows the anchored pair is refused alone |
 | R4-2 | P2 | `verify_certificate` compared roots, demonstration count and lengths but not the standing the certificate claims, so a certificate whose `standing` field alone had been flipped verified clean. | applied — `standing` is a fourth compared component; `DeletionSurfaceT4` checks the flipped certificate and the deleted custody |
+| R4-3 | P2 | The refusal-group anchor marked every later same-class stamp as an anchor if the refused checker had an established run before it, without asking whether the refusal existed by the stamp's cut; `from_events` recomputes a stamp with `_check_valid(as_of=sealed_at)`, which ignores a later refusal, so a tail refusal group after the stamp was reported anchored although deleting it rebuilds the stamp unchanged. The same false anchor arose for an escape whose establishing replay came after the stamp. | applied — every reader is now evaluated as replay evaluates it, through `_valid_at` (established before the reader, refusal within the reader's cut, tier B adjudicated before it); the E5 close and audit anchors are exact (C2's one-charge-per-cell; the checker's only valid escape); `test_a_refusal_after_the_stamps_cut_is_exposed_and_deletes_clean` |
+| R4-4 | P2 | `deletion_surface` took only the first establishing replay of a run; the kernel accepts a second successful replay, so deleting the first alone left the run established while the second was missing from the surface and from the certificate's count. | applied — every establishing replay is a witness event, marked `redundant_with` its siblings and exposed only when load-bearing; `test_repeated_establishing_replays_are_redundant_witnesses` |
+| R4-5 | P3 | `paper/README.md` said three reports, thirteen findings and two review rounds. | applied |
 
 ## Disposition
 
@@ -268,3 +271,6 @@ The repository's pull-request reviewer read the companion after the branch was m
 | R2-novelty-5–15 | minor | applied |
 | R4-1 | P2 | applied — companion and test |
 | R4-2 | P2 | applied — companion and test |
+| R4-3 | P2 | applied — companion and test |
+| R4-4 | P2 | applied — companion and test |
+| R4-5 | P3 | applied — paper index |

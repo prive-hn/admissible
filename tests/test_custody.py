@@ -289,14 +289,17 @@ class AnchoredAndExposedSurface(unittest.TestCase):
         self.assertIn("E5 close without a demotion", str(ctx.exception))
 
 
-class AnchorsFollowTheEventsOwnRun(unittest.TestCase):
-    """A replay or adjudication event names its run, and its anchors are that
-    run's — not the first valid escape's on the line. Two escapes on one line
-    by different checkers, then an audit by the second checker: the audit
-    anchors the second escape's three events and none of the first's; deleting
-    exactly the exposed part (run indices renumbered, T12(c)) rebuilds with the
-    line still impeached; deleting the anchored replay and adjudication alone
-    is refused, because the audit's guard needs that checker's valid escape."""
+class AnchorsReadAsReplayReads(unittest.TestCase):
+    """Anchors are enumerated as `from_events` recomputes each reader (round 4
+    of REVIEWS.md). A replay or adjudication event names its run, and its
+    anchors are that run's — not the first valid escape's on the line: two
+    escapes on one line by different checkers, then an audit by the second
+    checker, and the audit anchors the second escape's three events and none
+    of the first's; deleting exactly the exposed part (run indices renumbered,
+    T12(c)) rebuilds with the line still impeached, and deleting the anchored
+    replay and adjudication alone is refused, because the audit's guard needs
+    that checker's valid escape. A stamp reads a refusal only within its own
+    cut, and a run replayed twice carries two witnesses."""
 
     HAWK = ("hawk", "v1")
     CLAIMS = (ClaimSpec("tests_pass", "spec-hash-1", frozenset({TESTS}), D1),
@@ -352,6 +355,51 @@ class AnchorsFollowTheEventsOwnRun(unittest.TestCase):
         with self.assertRaises(ValueError):
             CalibrationAuthority.from_events(
                 [e for i, e in enumerate(h.cal.events) if i not in anchored], h.a, h.cal.policy)
+
+
+    def test_a_refusal_after_the_stamps_cut_is_exposed_and_deletes_clean(self):
+        """A same-class stamp anchors the escape before it but not a refusal
+        that came after the stamp's cut: the stamp recomputes with
+        as_of=sealed_at and never saw the refusal, so deleting the group
+        rebuilds the stamp unchanged and un-taints the seals."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.tier_a_escape("w", nonce="e1")
+        h.seal_line("x")                                         # same class: its stamp anchors the escape
+        self.assertTrue(all(not e.exposed for e in custody.deletion_surface(h.cal, "w")))
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")                  # diverges after x's cut: refuses `tests`
+        self.assertTrue(h.a.tainted("w") and h.a.tainted("x"))
+        surface = custody.deletion_surface(h.cal, "w")
+        self.assertEqual([e for e in surface if e.reason == "escape"], [])   # the refusal voids the escape (F1)
+        taint = [e for e in surface if e.reason == "taint"]
+        self.assertTrue(taint and all(e.exposed for e in taint))            # x's stamp never saw the refusal
+        drop = {e.index for e in taint}
+        adm2 = Admission.from_events([e for i, e in enumerate(h.a.events) if i not in drop], h.e, h.a.policy)
+        cal2 = CalibrationAuthority.from_events(list(h.cal.events), adm2, h.cal.policy)  # both stamps recompute
+        self.assertFalse(adm2.tainted("w"))
+        self.assertTrue(cal2.impeached("w"))                     # and the escape stands again
+
+    def test_repeated_establishing_replays_are_redundant_witnesses(self):
+        """The kernel accepts a second successful replay of an established
+        run. Each is a witness event: both are on the surface, neither is
+        exposed alone (deleting one leaves the other to establish the run),
+        and standing rises only when both are gone."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        run = h.tier_a_escape("w")
+        h.cal.replay_run(run.index, "refuted", "kill-w")           # a second, identical replay
+        surface = custody.deletion_surface(h.cal, "w")
+        replays = sorted((e for e in surface if e.type == "cal_replay"), key=lambda e: e.index)
+        self.assertEqual(len(replays), 2)
+        self.assertEqual(replays[0].redundant_with, (replays[1].index,))
+        self.assertEqual(replays[1].redundant_with, (replays[0].index,))
+        self.assertTrue(all(not e.exposed and not e.anchored_by for e in replays))
+        self.assertTrue(next(e for e in surface if e.type == "cal_run").exposed)
+        self.assertEqual(custody.standing_certificate(h.cal, "w").demonstrations, 3)
+        one = [e for i, e in enumerate(h.cal.events) if i != replays[0].index]
+        self.assertTrue(CalibrationAuthority.from_events(one, h.a, h.cal.policy).impeached("w"))
+        both = [e for i, e in enumerate(h.cal.events) if i not in {replays[0].index, replays[1].index}]
+        self.assertTrue(CalibrationAuthority.from_events(both, h.a, h.cal.policy).admissible("w"))
 
 
 class SupportDetermination(unittest.TestCase):

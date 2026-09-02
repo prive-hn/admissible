@@ -69,11 +69,56 @@ def polarity_of(event_type: str) -> str:
 
 # -- helpers -------------------------------------------------------------------
 
-def _establishing_replay_index(cal: CalibrationAuthority, run: Run) -> Optional[int]:
-    for i, ev in enumerate(cal.events):
-        if ev.get("type") == "cal_replay" and ev.get("run_index") == run.index and not ev.get("diverged"):
-            return i
-    return None
+def _establishing_replay_indices(cal: CalibrationAuthority, run: Run) -> list[int]:
+    """Every non-diverged replay of `run`, in journal order. The kernel accepts
+    a second successful replay of an established run; each is a witness that
+    the demonstration stands, and the demonstration falls only when all of
+    them are gone."""
+    return [i for i, ev in enumerate(cal.events)
+            if ev.get("type") == "cal_replay" and ev.get("run_index") == run.index
+            and not ev.get("diverged")]
+
+
+def _valid_at(cal: CalibrationAuthority, run: Run, j: int, rga_cut: Optional[int], *,
+              ignore_refusal: bool = False, without: Optional[int] = None) -> bool:
+    """`run` as `from_events` sees it when it recomputes the reader at cal
+    index `j`: established by a non-diverged replay before `j` (the replay at
+    index `without`, if given, deleted), its checker not discredited before
+    `j`, tier B adjudicated `accept` before `j`, and — unless `ignore_refusal`
+    — not refused at rga position `rga_cut` or earlier (`None`: the final
+    registry, as `_guard_audit_checker` reads it, F2). Mirrors
+    `rga/calibration.py:_check_valid(as_of)` at the reader's own point."""
+    adm = cal.adm
+    before = cal.events[:j]
+    if not any(k < j and k != without for k in _establishing_replay_indices(cal, run)):
+        return False
+    if any(ev.get("type") == "cal_discredit"
+           and (ev.get("checker_id"), ev.get("checker_version")) == run.checker for ev in before):
+        return False
+    if not ignore_refusal and run.checker in adm.refused:
+        if rga_cut is None or adm.refused_at.get(run.checker, -1) <= rga_cut:
+            return False
+    if run.verdict == "refuted" and run.tier == "B":
+        if not any(ev.get("type") == "cal_adjudicate" and ev.get("run_index") == run.index
+                   and ev.get("decision") == "accept" for ev in before):
+            return False
+    return True
+
+
+def _charges_without(cal: CalibrationAuthority, run: Run, refuter: tuple[str, str],
+                     cls: str, j: int, rga_cut: Optional[int]) -> int:
+    """The refuter's charge count as the reader at `j` recomputes it with
+    `run` deleted: one charge per (line, claim) cell however many witnesses
+    (C2), over the escapes valid at `j`."""
+    adm = cal.adm
+    cells = set()
+    for r in cal.runs:
+        if r is run or r.verdict != "refuted" or r.cls != cls or not _valid_at(cal, r, j, rga_cut):
+            continue
+        seal = adm.sealed.get(r.line_id)
+        if seal is not None and refuter in cal._pinned_on_claim(seal, r.claim_id):
+            cells.add((r.line_id, r.claim_id))
+    return len(cells)
 
 
 def _adjudication_index(cal: CalibrationAuthority, run: Run) -> Optional[int]:
@@ -98,11 +143,14 @@ class SurfaceEvent:
     line_id: str            # the line whose standing the event lowers
     reason: str             # "escape" | "taint"
     anchored_by: tuple = () # later (journal, index) events whose recomputation refuses its deletion
+    redundant_with: tuple = ()  # sibling establishing replays of the same run (cal indices)
 
     @property
     def exposed(self) -> bool:
-        """Deletable by a coherent alternative: no later event recomputes it."""
-        return not self.anchored_by
+        """Deletable alone by a coherent alternative, and load-bearing: no
+        later event recomputes it and no sibling replay stands in for it. A
+        redundant replay is deletable alone at no change to any standing."""
+        return not self.anchored_by and not self.redundant_with
 
 
 def deletion_surface(cal: CalibrationAuthority, line_id: Optional[str] = None) -> tuple[SurfaceEvent, ...]:
@@ -119,8 +167,7 @@ def deletion_surface(cal: CalibrationAuthority, line_id: Optional[str] = None) -
         if line_id is not None and run.line_id != line_id:
             continue
         out.append(SurfaceEvent("cal", run.position, "cal_run", run.line_id, "escape"))
-        rep = _establishing_replay_index(cal, run)
-        if rep is not None:
+        for rep in _establishing_replay_indices(cal, run):
             out.append(SurfaceEvent("cal", rep, "cal_replay", run.line_id, "escape"))
         if run.tier == "B":
             adj = _adjudication_index(cal, run)
@@ -142,80 +189,117 @@ def deletion_surface(cal: CalibrationAuthority, line_id: Optional[str] = None) -
             while j < len(adm.events) and adm.events[j].get("type") == "rga_close" and adm.events[j].get("fault") == "V4":
                 out.append(SurfaceEvent("rga", j, "rga_close", seal.line_id, "taint"))
                 j += 1
-    anchored = [SurfaceEvent(s.journal, s.index, s.type, s.line_id, s.reason, _anchors_of(cal, s))
+    anchored = [SurfaceEvent(s.journal, s.index, s.type, s.line_id, s.reason,
+                             _anchors_of(cal, s), _redundant_with(cal, s))
                 for s in set(out)]
     return tuple(sorted(anchored, key=lambda s: (s.journal, s.index, s.line_id)))
+
+
+def _run_of(cal: CalibrationAuthority, s: SurfaceEvent) -> Optional[Run]:
+    """The run a surface event belongs to: a `cal_run` by its position, a
+    replay or adjudication by the run its own event names."""
+    if s.type == "cal_run":
+        return next((r for r in cal.runs if r.position == s.index), None)
+    run_index = cal.events[s.index].get("run_index")
+    if isinstance(run_index, int) and 0 <= run_index < len(cal.runs):
+        return cal.runs[run_index]
+    return None
+
+
+def _redundant_with(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
+    if s.reason != "escape" or s.type != "cal_replay":
+        return ()
+    run = _run_of(cal, s)
+    if run is None:
+        return ()
+    return tuple(k for k in _establishing_replay_indices(cal, run) if k != s.index)
 
 
 def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
     """The later events whose replay guard or recomputation reads what `s`
     contributed, so that deleting `s` alone is refused on rebuild. Enumerated
-    from the readers in rga/calibration.py:from_events, under the move set in
+    from the readers in rga/calibration.py:from_events, each evaluated as
+    replay evaluates it — with the witness valid AT THE READER (established
+    before it, its checker's refusal within the reader's own cut, tier B
+    adjudicated before it), and, for a replay, only while no sibling replay
+    before the reader establishes the run without it. Under the move set in
     which recorded positions and indices may be renumbered consistently
-    (T12(c)); position fields therefore anchor nothing, and only content does:
+    (T12(c)) position fields anchor nothing, and only content does:
 
     for an escape —
-      * a later `cal_stamp` of the same class (its `track_records` and
-        `corpus_provenance` are recomputed from the escapes before it);
+      * a later `cal_stamp` of the same class whose cut (`sealed_at`) the
+        witness's validity precedes (its `track_records` and
+        `corpus_provenance` are recomputed from the escapes valid as of it);
       * a later `cal_close(E5)` of the same class naming a refuter this
-        escape charges (`demoted(..., as_of)` is recomputed from charges);
+        escape charges, when the demotion it records (`demoted(..., as_of)`)
+        would no longer hold without this escape's charge cell (C2: one
+        charge per cell however many witnesses);
       * a later `cal_run` filed by this escape's checker on a claim where the
-        checker is not pinned (`_guard_audit_checker` needs a valid escape by it);
-      * a later `cal_exclude` naming this run (`_guard_exclusion` needs it valid);
+        checker is not pinned, when this is the checker's only valid escape
+        of the class at that point (`_guard_audit_checker` needs one);
+      * a later `cal_exclude` naming this run (`_guard_exclusion` needs it
+        valid as of the exclusion's cut);
     for a refusal group —
-      * a later `cal_stamp` of a class in which the refused checker had an
-        established refuted run before the stamp (the refusal voids it, so the
-        stamp's corpus and charges differ) — otherwise the group is exposed
-        (a stamp's `sealed_at` is a position and renumbers).
+      * a later `cal_stamp` of a class in which the refused checker had a run
+        valid at the stamp but for the refusal, and whose cut the refusal
+        precedes (`refused_at <= sealed_at`): the refusal voids that run, so
+        the stamp's corpus and charges differ. A refusal after the stamp's
+        cut is invisible to it (`_check_valid(as_of)`), and the group is
+        exposed.
 
     An anchored witness is still deletable together with its anchors, at the
     cost of the anchors' own lines (T10(b)); `deletion_closure` lists them."""
     adm = cal.adm
     anchors = []
     if s.reason == "escape":
-        if s.type == "cal_run":
-            run = next((r for r in cal.runs if r.position == s.index), None)
-        else:
-            # A replay or adjudication names its run. Resolving by line instead
-            # would hand a later escape's replay the first escape's anchors and
-            # report it exposed while an audit by its own checker depends on it.
-            run_index = cal.events[s.index].get("run_index")
-            run = (cal.runs[run_index]
-                   if isinstance(run_index, int) and 0 <= run_index < len(cal.runs) else None)
+        run = _run_of(cal, s)
         if run is None:
             return ()
         cls = adm.sealed[s.line_id].cls
         charged = cal._pinned_on_claim(adm.sealed[run.line_id], run.claim_id)
+        siblings = [k for k in _establishing_replay_indices(cal, run) if k != s.index]
         for j in range(s.index + 1, len(cal.events)):
+            if s.type == "cal_replay" and any(k < j for k in siblings):
+                break                          # a sibling establishes the run without this replay
             ev = cal.events[j]; t = ev.get("type")
             if t == "cal_stamp":
                 seal = adm.sealed.get(ev.get("line_id"))
-                if seal is not None and seal.cls == cls:
+                if seal is not None and seal.cls == cls and _valid_at(cal, run, j, seal.sealed_at):
                     anchors.append(("cal", j))
             elif t == "cal_close" and ev.get("fault") == "E5":
                 line = adm.lines.get(ev.get("line_id"))
-                if line is not None and line.cls == cls and (ev.get("refuter_id"), ev.get("refuter_version")) in charged:
+                refuter = (ev.get("refuter_id"), ev.get("refuter_version"))
+                if (line is not None and line.cls == cls and refuter in charged
+                        and _valid_at(cal, run, j, ev.get("as_of"))
+                        and _charges_without(cal, run, refuter, cls, j, ev.get("as_of"))
+                        <= cal.policy.classes[cls].e_max):
                     anchors.append(("cal", j))
             elif t == "cal_run" and (ev.get("checker_id"), ev.get("checker_version")) == run.checker:
                 seal = adm.sealed.get(ev.get("line_id"))
-                if seal is not None and run.checker not in cal._pinned_on_claim(seal, ev.get("claim_id")):
+                if (seal is not None and run.checker not in cal._pinned_on_claim(seal, ev.get("claim_id"))
+                        and _valid_at(cal, run, j, None)
+                        and not any(r is not run and r.checker == run.checker and r.verdict == "refuted"
+                                    and r.cls == cls and _valid_at(cal, r, j, None) for r in cal.runs)):
                     anchors.append(("cal", j))
             elif t == "cal_exclude" and run.index in ev.get("run_indices", ()):
-                anchors.append(("cal", j))
+                if _valid_at(cal, run, j, ev.get("as_of")):
+                    anchors.append(("cal", j))
     else:
         key = next((k for k, at in adm.refused_at.items() if at == s.index), None)
         if key is None:
             key = next((k for k, at in adm.refused_at.items() if s.index < at <= s.index + 1), None)
         if key is None:
             key = next((k for k, at in adm.refused_at.items() if at < s.index), None)
+        refused_at = adm.refused_at.get(key, None)
         for j, ev in enumerate(cal.events):
             if ev.get("type") != "cal_stamp":
                 continue
             seal = adm.sealed.get(ev.get("line_id"))
-            if seal is None:
-                continue
-            voided = any(r.checker == key and r.verdict == "refuted" and r.established and r.cls == seal.cls
-                         and r.position < j for r in cal.runs)
+            if seal is None or refused_at is None or refused_at > seal.sealed_at:
+                continue                       # the stamp's cut does not see the refusal
+            voided = any(r.checker == key and r.verdict == "refuted" and r.cls == seal.cls
+                         and _valid_at(cal, r, j, seal.sealed_at, ignore_refusal=True)
+                         for r in cal.runs)
             if voided:
                 anchors.append(("cal", j))
     return tuple(sorted(set(anchors)))
