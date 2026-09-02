@@ -173,10 +173,15 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent) -> tuple:
     adm = cal.adm
     anchors = []
     if s.reason == "escape":
-        run = next((r for r in cal.runs if r.position == s.index), None) if s.type == "cal_run" else None
-        if run is None:
-            run = next((r for r in cal.runs if r.line_id == s.line_id and r.verdict == "refuted"
-                        and cal._check_valid(r)), None)
+        if s.type == "cal_run":
+            run = next((r for r in cal.runs if r.position == s.index), None)
+        else:
+            # A replay or adjudication names its run. Resolving by line instead
+            # would hand a later escape's replay the first escape's anchors and
+            # report it exposed while an audit by its own checker depends on it.
+            run_index = cal.events[s.index].get("run_index")
+            run = (cal.runs[run_index]
+                   if isinstance(run_index, int) and 0 <= run_index < len(cal.runs) else None)
         if run is None:
             return ()
         cls = adm.sealed[s.line_id].cls
@@ -362,7 +367,8 @@ def standing_certificate(cal: CalibrationAuthority, line_id: str) -> StandingCer
 def verify_certificate(cal: CalibrationAuthority, cert: StandingCertificate) -> list[str]:
     """Recompute against a presented custody; the list of mismatched
     components (empty iff the presented record agrees with the certificate on
-    everything admissible(line_id) depends on)."""
+    everything admissible(line_id) depends on, and on the value it claims —
+    a certificate whose `standing` field alone was altered is refused)."""
     now = standing_certificate(cal, cert.line_id)
     bad = []
     if now.roots_hash != cert.roots_hash:
@@ -371,6 +377,8 @@ def verify_certificate(cal: CalibrationAuthority, cert: StandingCertificate) -> 
         bad.append("demonstrations")
     if now.lengths != cert.lengths:
         bad.append("lengths")
+    if now.standing != cert.standing:
+        bad.append("standing")
     return bad
 
 

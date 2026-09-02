@@ -176,6 +176,15 @@ Verdicts: (1) D7/X1/T2/T4(a) **sound** — T4(a) now holds for every world prope
 
 All round-3 findings are applied in this revision: D8′ and the custodial premise with the vacuity clause; T4(b) restated with the degrader insertion; T10(b) restated as cost, T17(iii) aligned with T11; degraders without `reject`; D6/POLARITY relabelled; F14 added with a test; T11's root list corrected.
 
+## Round 4 — automated review of the pull request
+
+The repository's pull-request reviewer read the companion after the branch was marked ready and returned two findings against `custody.py`, both real, both applied with a regression test; the count guards and the import census moved with the added check.
+
+| id | severity | finding | disposition |
+|---|---|---|---|
+| R4-1 | P2 | `_anchors_of` resolved a `cal_replay` or `cal_adjudicate` surface event to the *first* valid refuted run on its line instead of the run its `run_index` names, so a later escape's replay inherited the first escape's anchors and was reported exposed while an audit by its own checker depended on it; deleting that "exposed" set failed on rebuild. | applied — resolved by `run_index`; `AnchorsFollowTheEventsOwnRun` builds two escapes by different checkers and an audit by the second, checks the anchors, rebuilds after deleting exactly the exposed part, and shows the anchored pair is refused alone |
+| R4-2 | P2 | `verify_certificate` compared roots, demonstration count and lengths but not the standing the certificate claims, so a certificate whose `standing` field alone had been flipped verified clean. | applied — `standing` is a fourth compared component; `DeletionSurfaceT4` checks the flipped certificate and the deleted custody |
+
 ## Disposition
 
 `applied` — taken into the next revision of DRAFT.md / IMPROVEMENTS.md / custody.py / tests. `open` — either a branch document's own theorem error (those documents are not in the repository; where the kernel fact behind it was carried into DRAFT.md the row says so) or a kernel code change (catalogued as N1–N28, not applied). Round-1 minors are not tabulated.
@@ -257,3 +266,5 @@ All round-3 findings are applied in this revision: D8′ and the custodial premi
 | R2-novelty-3 | major | applied |
 | R2-novelty-4 | major | applied |
 | R2-novelty-5–15 | minor | applied |
+| R4-1 | P2 | applied — companion and test |
+| R4-2 | P2 | applied — companion and test |

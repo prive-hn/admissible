@@ -5,6 +5,7 @@ companion computes what the paper says over the kernels as they are.
 """
 from __future__ import annotations
 
+import dataclasses
 import os
 import sys
 import unittest
@@ -84,16 +85,21 @@ class DeletionSurfaceT4(unittest.TestCase):
 
     def test_deleting_the_surface_raises_standing_and_the_certificate_catches_it(self):
         """T4(a) then T11: deletion flips admissible to true; the line-scoped
-        certificate refuses the deleted custody on demonstrations and length."""
+        certificate refuses the deleted custody on demonstrations, length and
+        the standing it claims, and a certificate whose standing field alone
+        was altered is refused on that component."""
         h = CalHarness(); h.declare_tests(); h.seal_line(); h.tier_a_escape()
         cert = custody.standing_certificate(h.cal, "w")
         self.assertFalse(cert.standing)
         self.assertEqual(cert.demonstrations, 2)
         self.assertEqual(custody.verify_certificate(h.cal, cert), [])
+        flipped = dataclasses.replace(cert, standing=True)
+        self.assertEqual(custody.verify_certificate(h.cal, flipped), ["standing"])
         pruned = [e for e in h.cal.events if e.get("type") not in ("cal_run", "cal_replay")]
         forged = CalibrationAuthority.from_events(pruned, h.a, h.cal.policy)
         self.assertTrue(forged.admissible("w"))                 # deletion raised standing
-        self.assertEqual(custody.verify_certificate(forged, cert), ["demonstrations", "lengths"])
+        self.assertEqual(custody.verify_certificate(forged, cert),
+                         ["demonstrations", "lengths", "standing"])
 
     def test_a_coherent_root_rewrite_changes_the_roots_hash(self):
         """T4(c)/T11: a rewrite that replay accepts moves the roots component."""
@@ -281,6 +287,71 @@ class AnchoredAndExposedSurface(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             CalibrationAuthority.from_events(pruned, h.a, h.cal.policy)
         self.assertIn("E5 close without a demotion", str(ctx.exception))
+
+
+class AnchorsFollowTheEventsOwnRun(unittest.TestCase):
+    """A replay or adjudication event names its run, and its anchors are that
+    run's — not the first valid escape's on the line. Two escapes on one line
+    by different checkers, then an audit by the second checker: the audit
+    anchors the second escape's three events and none of the first's; deleting
+    exactly the exposed part (run indices renumbered, T12(c)) rebuilds with the
+    line still impeached; deleting the anchored replay and adjudication alone
+    is refused, because the audit's guard needs that checker's valid escape."""
+
+    HAWK = ("hawk", "v1")
+    CLAIMS = (ClaimSpec("tests_pass", "spec-hash-1", frozenset({TESTS}), D1),
+              ClaimSpec("lint_ok", "spec-hash-2", frozenset({HAWK}), D1))
+
+    def _seal(self, h, iid):
+        h.fcd_open(iid); h.cal.open(iid, "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write(iid); h.sample(iid, f"{iid}-body-{i}".encode())
+            h.trial(iid, i, refuter=TESTS, claim="tests_pass")
+            h.trial(iid, i, refuter=self.HAWK, claim="lint_ok", witness="h-same")
+        h.replay_all(iid); h.fcd_check(iid)
+        return h.cal.seal(iid)
+
+    @staticmethod
+    def _drop_run(events, index):
+        """A coherent alternative without run `index`: its events removed and
+        every later run index renumbered, as replay range-checks them."""
+        out = []
+        for e in events:
+            if e.get("run_index") == index and e.get("type") in (
+                    "cal_run", "cal_replay", "cal_adjudicate", "cal_discredit"):
+                continue
+            e = dict(e)
+            if isinstance(e.get("run_index"), int) and e["run_index"] > index:
+                e["run_index"] -= 1
+            out.append(e)
+        return out
+
+    def test_an_audit_anchors_its_own_checkers_escape_and_not_the_first(self):
+        h = CalHarness(claims=self.CLAIMS); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel(D1, "mutator"), ledger(8, 10))
+        self._seal(h, "w")
+        h.tier_a_escape("w", nonce="e1")                                            # run 0: tests, tier A
+        hawk = h.cal.file_escape("w", "tests_pass", "hawk", "v1", "nB", b"w-body-0", "any", "hk", "aud")
+        h.cal.replay_run(hawk.index, "refuted", "hk")                               # run 1: hawk, tier B
+        h.cal.adjudicate(hawk.index, "owner", "accept", "reproduced by hand")
+        audit = h.cal.file_audit("w", "tests_pass", "hawk", "v1", "nA", b"w-body-0", "any", "surv", "aud")
+        surface = custody.deletion_surface(h.cal, "w")
+        by_run: dict = {}
+        for s in surface:
+            by_run.setdefault(h.cal.events[s.index].get("run_index"), []).append(s)
+        self.assertEqual(sorted(by_run), [0, 1])
+        self.assertEqual({s.type for s in by_run[0]}, {"cal_run", "cal_replay"})
+        self.assertEqual({s.type for s in by_run[1]}, {"cal_run", "cal_replay", "cal_adjudicate"})
+        self.assertTrue(all(s.exposed for s in by_run[0]))
+        self.assertTrue(all(s.anchored_by == (("cal", audit.position),) for s in by_run[1]))
+        rebuilt = CalibrationAuthority.from_events(self._drop_run(h.cal.events, 0), h.a, h.cal.policy)
+        self.assertFalse(rebuilt.admissible("w"))                                   # still impeached by hawk
+        self.assertEqual(len(rebuilt.escapes()), 1)
+        anchored = {s.index for s in by_run[1] if s.type != "cal_run"}
+        with self.assertRaises(ValueError):
+            CalibrationAuthority.from_events(
+                [e for i, e in enumerate(h.cal.events) if i not in anchored], h.a, h.cal.policy)
 
 
 class SupportDetermination(unittest.TestCase):
