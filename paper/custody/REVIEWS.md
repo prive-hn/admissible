@@ -178,7 +178,7 @@ All round-3 findings are applied in this revision: D8′ and the custodial premi
 
 ## Round 4 — automated review of the pull request
 
-The repository's pull-request reviewer read the companion after the branch was marked ready and, in eight passes (each on the repaired head, on both the public and the internal pull request), returned sixteen findings — fifteen against `custody.py` and one against the paper index — all real, all applied, the code findings each with a regression test that fails on the previous companion; the count guards moved with the added checks.
+The repository's pull-request reviewer read the companion after the branch was marked ready and, in nine passes (each on the repaired head, on both the public and the internal pull request), returned seventeen findings — sixteen against `custody.py` and one against the paper index — all real, all applied, the code findings each with a regression test that fails on the previous companion; the count guards moved with the added checks.
 
 | id | severity | finding | disposition |
 |---|---|---|---|
@@ -198,6 +198,7 @@ The repository's pull-request reviewer read the companion after the branch was m
 | R4-14 | P2 | The install-anchor probe of R4-11 accepted an install only when deleting it *alone* repaired the alternative. Two installs can each cover a renumbered survivor only by its original id, so retaining either still refuses `_guard_install_covers`: the probe found no anchor, leaving `coherent` false and `deletion_closure` with only the structural group. | applied — the jointly necessary install set is found by re-derivation (remove all, add back each the rebuild does not need); `test_two_installs_that_only_jointly_cover_a_renumbered_run_are_both_anchors` shows both installs anchored, the closure naming both, and retaining either refused |
 | R4-15 | P2 | An escape anchored by an audit (`cal_run`, verdict survived) that had itself been replayed put only the audit's `cal_run` in `anchored_by`; `deletion_closure` then omitted the audit's `cal_replay`, so deleting the escape and the reported closure left that replay referring to a nonexistent run and `from_events` refused the advertised alternative. | applied — `deletion_closure` carries each anchored `cal_run`'s own structural group (its replays and adjudication); `test_an_anchored_replayed_audit_carries_its_replay_into_the_closure` shows the audit's replay in the closure and the alternative rebuilding |
 | R4-16 | P2 | The R4-13 rule added *every* later E5 close of a class whose budget an anchored install changed; a close whose charge count clears the pre-install budget too stays valid without the install (an intervening install can also supersede it), so the closure over-stated the required deletion and its standing cost. | applied — `deletion_closure` is built as a superset and then minimised by re-derivation: a candidate anchor or downstream reader is dropped whenever the alternative still rebuilds without deleting it, so an E5 the install's deletion survives is not listed. In the same pass exclusions naming the run became rewrites rather than `group_with` deletions (`_alt_delete` drops the run from them), removing the last over-inclusion; a 700-journal fuzz over escapes, exclusions, refusals, installs, budget changes and audits reports every reported closure both rebuilds (complete) and needs each of its events (minimal) |
+| R4-17 | P2 | `deletion_surface` ran the install probe only when the escape had *no* analytic anchor, so an escape anchored by a later same-class stamp whose deletion also renumbers a survivor an install covers by its original id got the stamp but not the install; the reported closure then omitted the install and replay rejected it after the renumber. | applied — the install probe runs for every escape and deletes the analytic anchors (each with its structural group) in its base, so it finds the install the renumbering still breaks and unions it into `anchored_by`; `coherent` is now checked for every escape rather than short-circuited. `test_an_escape_needing_both_a_stamp_and_an_install_anchor_names_both` shows both anchors and a rebuilding closure; a fuzz that seals a line after an escape covers the shape |
 
 ## Round 5 — adversarial re-review of the pull request head
 
@@ -352,6 +353,7 @@ Refuted by the verifiers: that D1's "leaves `L_rep`" contradicts the kernel (a m
 | R4-14 | P2 | applied — companion and test |
 | R4-15 | P2 | applied — companion and test |
 | R4-16 | P2 | applied — companion (minimal closure) and fuzz |
+| R4-17 | P2 | applied — companion and test |
 | R4-9 | P2 | applied — companion and test |
 | R4-10 | P2 | applied — companion and test |
 | R6-1 | minor | applied — paper |

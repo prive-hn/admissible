@@ -666,6 +666,40 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         both = [e for e in drop_run if e.get("type") != "cal_install"]
         self.assertFalse(CalibrationAuthority.from_events(both, h.a, h.cal.policy).impeached("w"))
 
+    def test_an_escape_needing_both_a_stamp_and_an_install_anchor_names_both(self):
+        """An escape can need two anchors of different kinds at once: a later
+        same-class stamp (R4-3) and a later install its deletion's renumbering
+        breaks (R4-11). The install probe runs even when an analytic anchor is
+        present and deletes it in the base, so both are found; the closure
+        names both and rebuilds (R4-17)."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        r0 = h.tier_a_escape("w", nonce="e1")               # escape on w
+        h.seal_line("x")                                    # same-class stamp after it: anchors r0
+        r1 = h.tier_a_escape("x", nonce="e2")               # a later same-class run
+        d0, d1 = h.cal.derived_defect_id(r0), h.cal.derived_defect_id(r1)
+        h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+        h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"),
+                    [LedgerEntry(f"m{i}", "killed") for i in range(10)] + [LedgerEntry(d0, "killed"), LedgerEntry(d1, "killed")])
+        succ = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(succ); install = len(h.cal.events) - 1
+        stamp = next(k for k, e in enumerate(h.cal.events)
+                     if e.get("type") == "cal_stamp" and e.get("line_id") == "x")
+        run_w = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_run")
+        self.assertFalse(run_w.exposed)
+        self.assertIn(("cal", stamp), run_w.anchored_by)
+        self.assertIn(("cal", install), run_w.anchored_by)   # both, not just the stamp
+        closure = custody.deletion_closure(h.cal, run_w)
+        self.assertIn(("cal", stamp), closure)
+        self.assertIn(("cal", install), closure)
+        self.assertTrue(custody._rebuild_alt(h.cal, run_w, set(closure), None))   # the advertised closure rebuilds
+        with self.assertRaises(ValueError):                  # the stamp alone leaves the renumbered id uncovered
+            custody.CalibrationAuthority.from_events(
+                self._drop_run(h.cal.events, r0.index), h.a, h.cal.policy)
+
     def test_a_sole_replay_named_by_an_exclusion_is_deletable_only_with_it(self):
         """Deleting the sole establishing replay leaves the run unestablished,
         so a `cal_exclude` that named it names a non-valid escape on rebuild.

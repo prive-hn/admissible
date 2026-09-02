@@ -225,13 +225,14 @@ def deletion_surface(cal: CalibrationAuthority, line_id: Optional[str] = None, *
         s = dataclasses.replace(s, anchored_by=_anchors_of(cal, s, initial_policy),
                                 redundant_with=_redundant_with(cal, s), group_with=_group_of(cal, s, out),
                                 rewrites=_rewrites_of(cal, s))
-        coh = _coherent(cal, s, initial_policy)
-        if not coh and not s.anchored_by and not s.redundant_with:
-            # name the readers the analytic enumeration missed, so the closure is informative
+        if s.reason == "escape":
+            # an install can anchor a deletion alongside a stamp, E5 or audit —
+            # its base deletes those analytic anchors too, so the probe finds
+            # what the renumbering still breaks (R4-17); union, do not gate
             extra = _install_anchors_for_escape(cal, s, initial_policy)
             if extra:
                 s = dataclasses.replace(s, anchored_by=tuple(sorted(set(s.anchored_by) | set(extra))))
-        filled.append(dataclasses.replace(s, coherent=coh))
+        filled.append(dataclasses.replace(s, coherent=_coherent(cal, s, initial_policy)))
     return tuple(sorted(filled, key=lambda s: (s.journal, s.index, s.line_id)))
 
 
@@ -307,11 +308,10 @@ def _coherent(cal: CalibrationAuthority, s: SurfaceEvent,
     escape branch is checked by rebuild here — its deletions are cal-only, so
     the admission is reused unchanged; a taint group's deletion reaches the
     admission journal and its install anchor is enumerated instead (F5, R4-9).
-    An event some analytic anchor already names is not claimed exposed, so its
-    coherence is not what gates the surface and the rebuild is skipped."""
-    if s.reason != "escape" or s.anchored_by or s.redundant_with:
-        return True
-    if _run_of(cal, s) is None:
+    Checked for every escape, anchored or not: the field states plainly
+    whether the group alone re-derives (an anchor makes the event non-exposed
+    regardless), so a reader the analytic list missed keeps it off the set."""
+    if s.reason != "escape" or _run_of(cal, s) is None:
         return True
     delete, invalidated = _group_deletion(cal, s)
     return _rebuilds(cal, _alt_delete(cal, delete, invalidated), initial_policy)
@@ -327,11 +327,23 @@ def _install_anchors_for_escape(cal: CalibrationAuthority, s: SurfaceEvent,
     The needed installs are jointly necessary, not singly sufficient: two
     installs may each cover only the original id, so retaining either still
     refuses — the whole set is found (remove all, then add back each that the
-    rebuild does not need), so `deletion_closure` names every one. Found by
-    re-derivation so no reader is assumed (T4.1 conjectural (iv))."""
+    rebuild does not need), so `deletion_closure` names every one. The base
+    deletes the analytic anchors too (a stamp, E5 or audit with its own
+    structural group), so an install the renumbering breaks is found even when
+    the escape is already anchored (R4-17). Found by re-derivation so no
+    reader is assumed (T4.1 conjectural (iv))."""
     if _run_of(cal, s) is None:
         return []
     delete, invalidated = _group_deletion(cal, s)
+    delete = set(delete)
+    for jr, j in s.anchored_by:                # delete the analytic anchors and their structure too
+        if jr != "cal":
+            continue
+        delete.add(j)
+        if cal.events[j].get("type") in ("cal_run", "cal_replay", "cal_adjudicate"):
+            run = _run_at_index(cal, j)
+            if run is not None:
+                delete |= {k for k in _run_structural(cal, run)}
     base = _alt_delete(cal, delete, invalidated)
     if _rebuilds(cal, base, initial_policy):
         return []
