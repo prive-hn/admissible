@@ -750,31 +750,43 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent, *,
                 struct |= {("cal", k) for k in _run_structural(cal, run)}
         elif t == "cal_install":
             cand |= {("cal", k) for k in _install_e5_candidates(cal, j)}
-    needed = set(struct) | set(cand)
-    for e in sorted(cand):                     # keep only what the rebuild cannot do without
-        if e in needed and _rebuild_alt(cal, s, needed - {e}, initial_policy):
-            needed.discard(e)
     # completeness net: removing an install anchor can renumber a later run and
     # break a *further* install that covered it by its old position-derived id
     # — a downstream reader the analytic enumeration (stamps, E5 closes) does
-    # not name (V). If the alternative still does not rebuild, find the jointly
-    # necessary further installs by re-derivation, carried with their own E5
-    # readers, then re-minimise; if none help, the group stays incoherent.
-    if not _rebuild_alt(cal, s, needed, initial_policy):
+    # not name (V). If the analytic candidate set does not rebuild, find the
+    # jointly necessary further installs by re-derivation and add them, with
+    # their own E5 readers, to the candidate pool (not straight into the
+    # closure), so the minimisation below prunes any of those readers the
+    # deletion does not actually need (R4-30); if no install helps, the group
+    # stays incoherent (kept off the exposed set).
+    if not _rebuild_alt(cal, s, struct | cand, initial_policy):
         rest = [j for j, ev in enumerate(cal.events)
-                if ev.get("type") == "cal_install" and ("cal", j) not in needed]
+                if ev.get("type") == "cal_install" and ("cal", j) not in (struct | cand)]
 
         def with_installs(keep: set) -> set:
             extra = {("cal", j) for j in keep}
             extra |= {("cal", k) for j in keep for k in _install_e5_candidates(cal, j)}
-            return needed | extra
+            return struct | cand | extra
 
         if rest and _rebuild_alt(cal, s, with_installs(set(rest)), initial_policy):
             keep = set(rest)                   # remove all, add each back the rebuild does not need
             for j in sorted(rest):
                 if _rebuild_alt(cal, s, with_installs(keep - {j}), initial_policy):
                     keep.discard(j)
-            needed = with_installs(keep)
+            for j in keep:
+                cand.add(("cal", j))
+                cand |= {("cal", k) for k in _install_e5_candidates(cal, j)}
+    # minimise every candidate — anchors, installs and E5 readers alike — by
+    # re-derivation, to a fixpoint so a reader added by the completeness net is
+    # dropped too when the alternative rebuilds without it (R4-16/R4-30)
+    needed = set(struct) | set(cand)
+    changed = True
+    while changed:
+        changed = False
+        for e in sorted(cand):                 # keep only what the rebuild cannot do without
+            if e in needed and _rebuild_alt(cal, s, needed - {e}, initial_policy):
+                needed.discard(e)
+                changed = True
     return tuple(sorted(needed))
 
 
