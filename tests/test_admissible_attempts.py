@@ -130,6 +130,41 @@ class AttemptIdentityTest(Gate):
         for row in found:
             self.assertEqual(row["record"]["attempt_id"], attempt)
 
+    def test_long_runs_use_completion_time_for_evaluation(self):
+        root, sha = self.repo(policy([check("unit", ["python3", "-c", "pass"])]))
+        original_run_check = runner.run_check
+        original_time = cli.time.time
+        moments = iter((1000, 1402))
+
+        def delayed_result(check_object, **_kwargs):
+            return runner.CommandResult(
+                check_id=check_object.id,
+                check_version=check_object.version,
+                argv_digest=check_object.argv_digest,
+                exit_code=0,
+                timed_out=False,
+                launch_failed=False,
+                duration_ms=402000,
+                stdout_sha256="0" * 64,
+                stderr_sha256="0" * 64,
+                stdout_bytes=0,
+                stderr_bytes=0,
+                output_truncated=False,
+                started_at=1401,
+                finished_at=1402,
+            )
+
+        setattr(runner, "run_check", delayed_result)
+        cli.time.time = lambda: next(moments)
+        self.addCleanup(lambda: setattr(runner, "run_check", original_run_check))
+        self.addCleanup(lambda: setattr(cli.time, "time", original_time))
+
+        code, out, err = self.run_cli(
+            "run", "--repo", str(root), "--sha", sha,
+            "--no-cache", "--json")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(json.loads(out)["state"], decision.CHECKS_PASSED)
+
     def test_explain_reports_the_latest_attempt_and_agrees_with_standing(self):
         root, sha = self.repo(
             policy([check("unit", ["python3", "gate.py"])]),

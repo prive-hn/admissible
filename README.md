@@ -61,7 +61,7 @@ This is Clark–Wilson integrity applied to LLM binds, not a new algebra.
 | `docs/IMPEACHMENT.md` | Filing defects, observed vs reachable vs unknown impact, raw miss counts |
 | `examples/developer-workflow/demo.sh` | Offline end-to-end walk-through in a throwaway repository: init, an evaluation, a cache hit, the four-step admission path, a refusal, the signed-review handoff, an impeachment |
 | `docs/PROOFS_PLAIN.md` | Every theorem of both papers — FCD I1–I17 and RGA R1–R13 — in one plain sentence each, plus what neither proves |
-| `tests/` | 2876 kernel/server/context/project/class/RGA/calibration/bench/schema/paper tests, including 2442 for the developer product |
+| `tests/` | 2876 kernel/server/context/project/class/RGA/calibration/bench/schema/paper tests, including 2443 for the developer product |
 | `atlas/tests/` | 37 atlas/immutability/impact/schema tests |
 | `apps/cockpit/tests/` | 71 UI/steering/context/receipt/readiness/instrument/skin-contract/skin-authority tests |
 | `metrics/SCHEMA.md` | Event contract. Rates stay empty until a named cut |
@@ -569,7 +569,7 @@ separately because they prove different things:
 | Scope | Checks | Where |
 | ----- | -----: | ----- |
 | Research kernel — the number the paper cites | 541 | 433 in `tests/` + 37 `atlas/tests/` + 71 `apps/cockpit/tests/` |
-| Developer product (`admissible/`) | 2442 | `tests/test_admissible_*.py` + the split suites under `tests/architecture/`, `tests/core/`, `tests/ready/`, `tests/trust/` and `tests/compatibility/` |
+| Developer product (`admissible/`) | 2443 | `tests/test_admissible_*.py` + the split suites under `tests/architecture/`, `tests/core/`, `tests/ready/`, `tests/trust/` and `tests/compatibility/` |
 | **Total** | **2984** | 2876 under `tests/`, 37 atlas, 71 cockpit |
 
 The research-kernel number moves when kernel-scope checks are added, and the

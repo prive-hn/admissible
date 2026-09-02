@@ -861,12 +861,13 @@ def _command_run(options, stdout: TextIO, stderr: TextIO) -> int:
                     "or remove the malformed attestation from the bundle",
                 ))
 
+        decision_now = int(time.time())
         result = evaluate(
             artifact_class=artifact_class, repository=found.repository,
             commit_sha=found.commit_sha, tree_sha=found.tree_sha,
             policy_digest=policy_digest, commands=tuple(commands),
             reviews=tuple(reviews) + tuple(carried),
-            authorships=tuple(authorships), now=now,
+            authorships=tuple(authorships), now=decision_now,
             attempt_id=attempt_id, provenance=provenance,
             not_run=frozenset(not_run))
 
@@ -945,7 +946,7 @@ def _command_run(options, stdout: TextIO, stderr: TextIO) -> int:
                            author_attestations=(
                                bundle.author_attestations if bundle is not None
                                else ()),
-                           dependencies=dependencies, now=now,
+                           dependencies=dependencies, now=decision_now,
                            config_path=config_relative, policy_anchor=anchor,
                            isolation=isolation)
         except (OSError, ValueError) as error:
