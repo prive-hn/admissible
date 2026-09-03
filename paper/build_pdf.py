@@ -285,55 +285,57 @@ def build_spec(paths: dict[str, Path]) -> dict:
             para(
                 "A specialized model fleet is a checkable claim only if a work item of class c "
                 "cannot complete a stage on a specialist or model outside the policy for c. "
-                "Fail-closed class dispatch is that check. A work item has a class and a frozen body. "
-                "A policy gives each class an allow set π(c) and a deny set δ(c). Each specialist a "
-                "is bound to one API model identity φ(a). A stage may run only after a well-formed "
-                "admit of some a ∈ π(c)\\δ(c) and only with executed model recorded by Observe. "
-                "If that bind cannot be served, the stage fails closed and the failure is published. "
-                "Retry, if any, is the same item, same class, a specialist not yet tried."
+                "Fail-closed class dispatch is that check: a work item carries a class and a frozen "
+                "body; a policy gives each class an allow set π(c) and a deny set δ(c); and each "
+                "specialist a is bound to one API model identity φ(a). A stage may run only after a "
+                "well-formed admit of some a ∈ π(c)\\δ(c), and only with the executed model recorded "
+                "by Observe; if that bind cannot be served, the stage fails closed and the failure is "
+                "published. Retry, where there is one, is the same item, the same class, a specialist "
+                "not yet tried."
             ),
             para(
-                "This is Clark–Wilson integrity applied to LLM binds, not a new access-control algebra. "
-                "Allow/deny, fail-safe defaults, and dual control are old. The added obligations are: "
-                "φ is the identity Observe recorded from the inference client; leftover fallback is not "
-                "an edge in this table; the event contract is the witness set. An accidental hop is in "
-                "scope. An adversarial worker that forges Observe is not."
+                "This is Clark–Wilson integrity applied to LLM binds, not a new access-control "
+                "algebra: allow/deny, fail-safe defaults and dual control are old. The added "
+                "obligations are three — φ is the identity Observe recorded from the inference client, "
+                "leftover fallback is not an edge in this table, and the event contract is the witness "
+                "set. An accidental hop is in scope; an adversarial worker that forges Observe is not."
             ),
             para(
-                "Safety invariants I1–I6, I8, I9 hold on the abstract stage machine under A0–A9. I7 bounds "
-                "Admit count. Under A10–A13, I10–I17 prove FCD-owned work/envelope pinning, package and receipt "
-                "binding, steering scope, attempt-local cache identity and accepted-only memory promotion. "
-                "Item liveness and model quality are not proved."
+                "Safety invariants I1–I6, I8 and I9 hold on the abstract stage machine under A0–A9; I7 "
+                "bounds the Admit count; and under A10–A13, I10–I17 prove FCD-owned work/envelope "
+                "pinning, package and receipt binding, steering scope, attempt-local cache identity and "
+                "accepted-only memory promotion. Item liveness and model quality are not proved."
             ),
             h("1. Problem", 2),
             para(
-                "Routing, cascades, and mixture-of-agents optimize score or spend "
-                "(Chen et al., 2023; Ong et al., 2024; Wang et al., 2024). Mixture-of-experts is a learned "
-                "gate inside one network (Jacobs et al., 1991; Shazeer et al., 2017). Orchestration says "
-                "who calls whom. None of them forbid a hop to an unbound model when the bound provider is "
-                "down. None of them treat a model that refuses a class as illegal rather than low-scoring."
+                "Routing, cascades and mixture-of-agents optimize score or spend "
+                "(Chen et al., 2023; Ong et al., 2024; Wang et al., 2024); mixture-of-experts is a "
+                "learned gate inside one network (Jacobs et al., 1991; Shazeer et al., 2017); "
+                "orchestration says who calls whom. None of them forbids a hop to an unbound model when "
+                "the bound provider is down, and none of them treats a model that refuses a class as "
+                "illegal rather than low-scoring."
             ),
             para(
-                "The sentence “we run specialists” is then unfalsifiable. The control plane can name one "
-                "model while the data plane calls another. A 403 can look like work still in progress. "
-                "A reviewer can be the author. The required property is class integrity: a pass record "
+                "The sentence “we run specialists” is then unfalsifiable: the control plane can name one "
+                "model while the data plane calls another; a 403 can look like work still in progress; a "
+                "reviewer can be the author. The required property is class integrity — a pass record "
                 "lies in π(c)\\δ(c) and uses φ(a)."
             ),
             h("2. Objects", 2),
             para(
                 "A <b>work item</b> has class c, charge, frozen body hash, author set, required-stage list "
-                "Required(c), and status open | failed | accepted. π(c) and δ(c) are disjoint. On a check "
+                "Required(c), and status open | failed | accepted. π(c) and δ(c) are disjoint; on a check "
                 "stage the effective allow set is π_chk(c, authors) = π(c)\\authors. φ: A → M maps a "
-                "specialist to an API identity. Display strings are compared after norm. u(m)=0 iff bind "
-                "time returns 401, 403, 404, 429, exhausted, or not_found. tried is the set of specialists "
-                "already admitted on this stage."
+                "specialist to an API identity, and display strings are compared after norm. u(m)=0 iff "
+                "bind time returns 401, 403, 404, 429, exhausted, or not_found, and tried is the set of "
+                "specialists already admitted on this stage."
             ),
             para(
-                "A stage is well-formed only if a control event names class, specialist, declared model, "
-                "and body hash. Prose that mentions a name is not a stage. Fail closed means: publish a "
-                "fail_closed decision; next is ask, retry in π(c)\\δ(c)\\tried, or stop. An <b>accepted "
-                "artifact</b> exists only when every stage in Required(c) has passed. The store accepts "
-                "only accepted artifacts."
+                "A stage is well-formed only if a control event names class, specialist, declared model "
+                "and body hash; prose that mentions a name is not a stage. Fail closed means publishing a "
+                "fail_closed decision, after which the next move is ask, retry in π(c)\\δ(c)\\tried, or "
+                "stop. An <b>accepted artifact</b> exists only when every stage in Required(c) has "
+                "passed, and the store accepts only accepted artifacts."
             ),
             h("3. Process", 2),
             para("1. Open a well-formed work item."),
@@ -346,9 +348,9 @@ def build_spec(paths: dict[str, Path]) -> dict:
             img(paths["automaton"]),
             h("4. What holds", 2),
             para(
-                "Bind writes declared only. Observe writes executed. I1 is then non-vacuous. Under A0–A9, "
-                "I1–I6, I8, I9 are inductive. I7 bounds Admit count. Ask may idle. The leftover-hop picture "
-                "is an illustration, not a corollary."
+                "Bind writes the declared identity only and Observe writes the executed one, so I1 is "
+                "non-vacuous; under A0–A9, I1–I6, I8 and I9 are inductive, and I7 bounds the Admit count. "
+                "Ask may idle. The leftover-hop picture is an illustration, not a corollary."
             ),
             img(paths["writers"]),
             img(paths["theorems"]),
@@ -396,10 +398,11 @@ def build_spec(paths: dict[str, Path]) -> dict:
                 "pre-Admit steering hash. Live steering advances a separate ordered continuation chain."
             ),
             para(
-                "FCD builds canonical package bytes from include minus exclude. The adapter independently hashes "
-                "the bytes it submits. Pass requires current attempt/nonce, package, executor/run, latest steering "
-                "and executed-model receipts. fresh_blind excludes author context and forbids executor continuity. "
-                "Existing executor tools, sessions and provider caches remain external."
+                "FCD builds canonical package bytes from include minus exclude, and the adapter "
+                "independently hashes the bytes it submits; Pass requires current attempt/nonce, package, "
+                "executor/run, latest steering and executed-model receipts. fresh_blind excludes author "
+                "context and forbids executor continuity, and existing executor tools, sessions and "
+                "provider caches remain external."
             ),
             table([
                 ["Id", "Context-envelope claim"],
@@ -437,14 +440,15 @@ def build_spec(paths: dict[str, Path]) -> dict:
             para("Weight-sharing across specialists is extra config. It is not in I6."),
             h("7. Measurement", 2),
             para(
-                "A named cut is [t0, t1]. W is class p95 of completed stage durations in the previous cut, "
-                "or 12 minutes if n&lt;30. Exclude ts &gt; t1−W. Evaluate π, δ, φ as-of event ts."
+                "A named cut is [t0, t1], with W the class p95 of completed stage durations in the "
+                "previous cut, or 12 minutes if n&lt;30; exclude ts &gt; t1−W, and evaluate π, δ, φ "
+                "as-of event ts."
             ),
             img(paths["rates"]),
             para(
-                "Zeros on misbind, bleed, and silent-fail are a proof that those faults did not fire only if "
-                "stage is write-ahead and call/decide are total. Otherwise they are estimates biased clean. "
-                "No numbers in this paper."
+                "Zeros on misbind, bleed and silent-fail are a proof that those faults did not fire only "
+                "if stage is write-ahead and call/decide are total; otherwise they are estimates biased "
+                "clean. No numbers in this paper."
             ),
             h("8. Reference implementation", 2),
             para(
@@ -462,24 +466,25 @@ def build_spec(paths: dict[str, Path]) -> dict:
             h("9. Related work", 2),
             para(
                 "Clark and Wilson (1987) already have constrained data items, transformation procedures, "
-                "a certification relation, integrity verification, and mandatory separation of duty. "
-                "A work item is a CDI. A bound specialist is a TP. Accept is a validated write."
+                "a certification relation, integrity verification and mandatory separation of duty: a "
+                "work item is a CDI, a bound specialist is a TP, and Accept is a validated write."
             ),
             para(
-                "Saltzer and Schroeder (1975) name fail-safe defaults. Deny-override is standard MAC/RBAC. "
+                "Saltzer and Schroeder (1975) name fail-safe defaults; deny-override is standard MAC/RBAC; "
                 "Thomas and Sandhu (1997) bind permission to a task instance. F1/F2/F5 are TOCTOU / "
-                "control-plane versus data-plane divergence. F7 is also LLM-as-judge self-preference."
+                "control-plane versus data-plane divergence, and F7 is also LLM-as-judge self-preference."
             ),
             para(
-                "MoE, MoA, FrugalGPT, RouteLLM, and MoMA optimize a different objective. "
-                "Orchestrator-worker (Anthropic, 2024) is a topology. Topology is not the process."
+                "MoE, MoA, FrugalGPT, RouteLLM and MoMA optimize a different objective, and "
+                "orchestrator-worker (Anthropic, 2024) is a topology. Topology is not the process."
             ),
             h("10. Limits", 2),
             para(
-                "No dataset. No quality theorem. No item liveness. I1 is the Pass-time report, not execution "
-                "history. I1/I3 hold up to norm collision unless norm is injective. I10–I17 prove FCD-owned "
-                "manifest, receipt, cache and promotion transitions. They do not prove adapter honesty, physical "
-                "prompt isolation, hidden executor residue, provider cache neutrality or impact-review correctness."
+                "There is no dataset here, no quality theorem, and no item liveness. I1 is the Pass-time "
+                "report, not execution history, and I1/I3 hold up to norm collision unless norm is "
+                "injective; I10–I17 prove FCD-owned manifest, receipt, cache and promotion transitions. "
+                "They do not prove adapter honesty, physical prompt isolation, hidden executor residue, "
+                "provider cache neutrality or impact-review correctness."
             ),
             h("10.1 Efficiency without sacrificing the theorems", 2),
             para(

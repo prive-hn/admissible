@@ -34,7 +34,7 @@ A **line** is one FCD work item whose first $k$ stages are write stages. Its **b
 
 A **claim** is a formal statement over a fixed artifact format, named by a spec hash. A class pins its claims and, per claim, the refuters that attack it and the defect model they are measured against. The generator does not author the claim it must meet.
 
-A **refuter** $r = (\text{id}, \text{version}, \text{author}, \text{mode})$ is deterministic under B2 and replayable. Mode *ledger*: measured against a defect model. Mode *bounded*: a seeded sampler with a declared $(\varepsilon, N)$.
+A **refuter** $r = (\text{id}, \text{version}, \text{author}, \text{mode})$ is deterministic under B2 and replayable — in mode *ledger* it is measured against a defect model, in mode *bounded* it is a seeded sampler with a declared $(\varepsilon, N)$.
 
 A **defect model** $D = (\text{hash}, \text{author})$ names a finite set of seeded defects, each with a killing witness so that none is equivalent to the original (B5).
 
