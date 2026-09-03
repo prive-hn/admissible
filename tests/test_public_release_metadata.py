@@ -183,9 +183,13 @@ class PublicRepositorySurface(unittest.TestCase):
         self.assertLessEqual(
             artifact.planned_cost_units, artifact.max_cost_units)
         from admissible.runner import order_checks
+        # The one long check runs last (highest cost_units). The evaluator
+        # dates every check's evidence against a single clock-skew window
+        # anchored at the run's start, so a check that outruns the window has
+        # to be last or it pushes the checks after it out of it.
         ordered = [check.id for check in order_checks(artifact.checks)]
         self.assertEqual(
-            ordered, ["venv", "pip", "npm", "unit", "audit", "build"])
+            ordered, ["venv", "pip", "npm", "audit", "build", "unit"])
 
     def test_every_arxiv_reference_has_a_canonical_link(self):
         for relative in (
