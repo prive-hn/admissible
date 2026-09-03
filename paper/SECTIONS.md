@@ -42,3 +42,7 @@ Canonical machine: `fcd/`. Round 4 conditions applied. Metrics empty until a nam
 | Rates | `metrics/SCHEMA.md` RGA section. No numbers |
 | Not proved | `PROOFS.md` "What is not proved", written first in `PREMISE.md` §7, extended by round 1 |
 | Calibration | `rga/calibration.py` (C1–C7, faults E1–E9): escapes as counterfactual trials, charges per wrong-verdict cell, install ratchet (incl. class-drop refusal), demotion as query, provenance-stamped seals, re-guarded replay. Rounds: `rga-calibration-premise-SYNTHESIS.md`, `rga-calibration-r1-SYNTHESIS.md` (11 confirmed findings, all applied); 71 tests incl. 17 guard deletions and 7 repair traces |
+
+## Custody theory (`paper/custody/`)
+
+The mathematics the identity, scrutiny and standing machines are instances of — one-sided certification over an adversarially held append-only record. Custodial semantics and the Asymmetry theorem, the Fréchet algebra of carried power (`union`/`max` as the Boole–Fréchet bound), the record under rewriting, and stacked custody. Read back into the kernel as capabilities N1–N28 and findings CF1–CF14, each anchored to a `file:symbol` site; the executable companion is `paper/custody/custody.py` with `tests/test_custody.py`, and the improvement catalogue is `paper/custody/IMPROVEMENTS.md`. It states no new mechanism and adds nothing to the trusted base: every kernel query stays pure, R11/C7 are untouched, and it says what the layers already are. Standalone PDF `paper/custody/custody.pdf`; Part VI of the volume.

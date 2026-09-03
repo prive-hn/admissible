@@ -44,7 +44,7 @@ POLARITY: dict[str, str] = {
     "rga_replay": "0",          # agreement is neutral; divergence is carried by rga_refuse
     "rga_refuse": "±",          # NEGATIVE for every seal that pinned the refuter after sealing
                                 # (tainted); POSITIVE for every line impeached only by that
-                                # checker's escapes, which _check_valid voids on refusal — F1's
+                                # checker's escapes, which _check_valid voids on refusal — CF1's
                                 # second path, with no taint when the checker was tier B there
     "rga_seal": "e",            # enabling: never lowers; the flip is at cal_stamp
     "rga_close": "0",
@@ -87,7 +87,7 @@ def _valid_at(cal: CalibrationAuthority, run: Run, j: int, rga_cut: Optional[int
     index `without`, if given, deleted), its checker not discredited before
     `j`, tier B adjudicated `accept` before `j`, and — unless `ignore_refusal`
     — not refused at rga position `rga_cut` or earlier (`None`: the final
-    registry, as `_guard_audit_checker` reads it, F2). Mirrors
+    registry, as `_guard_audit_checker` reads it, CF2). Mirrors
     `rga/calibration.py:_check_valid(as_of)` at the reader's own point."""
     adm = cal.adm
     before = cal.events[:j]
@@ -320,7 +320,7 @@ def _coherent(cal: CalibrationAuthority, s: SurfaceEvent,
     """Does deleting `s` with its group (and its rewrites) re-derive? Only the
     escape branch is checked by rebuild here — its deletions are cal-only, so
     the admission is reused unchanged; a taint group's deletion reaches the
-    admission journal and its install anchor is enumerated instead (F5, R4-9).
+    admission journal and its install anchor is enumerated instead (CF5, R4-9).
     Checked for every escape, anchored or not: the field states plainly
     whether the group alone re-derives (an anchor makes the event non-exposed
     regardless), so a reader the analytic list missed keeps it off the set."""
@@ -508,7 +508,7 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
         (`_guard_audit_checker` needs one; a later escape reads nothing).
       A `cal_exclude` naming the run is a tie, not an anchor (`_group_of`,
       `_rewrites_of`), and a `cal_install` reads no escape: the ratchet only
-      eases when one vanishes (F5);
+      eases when one vanishes (CF5);
     for a refusal group —
       * a later `cal_stamp` of a class in which the refused checker had a run
         valid at the stamp but for the refusal, and whose cut the refusal
@@ -592,7 +592,7 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
                 if any(r.index not in excluded.get(r.cls, ()) and _install_reads(cal, pol, r)
                        for r in revived(j, as_of)):
                     anchors.append(("cal", j))
-        # the F1 second path (T13(b)): the refusal also props up any OTHER
+        # the CF1 second path (T13(b)): the refusal also props up any OTHER
         # sealed line whose only impeaching escape by the refused checker it
         # voids. Deleting the refusal revives that escape and impeaches the
         # line — a real cost to another line that from_events does not refuse
@@ -775,7 +775,7 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent, *,
                     # and establishing replays are then redundant with it and join
                     # the candidate pool the minimisation tests, not `struct`. This
                     # is the R7-2 rule the `redundant_with` branch already applies,
-                    # extended to the anchor path an F1 second-path run reaches — a
+                    # extended to the anchor path an CF1 second-path run reaches — a
                     # refused tier-B escape whose `cal_run` R7-1 anchors (R8-1).
                     struct.add(("cal", adj))
                     cand |= {("cal", k) for k in _run_structural(cal, run) if k != adj}

@@ -72,6 +72,7 @@ PDF_ARTIFACTS = (
     "paper/fail-closed-class-dispatch.pdf",
     "paper/RGA/refutation-gated-admission.pdf",
     "paper/admissible/admissible.pdf",
+    "paper/custody/custody.pdf",
     "paper/admissible-volume.pdf",
 )
 FIGURE_ARTIFACTS = (

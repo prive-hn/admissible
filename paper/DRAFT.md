@@ -133,13 +133,15 @@ MoE, MoA, FrugalGPT, RouteLLM, and MoMA optimize a different objective. Orchestr
 
 No dataset. No quality theorem. No item liveness. I1–I6, I8 and I9 are proved on the Observe machine; I7 is a bound. I10–I17 prove FCD-owned envelope, manifest, receipt, cache and promotion transitions. A1/A2 and A10–A12 are observation/trust assumptions. A package receipt proves submitted-byte equality under an honest adapter, not absence of hidden executor context. Provider fidelity, cache semantic neutrality and impact-review correctness are not proved. The hop remark is an illustration.
 
-Site names do not belong in this voice.
-
 ## 11. References
+
+Anthropic. How we built our multi-agent research system. Anthropic Engineering, 2024.
 
 Chen, L., Zaharia, M., and Zou, J. FrugalGPT. [arXiv:2305.05176](https://arxiv.org/abs/2305.05176), 2023.
 
 Clark, D. D., and Wilson, D. R. A comparison of commercial and military computer security policies. IEEE Symposium on Security and Privacy, 1987.
+
+Guo, X., et al. Towards Generalized Routing: MoMA. [arXiv:2509.07571](https://arxiv.org/abs/2509.07571), 2025.
 
 Jacobs, R. A., Jordan, M. I., Nowlan, S. J., and Hinton, G. E. Adaptive mixtures of local experts. Neural Computation, 1991.
 
@@ -152,7 +154,3 @@ Shazeer, N. et al. The sparsely-gated mixture-of-experts layer. ICLR, 2017.
 Thomas, R. K., and Sandhu, R. S. Task-based authorization controls (TBAC). 1997.
 
 Wang, J. et al. Mixture-of-Agents Enhances Large Language Model Capabilities. [arXiv:2406.04692](https://arxiv.org/abs/2406.04692), 2024.
-
-Towards Generalized Routing: MoMA. [arXiv:2509.07571](https://arxiv.org/abs/2509.07571), 2025.
-
-Anthropic. How we built our multi-agent research system. 2024.

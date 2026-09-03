@@ -514,16 +514,16 @@ def build_spec(paths: dict[str, Path]) -> dict:
                 "of accepted state. The shown Chrome journey produced package/model receipts before acceptance."
             ),
             h("References", 2),
+            reference("Anthropic. How we built our multi-agent research system. Anthropic Engineering, 2024."),
             reference("Chen, L., Zaharia, M., and Zou, J. FrugalGPT. arXiv:2305.05176, 2023."),
             reference("Clark, D. D., and Wilson, D. R. A comparison of commercial and military computer security policies. IEEE Symposium on Security and Privacy, 1987."),
+            reference("Guo, X., et al. Towards Generalized Routing: MoMA. arXiv:2509.07571, 2025."),
             reference("Jacobs, R. A., Jordan, M. I., Nowlan, S. J., and Hinton, G. E. Adaptive mixtures of local experts. Neural Computation, 1991."),
             reference("Ong, I. et al. RouteLLM. 2024."),
             reference("Saltzer, J. H., and Schroeder, M. D. The protection of information in computer systems. Proceedings of the IEEE, 1975."),
             reference("Shazeer, N. et al. The sparsely-gated mixture-of-experts layer. ICLR, 2017."),
             reference("Thomas, R. K., and Sandhu, R. S. Task-based authorization controls (TBAC). 1997."),
             reference("Wang, J. et al. Mixture-of-Agents Enhances Large Language Model Capabilities. arXiv:2406.04692, 2024."),
-            reference("Towards Generalized Routing: MoMA. arXiv:2509.07571, 2025."),
-            reference("Anthropic. How we built our multi-agent research system. 2024."),
         ],
     }
 

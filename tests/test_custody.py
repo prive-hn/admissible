@@ -475,7 +475,7 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         h.a.replay("z", 0, "refuted", "w-same")                  # diverges after x's cut: refuses `tests`
         self.assertTrue(h.a.tainted("w") and h.a.tainted("x"))
         surface = custody.deletion_surface(h.cal, "w")
-        self.assertEqual([e for e in surface if e.reason == "escape"], [])   # the refusal voids the escape (F1)
+        self.assertEqual([e for e in surface if e.reason == "escape"], [])   # the refusal voids the escape (CF1)
         taint = [e for e in surface if e.reason == "taint"]
         self.assertTrue(taint and all(e.exposed for e in taint))            # x's stamp never saw the refusal
         drop = {e.index for e in taint}
@@ -970,7 +970,7 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
                     h.a, h.cal.policy)
 
     def test_a_refusal_propping_up_another_admissible_line_is_not_exposed(self):
-        """A refusal taints line w and, being F1's second path, also voids a
+        """A refusal taints line w and, being CF1's second path, also voids a
         tier-B escape by the refused checker against a DIFFERENT sealed line v
         (on which the checker is not pinned), leaving v admissible. Deleting
         the refusal revives that escape and impeaches v — a real cost to
@@ -1040,7 +1040,7 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         alternative that raises w at no cost to v deletes the adjudication and
         the refusal group — NOT the run's establishing replay, which is redundant
         with the adjudication. The R7-2 tier-B rule must reach the anchor path an
-        F1 second-path run travels, or `deletion_closure` over-counts the replay
+        CF1 second-path run travels, or `deletion_closure` over-counts the replay
         and misstates the deletion cost T11 rests on (R8-1)."""
         from rga.core import AdmissionPolicy, ClassAdmission
         h = CalHarness(); h.declare_tests()
@@ -1173,8 +1173,8 @@ class SupportIncludesValidityDegraders(unittest.TestCase):
         self.assertFalse(rebuilt.admissible("w"))                  # the first escape stands again
 
 
-class FindingF1DiscreditIsFailOpen(unittest.TestCase):
-    """Kernel finding F1. One party holding the sealed bytes (B12) files a second
+class FindingCF1DiscreditIsFailOpen(unittest.TestCase):
+    """Kernel finding CF1. One party holding the sealed bytes (B12) files a second
     tier-A escape with any witness and replays it divergently; the pinned
     refuter is discredited and `_check_valid` voids every run of that checker,
     including the first escape that was established by identical replay. The
@@ -1201,8 +1201,8 @@ class FindingF1DiscreditIsFailOpen(unittest.TestCase):
         self.assertEqual(custody.polarity_of("cal_discredit"), "+")
 
 
-class FindingF14RefusedCheckerAcceptedOnRebuild(unittest.TestCase):
-    """F14: from_events' cal_run branch does not re-check Admission.refused; a
+class FindingCF14RefusedCheckerAcceptedOnRebuild(unittest.TestCase):
+    """CF14: from_events' cal_run branch does not re-check Admission.refused; a
     filing by an already-refused checker, refused live, is accepted on rebuild
     (standing-neutral: _check_valid voids it), a fail-open replay seam."""
 
@@ -1227,8 +1227,8 @@ class FindingF14RefusedCheckerAcceptedOnRebuild(unittest.TestCase):
         self.assertFalse(rebuilt.impeached("w"))
 
 
-class FindingF1RefusalPath(unittest.TestCase):
-    """F1, second path (T5): a divergent Admission.replay report refuses a
+class FindingCF1RefusalPath(unittest.TestCase):
+    """CF1, second path (T5): a divergent Admission.replay report refuses a
     checker everywhere; _check_valid then voids its escapes at every
     position. A tier-B checker's accepted escape against w is voided by its
     refusal on another line, un-impeaching w with no taint (w never pinned it)."""
@@ -1256,8 +1256,8 @@ class FindingF1RefusalPath(unittest.TestCase):
         self.assertTrue(h.cal.admissible("w"))
 
 
-class FindingF2ReplaySeam(unittest.TestCase):
-    """Kernel finding F2. CalibrationAuthority.from_events re-checks
+class FindingCF2ReplaySeam(unittest.TestCase):
+    """Kernel finding CF2. CalibrationAuthority.from_events re-checks
     _guard_audit_checker against escapes(cls) at the FINAL registry (as_of=None),
     so an honest journal in which an audit was filed by a checker refused
     LATER in Admission is refused on rebuild: the live machine accepted what
@@ -1297,8 +1297,8 @@ class FindingF2ReplaySeam(unittest.TestCase):
             rebuild(h, claims=self.CLAIMS)
 
 
-class FindingF3RollbackWritesTheLowerMachine(unittest.TestCase):
-    """Kernel finding F3. A calibration attempt that drives Admission.seal
+class FindingCF3RollbackWritesTheLowerMachine(unittest.TestCase):
+    """Kernel finding CF3. A calibration attempt that drives Admission.seal
     (committed: rga_seal emitted) and then fails in its own half retracts the
     committed Admission transition — restoring adm.lines/adm.sealed and
     truncating adm._events — so C7's proof sentence that the file assigns only
@@ -1326,8 +1326,8 @@ class FindingF3RollbackWritesTheLowerMachine(unittest.TestCase):
         self.assertEqual(cal.events, ())
 
 
-class FindingF4UnregisteredPairCut(unittest.TestCase):
-    """Kernel finding F4 (T14b): a violation refused by exactly two guards is
+class FindingCF4UnregisteredPairCut(unittest.TestCase):
+    """Kernel finding CF4 (T14b): a violation refused by exactly two guards is
     invisible to single-deletion mutation. A sealed line with k+1 samples is
     reached only when _guard_seal_complete and _guard_sample_count are both
     deleted; the registry's JOINT table does not carry the pair."""
@@ -1379,8 +1379,8 @@ class FindingF4UnregisteredPairCut(unittest.TestCase):
             self.assertTrue(scenario())                           # non-specific predicate (N25)
 
 
-class FindingF5InstallCoverageNotRecomputed(unittest.TestCase):
-    """F5: cal_install carries coverage primaries that rebuild never recomputes;
+class FindingCF5InstallCoverageNotRecomputed(unittest.TestCase):
+    """CF5: cal_install carries coverage primaries that rebuild never recomputes;
     an escape before a later install deletes clean (the ratchet only eases)."""
 
     def test_escape_before_a_later_install_deletes_clean(self):
@@ -1403,8 +1403,8 @@ class FindingF5InstallCoverageNotRecomputed(unittest.TestCase):
         self.assertFalse(rebuilt.impeached("w"))                   # replays clean: install is not an anchor
 
 
-class FindingF7CalOpenLeavesNoTrace(unittest.TestCase):
-    """F7 (carry gate): CalOpen emits no event, so a line opened around the
+class FindingCF7CalOpenLeavesNoTrace(unittest.TestCase):
+    """CF7 (carry gate): CalOpen emits no event, so a line opened around the
     authority with a demoted pinned refuter is mediated, admissible, and
     replays clean. With gate=seal, CalSeal refuses it with E5 instead."""
 
@@ -1423,8 +1423,8 @@ class FindingF7CalOpenLeavesNoTrace(unittest.TestCase):
         self.assertTrue(rebuild(h).admissible("x"))
 
 
-class FindingF11UnmediatedSealIsUnanchored(unittest.TestCase):
-    """F11: only cal_stamp.sealed_at anchors the scrutiny journal's length; a
+class FindingCF11UnmediatedSealIsUnanchored(unittest.TestCase):
+    """CF11: only cal_stamp.sealed_at anchors the scrutiny journal's length; a
     refusal group before an unmediated (IR) seal deletes clean, because the
     IR seal — produced by Admission.seal around the authority — carries no
     stamp and nothing later recomputes against the group."""
@@ -1461,8 +1461,8 @@ class FindingF11UnmediatedSealIsUnanchored(unittest.TestCase):
         self.assertEqual(custody.verify_certificate(cal2, cert_w), ["demonstrations", "lengths", "standing"])
 
 
-class FindingF6SortlessFloor(unittest.TestCase):
-    """Kernel finding F6. bound() accepts (epsilon=1, N=1), so a declared figure of
+class FindingCF6SortlessFloor(unittest.TestCase):
+    """Kernel finding CF6. bound() accepts (epsilon=1, N=1), so a declared figure of
     1.0 enters the cross-sort max and satisfies any p_min on a claim whose
     kernel-counted power is 0/|D|. The floor compares a projection that has
     forgotten its sort (the quantitative branch's T2')."""
@@ -1485,8 +1485,8 @@ class FindingF6SortlessFloor(unittest.TestCase):
         self.assertAlmostEqual(seal.power_min, 1.0)
 
 
-class FindingF8EscapeAtThePublishedTrialPoint(unittest.TestCase):
-    """Kernel finding F8. Sample nonces are journaled, and _guard_run_seed only
+class FindingCF8EscapeAtThePublishedTrialPoint(unittest.TestCase):
+    """Kernel finding CF8. Sample nonces are journaled, and _guard_run_seed only
     requires the seed to be the kernel's derivation from the filed nonce, so a
     tier-A escape can be filed at exactly the seed of a trial that survived.
     It is accepted and established; the contradiction with the trial is not
