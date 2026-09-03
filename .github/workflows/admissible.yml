@@ -46,9 +46,9 @@ jobs:
     # Both of these are the same commit. Replace both together, with the exact
     # sha of the Admissible release you reviewed -- a tag is a name its owner
     # can move, a commit is the thing you read.
-    uses: prive-hn/admissible/.github/workflows/admissible-gate.yml@e9d4552a20716948f8adab5c5e474b3b6a5340c4
+    uses: prive-hn/admissible/.github/workflows/admissible-gate.yml@38a22dd2e5a985153f313b4e145ece356a894568
     with:
-      tool-sha: e9d4552a20716948f8adab5c5e474b3b6a5340c4
+      tool-sha: 38a22dd2e5a985153f313b4e145ece356a894568
       # config-path: .admissible.json
       # class: default
       # evaluate-runs-on: '["self-hosted","linux","x64","your-label"]'
