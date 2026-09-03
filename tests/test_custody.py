@@ -1,0 +1,1534 @@
+"""Executable checks of the custody-theory companion (paper/custody/DRAFT.md
+§8) against real three-layer runs. Each test names the theorem it exercises.
+These are research checks beside the paper, not gate checks: they prove the
+companion computes what the paper says over the kernels as they are.
+"""
+from __future__ import annotations
+
+import dataclasses
+import os
+import random
+import sys
+import unittest
+
+HERE = os.path.dirname(__file__)
+sys.path.insert(0, os.path.join(HERE, ".."))
+sys.path.insert(0, os.path.join(HERE, "..", "paper", "custody"))
+sys.path.insert(0, HERE)
+
+import custody  # noqa: E402
+from fcd.core import Enforcer  # noqa: E402
+from fcd.journal import JournalValueError  # noqa: E402
+from rga.calibration import CalibrationAuthority, CalibrationClass, CalibrationPolicy  # noqa: E402
+from rga.core import Admission, ClaimSpec, DefectModel, LedgerEntry, Refuter  # noqa: E402
+from test_rga_calibration import CalHarness  # noqa: E402
+from test_rga_invariants import D1, K, TESTS, PBT, Harness, admission_policy, fcd_policy, ledger  # noqa: E402
+
+
+def rebuild(h, claims=None):
+    """Rebuild all three machines from their journals, as a verifier would."""
+    fcd2 = Enforcer.from_events(list(h.e.events), fcd_policy())
+    adm2 = Admission.from_events(list(h.a.events), fcd2, admission_policy(claims=claims))
+    return CalibrationAuthority.from_events(list(h.cal.events), adm2, h.cal.policy)
+
+
+class PolarityD6(unittest.TestCase):
+    """D6/T3: seal raises, escape lowers, discredit raises second-order."""
+
+    def test_seal_raises_escape_lowers_discredit_raises_second_order(self):
+        h = CalHarness(); h.declare_tests()
+        self.assertFalse(h.cal.admissible("w"))
+        h.seal_line()                                           # rga_seal + cal_stamp: '+'
+        self.assertTrue(h.cal.admissible("w"))
+        run = h.tier_a_escape(nonce="e1")                       # establishing cal_replay: '-'
+        self.assertFalse(h.cal.admissible("w"))
+        second = h.tier_a_escape(nonce="e2", replay=False)
+        h.cal.replay_run(second.index, "refuted", "other")      # cal_discredit: '+' (second-order)
+        self.assertTrue(h.cal.admissible("w"))                  # validity of the first degraded
+        self.assertEqual(custody.polarity_of("cal_stamp"), "+")       # the event at which admissible flips
+        self.assertEqual(custody.polarity_of("rga_seal"), "e")        # enabling: never lowers, never the flip
+        self.assertEqual(custody.polarity_of("cal_replay"), "-")
+        self.assertEqual(custody.polarity_of("cal_discredit"), "+")   # never lowers; raises second-order
+        self.assertEqual(custody.polarity_of("rga_refuse"), "±")
+        self.assertEqual(run.tier, "A")
+
+    def test_every_journaled_event_type_is_classified(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line(); h.tier_a_escape()
+        seen = {e.get("type") for e in h.e.events} | {e.get("type") for e in h.a.events} \
+            | {e.get("type") for e in h.cal.events}
+        for t in seen:
+            self.assertNotEqual(custody.polarity_of(t), "?", t)
+
+
+class DeletionSurfaceT4(unittest.TestCase):
+    """T4.1: the surface enumerates exactly the witnesses of negated demonstrations."""
+
+    def test_surface_is_empty_for_a_clean_seal_and_names_the_escape(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line()
+        self.assertEqual(custody.deletion_surface(h.cal), ())
+        run = h.tier_a_escape()
+        surface = custody.deletion_surface(h.cal)
+        self.assertEqual({(s.journal, s.type) for s in surface}, {("cal", "cal_run"), ("cal", "cal_replay")})
+        self.assertTrue(all(s.line_id == "w" and s.reason == "escape" for s in surface))
+        self.assertEqual(h.cal.events[run.position].get("type"), "cal_run")
+
+    def test_surface_names_a_tainting_refusal_and_its_diverged_replay(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line()
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")                 # diverges: refuses `tests`
+        self.assertTrue(h.a.tainted("w"))
+        surface = custody.deletion_surface(h.cal, "w")
+        self.assertEqual({s.type for s in surface}, {"rga_refuse", "rga_replay", "rga_close"})   # z's V4 close
+        self.assertTrue(all(s.reason == "taint" for s in surface))
+        at = h.a.refused_at[TESTS]
+        self.assertEqual({s.index for s in surface}, {at - 1, at, at + 1})
+
+    def test_deleting_the_surface_raises_standing_and_the_certificate_catches_it(self):
+        """T4(a) then T11: deletion flips admissible to true; the line-scoped
+        certificate refuses the deleted custody on demonstrations, length and
+        the standing it claims, and a certificate whose standing field alone
+        was altered is refused on that component."""
+        h = CalHarness(); h.declare_tests(); h.seal_line(); h.tier_a_escape()
+        cert = custody.standing_certificate(h.cal, "w")
+        self.assertFalse(cert.standing)
+        self.assertEqual(cert.demonstrations, 2)
+        self.assertEqual(custody.verify_certificate(h.cal, cert), [])
+        flipped = dataclasses.replace(cert, standing=True)
+        self.assertEqual(custody.verify_certificate(h.cal, flipped), ["standing"])
+        pruned = [e for e in h.cal.events if e.get("type") not in ("cal_run", "cal_replay")]
+        forged = CalibrationAuthority.from_events(pruned, h.a, h.cal.policy)
+        self.assertTrue(forged.admissible("w"))                 # deletion raised standing
+        self.assertEqual(custody.verify_certificate(forged, cert),
+                         ["demonstrations", "lengths", "standing"])
+
+    def test_a_coherent_root_rewrite_changes_the_roots_hash(self):
+        """T4(c)/T11: a rewrite that replay accepts moves the roots component."""
+        h = CalHarness(); h.declare_tests(); h.seal_line()
+        cert = custody.standing_certificate(h.cal, "w")
+        g = CalHarness(); g.declare_tests(); g.seal_line(bodies=[b"other-0", b"other-1", b"other-2"])
+        other = custody.standing_certificate(g.cal, "w")
+        self.assertEqual(cert.lengths, other.lengths)
+        self.assertEqual(cert.demonstrations, other.demonstrations)
+        self.assertNotEqual(cert.roots_hash, other.roots_hash)
+
+
+class JointReadingT7(unittest.TestCase):
+    """T7/K3: power_min is the upper bound of the joint reading; Bonferroni is the lower."""
+
+    def test_two_claims_power_min_and_joint(self):
+        claims = (ClaimSpec("tests_pass", "spec-1", frozenset({TESTS}), D1),
+                  ClaimSpec("props_hold", "spec-2", frozenset({PBT}), "d2-hash"))
+        h = CalHarness(claims=claims)
+        h.declare_tests(kills=9, size=10)
+        h.a.declare(Refuter("pbt", "v1", "prop-author", "ledger"))
+        h.a.measure("pbt", "v1", DefectModel("d2-hash", "mutator2"),
+                    [LedgerEntry(f"q{i}", "killed" if i < 7 else "survived") for i in range(10)])
+        h.fcd_open("w"); h.cal.open("w", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("w"); h.sample("w", f"w-{i}".encode())
+            h.trial("w", i); h.trial("w", i, refuter=PBT, claim="props_hold", witness="p-same")
+        h.replay_all("w"); h.fcd_check("w")
+        seal = h.cal.seal("w")
+        self.assertAlmostEqual(seal.power_min, 0.7)
+        self.assertAlmostEqual(custody.seal_joint(seal), 0.6)
+        lo, hi = custody.frechet_bounds([0.9, 0.7], "intersection")
+        self.assertAlmostEqual(lo, 0.6); self.assertAlmostEqual(hi, 0.7)
+
+    def test_bonferroni_horizon(self):
+        self.assertEqual(custody.bonferroni_horizon(0.9), 10)
+        self.assertEqual(custody.power_joint([0.9] * 10), 0.0)
+        self.assertAlmostEqual(custody.power_joint([0.9] * 3), 0.7)
+        self.assertIsNone(custody.bonferroni_horizon(1.0))
+
+    def test_the_horizon_is_where_power_joint_first_zeroes(self):
+        """The horizon is defined against `power_joint`'s own rounding, not a
+        pre-`ceil` round of `1/(1-p)`: a p just above a reciprocal boundary has
+        not yet reached the fail-closed zero, so its horizon is one past the
+        boundary, not the boundary itself (R4-28). At an exact boundary the two
+        still agree, and representation noise still collapses."""
+        self.assertEqual(custody.bonferroni_horizon(0.900000000001), 11)
+        self.assertGreater(custody.power_joint([0.900000000001] * 10), 0.0)   # 10 is not yet zero
+        self.assertEqual(custody.power_joint([0.900000000001] * 11), 0.0)
+        # the horizon is exactly where power_joint first reaches zero, for every p
+        for p in (0.5, 0.8, 0.9, 0.99, 0.900000000001, 0.6666666666):
+            h = custody.bonferroni_horizon(p)
+            self.assertGreater(custody.power_joint([p] * (h - 1)), 0.0)
+            self.assertEqual(custody.power_joint([p] * h), 0.0)
+
+    def test_the_joint_reading_never_rounds_a_positive_bound_up(self):
+        """`power_joint` is an assumption-free *lower* bound, so its floating-
+        point correction may only clamp numerical noise down to the horizon
+        zero — never round a positive residual up, which would claim more power
+        than any coupling guarantees (R4-29). A one-element conjunction is its
+        own power, and a genuine sub-1e-12 residual is preserved, not lifted to
+        the 12-place grid."""
+        self.assertAlmostEqual(custody.power_joint([0.9999999999996]), 0.9999999999996, places=15)
+        self.assertLess(custody.power_joint([0.5000000000003, 0.5000000000003]), 1e-12)
+        self.assertGreater(custody.power_joint([0.5000000000003, 0.5000000000003]), 0.0)
+        # never above the exact real-valued bound, across a random sweep
+        from fractions import Fraction
+        rng = random.Random(20260902)
+        for _ in range(20000):
+            ps = [rng.random() for _ in range(rng.randint(1, 6))]
+            true = max(Fraction(0), Fraction(1) - sum(Fraction(1) - Fraction(p) for p in ps))
+            self.assertLessEqual(Fraction(custody.power_joint(ps)), true + Fraction(1, 10 ** 9))
+        # the horizon zero and the small-power readings are unchanged
+        self.assertEqual(custody.power_joint([0.9] * 10), 0.0)
+        self.assertAlmostEqual(custody.power_joint([0.9, 0.7]), 0.6)
+
+    def test_the_horizon_of_a_near_one_power_is_finite_in_bounded_work(self):
+        """A bounded refuter's `1-(1-eps)^N` figure (D13) can sit arbitrarily
+        close to but below 1, and flows unchanged to a seal's `power_min` — a
+        legal input to `bonferroni_horizon`. Its horizon is a finite ~1/(1-p),
+        but must be reached in O(1) work: without materialising an
+        ~1/(1-p)-length list (R8-2, ~1TB crash) AND without a scan from
+        1/(1-p), whose length is ~4*eps/(1-p)^2 and hangs for p closer to 1
+        than ~1e-12 (R9-1). The seed is the clamp-shifted boundary, so the
+        refinement is bounded however close p is to 1."""
+        import math
+        # cap the number of `_power_joint_uniform` evaluations so a reintroduced
+        # linear scan fails FAST here instead of hanging the suite
+        real = custody._power_joint_uniform
+        budget = {"calls": 0}
+        def capped(p, n):
+            budget["calls"] += 1
+            if budget["calls"] > 5000:
+                raise AssertionError("bonferroni_horizon did not converge in bounded work")
+            return real(p, n)
+        custody._power_joint_uniform = capped
+        try:
+            # every one of these p is a legal bounded (eps, N) figure below 1;
+            # the last is the largest double below 1 — all must return in O(1)
+            for p in (1.0 - 0.5 ** 45, 1.0 - 0.8 ** 130, 1.0 - 0.8 ** 115,
+                      0.999999999999, math.nextafter(1.0, 0.0)):
+                budget["calls"] = 0
+                h = custody.bonferroni_horizon(p)
+                self.assertIsInstance(h, int)
+                self.assertGreater(h, 10 ** 11)                  # finite, near the boundary
+                self.assertLess(budget["calls"], 64)             # O(1) refinement, no scan
+                self.assertEqual(real(p, h), 0.0)                # h is the horizon
+                self.assertGreater(real(p, h - 1), 0.0)          # h-1 is not yet zero
+        finally:
+            custody._power_joint_uniform = real
+        # the closed form agrees with the list build's sign wherever it is buildable
+        rng = random.Random(20260902)
+        for _ in range(2000):
+            q = rng.random(); n = rng.randint(1, 300)
+            self.assertEqual(custody._power_joint_uniform(q, n) == 0.0,
+                             custody.power_joint([q] * n) == 0.0)
+        # the small-p horizons the list build pins are unchanged
+        self.assertEqual(custody.bonferroni_horizon(0.9), 10)
+        self.assertEqual(custody.bonferroni_horizon(0.99), 100)
+
+    def test_the_empty_conjunction_is_the_identity_of_its_event(self):
+        """T6/T7 at the empty set: an empty union catches nothing (0), an
+        empty intersection is vacuously caught (1) — the value `power_joint([])`
+        already returns. `frechet_bounds` must resolve emptiness per event, not
+        to one fail-closed pair, or a caller folding a dynamically empty
+        conjunctive set reads a contradictory zero-power interval (R4-23)."""
+        self.assertEqual(custody.frechet_bounds([], "intersection"), (1.0, 1.0))
+        self.assertEqual(custody.power_joint([]), 1.0)          # the two agree at the empty set
+        self.assertEqual(custody.frechet_bounds([], "union"), (0.0, 0.0))
+        # non-empty is unchanged
+        self.assertEqual(custody.frechet_bounds([0.9, 0.7], "intersection"), (custody.power_joint([0.9, 0.7]), 0.7))
+        with self.assertRaises(ValueError):
+            custody.frechet_bounds([], "neither")
+
+    def test_union_bounds_contain_the_kernels_composite(self):
+        """T6: the kernel's labelled max is the lower Fréchet bound across models."""
+        lo, hi = custody.frechet_bounds([0.9, 0.5], "union")
+        self.assertAlmostEqual(lo, 0.9); self.assertAlmostEqual(hi, 1.0)
+        self.assertGreater(1 - (1 - 0.9) * (1 - 0.5), lo)     # the banned product exceeds max
+
+
+class KillContextT8(unittest.TestCase):
+    def test_unique_kills_uncovered_and_redundancy(self):
+        h = CalHarness(refuters=frozenset({TESTS, PBT}))
+        h.declare_tests(kills=6, size=10)                       # kills m0..m5
+        h.a.declare(Refuter("pbt", "v1", "prop-author", "ledger"))
+        h.a.measure("pbt", "v1", DefectModel(D1, "mutator"),
+                    [LedgerEntry(f"m{i}", "killed" if i in (4, 5, 6, 7) else "survived") for i in range(10)])
+        h.fcd_open("w"); h.cal.open("w", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("w"); h.sample("w", f"w-{i}".encode())
+            h.trial("w", i); h.trial("w", i, refuter=PBT, witness="p-same")
+        h.replay_all("w"); h.fcd_check("w")
+        seal = h.cal.seal("w")
+        ctx = custody.kill_context(h.a, "w", "tests_pass")
+        self.assertEqual((ctx.size, ctx.union, ctx.uncovered), (10, 8, 2))
+        self.assertEqual(ctx.unique_kills, {TESTS: 4, PBT: 2})
+        self.assertEqual(ctx.redundant, ())
+        self.assertAlmostEqual(seal.claims[0].composite, 0.8)   # union's density (T8)
+        self.assertEqual(seal.claims[0].composition, "union")
+
+
+class HereditaryStandingT7_1(unittest.TestCase):
+    def _chain(self):
+        h = CalHarness(); h.declare_tests()
+        h.seal_line("w")
+        h.e.open("x", "impl", "body-hash", depends_on=("w",))
+        h.cal.open("x", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("x"); h.sample("x", f"x-{i}".encode()); h.trial("x", i)
+        h.replay_all("x"); h.fcd_check("x"); h.cal.seal("x")
+        h.e.open("y", "impl", "body-hash", depends_on=("x",))
+        h.cal.open("y", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("y"); h.sample("y", f"y-{i}".encode()); h.trial("y", i)
+        h.replay_all("y"); h.fcd_check("y"); h.cal.seal("y")
+        return h
+
+    def test_impeached_grandparent_is_invisible_to_admissible_and_suspect_but_not_to_provenance(self):
+        h = self._chain()
+        self.assertEqual(custody.ancestors(h.a, "y"), ("x", "w"))
+        self.assertTrue(custody.hereditary_admissible(h.cal, "y"))
+        h.tier_a_escape("w")
+        self.assertFalse(h.cal.admissible("w"))
+        self.assertTrue(h.cal.admissible("y"))                  # today: unchanged (documented)
+        self.assertFalse(h.cal.suspect("y"))                    # one hop: x is fine
+        self.assertTrue(h.cal.suspect("x"))
+        prov = custody.provenance(h.cal, "y")
+        self.assertTrue(prov["w"].impeached and not prov["x"].impeached)
+        self.assertFalse(custody.hereditary_admissible(h.cal, "y"))
+
+    def test_joint_closure_is_bonferroni_over_the_chain(self):
+        h = self._chain()
+        self.assertAlmostEqual(h.a.sealed["y"].power_min, 0.9)
+        self.assertAlmostEqual(custody.power_joint_closure(h.cal, "y"), 0.7)   # three seals at 0.9
+
+
+class ExposureT16(unittest.TestCase):
+    def test_attempt_index_and_published_refutations_on_one_bind_key(self):
+        h = CalHarness(); h.declare_tests()
+        h.fcd_open("w1"); h.cal.open("w1", "gen", "temp=0.7")
+        h.fcd_write("w1"); h.sample("w1", b"w1-0")
+        h.trial("w1", 0, verdict="refuted", witness="kill")       # V1: published
+        self.assertEqual(h.a.lines["w1"].fault, "V1")
+        h.seal_line("w2")
+        ex = custody.exposure(h.a, "w2")
+        self.assertEqual(ex.attempt_index, 2)
+        self.assertEqual(ex.prior_lines, ("w1",))
+        self.assertEqual(ex.published_refutations, (("tests", "v1", "tests_pass", 0, "w1"),))
+        self.assertEqual(custody.exposure(h.a, "w1").attempt_index, 1)
+
+
+class TrustBaseC9(unittest.TestCase):
+    def test_derived_tier_agrees_with_the_kernel_for_a_and_b(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line()
+        a = h.tier_a_escape()
+        self.assertEqual(custody.derived_tier(h.cal, a), a.tier)
+        self.assertTrue(custody.run_base(h.cal, a) <= custody.trust_base(h.a, h.a.sealed["w"]))
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        b = h.cal.file_escape("w", "tests_pass", "hawk", "v1", "n1", b"w-body-0", "any", "hk", "aud")
+        self.assertEqual(b.tier, "B")
+        self.assertEqual(custody.derived_tier(h.cal, b), "B")
+        self.assertIn(custody.ADJUDICATION, custody.run_base(h.cal, b))
+        self.assertIn("B5", custody.trust_base(h.a, h.a.sealed["w"]))
+
+
+class AnchoredAndExposedSurface(unittest.TestCase):
+    """§5 (T10 as corrected): a witness is deletable iff no later event
+    recomputes content from it. A later same-class stamp recomputes
+    corpus_size/charged_cells from the escapes before it and anchors them."""
+
+    def test_escape_after_the_last_stamp_is_exposed_and_before_a_later_stamp_is_anchored(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.tier_a_escape("w", nonce="e1")
+        self.assertTrue(all(e.exposed for e in custody.deletion_surface(h.cal, "w")))
+        h.seal_line("x")                                        # same class: its stamp anchors the escape
+        surface = custody.deletion_surface(h.cal, "w")
+        self.assertTrue(surface and all(not e.exposed for e in surface))
+        self.assertEqual(custody.exposed(h.cal, "w"), ())
+        stamp_x = next(i for i, e in enumerate(h.cal.events)
+                       if e.get("type") == "cal_stamp" and e.get("line_id") == "x")
+        self.assertIn(("cal", stamp_x), surface[0].anchored_by)
+        pruned = [e for e in h.cal.events
+                  if not (e.get("type") in ("cal_run", "cal_replay") and e.get("run_index") == 0)]
+        with self.assertRaises(ValueError) as ctx:
+            CalibrationAuthority.from_events(pruned, h.a, h.cal.policy)
+        self.assertIn("stamp does not recompute", str(ctx.exception))
+
+    def test_a_tail_refusal_group_is_exposed_and_its_deletion_replays_clean(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")                 # diverges: refuses `tests`, taints w
+        self.assertTrue(h.a.tainted("w"))
+        surface = custody.deletion_surface(h.cal, "w")
+        self.assertEqual({e.type for e in surface}, {"rga_replay", "rga_refuse", "rga_close"})   # the cascaded V4 too
+        self.assertTrue(all(e.exposed for e in surface))
+        refuse_at = next(e.index for e in surface if e.type == "rga_refuse")
+        self.assertTrue(all(e.refusal_at == refuse_at for e in surface))   # every event of the group names its refusal
+        drop = {e.index for e in surface}
+        pruned = [e for i, e in enumerate(h.a.events) if i not in drop]
+        rebuilt = Admission.from_events(pruned, h.e, h.a.policy)
+        self.assertFalse(rebuilt.tainted("w"))                   # un-tainted by a deletion replay accepts
+        self.assertTrue(rebuilt.admissible("w"))
+
+    def test_an_e5_close_anchors_the_escape_that_demoted_its_refuter(self):
+        h = CalHarness(e_max=0, gate="seal"); h.declare_tests(); h.seal_line("w")
+        h.tier_a_escape("w")                                    # one charge > e_max: demoted
+        h.fcd_open("x")
+        h.a.open("x", "gen", "temp=0.7")                         # around CalOpen, which would refuse the pin
+        for i in range(h.k):
+            h.fcd_write("x"); h.sample("x", f"x-{i}".encode()); h.trial("x", i)
+        h.replay_all("x"); h.fcd_check("x")
+        with self.assertRaises(ValueError):
+            h.cal.seal("x")                                      # E5: published close, recomputed on rebuild
+        surface = custody.deletion_surface(h.cal, "w")
+        self.assertTrue(surface and all(not e.exposed for e in surface))
+        e5 = next(i for i, e in enumerate(h.cal.events) if e.get("type") == "cal_close" and e.get("fault") == "E5")
+        self.assertIn(("cal", e5), surface[0].anchored_by)
+        pruned = [e for e in h.cal.events if not (e.get("type") in ("cal_run", "cal_replay") and e.get("run_index") == 0)]
+        with self.assertRaises(ValueError) as ctx:
+            CalibrationAuthority.from_events(pruned, h.a, h.cal.policy)
+        self.assertIn("E5 close without a demotion", str(ctx.exception))
+
+
+class AnchorsReadAsReplayReads(unittest.TestCase):
+    """Anchors are enumerated as `from_events` recomputes each reader (round 4
+    of REVIEWS.md). A replay or adjudication event names its run, and its
+    anchors are that run's — not the first valid escape's on the line: two
+    escapes on one line by different checkers, then an audit by the second
+    checker, and the audit anchors the second escape's three events and none
+    of the first's; deleting exactly the exposed part (run indices renumbered,
+    T12(c)) rebuilds with the line still impeached, and deleting the anchored
+    replay and adjudication alone is refused, because the audit's guard needs
+    that checker's valid escape. A stamp reads a refusal only within its own
+    cut, and a run replayed twice carries two witnesses."""
+
+    HAWK = ("hawk", "v1")
+    CLAIMS = (ClaimSpec("tests_pass", "spec-hash-1", frozenset({TESTS}), D1),
+              ClaimSpec("lint_ok", "spec-hash-2", frozenset({HAWK}), D1))
+
+    def _seal(self, h, iid):
+        h.fcd_open(iid); h.cal.open(iid, "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write(iid); h.sample(iid, f"{iid}-body-{i}".encode())
+            h.trial(iid, i, refuter=TESTS, claim="tests_pass")
+            h.trial(iid, i, refuter=self.HAWK, claim="lint_ok", witness="h-same")
+        h.replay_all(iid); h.fcd_check(iid)
+        return h.cal.seal(iid)
+
+    @staticmethod
+    def _drop_run(events, index):
+        """A coherent alternative without run `index`: its events removed and
+        every later run index renumbered, as replay range-checks them; an
+        exclusion naming it alone removed with it, one naming other runs too
+        rewritten to keep them (`SurfaceEvent.rewrites`)."""
+        out = []
+        for e in events:
+            if e.get("run_index") == index and e.get("type") in (
+                    "cal_run", "cal_replay", "cal_adjudicate", "cal_discredit"):
+                continue
+            e = dict(e)
+            if isinstance(e.get("run_index"), int) and e["run_index"] > index:
+                e["run_index"] -= 1
+            if e.get("type") == "cal_exclude":
+                kept = [i - (i > index) for i in e["run_indices"] if i != index]
+                if not kept:
+                    continue
+                e["run_indices"] = kept
+            out.append(e)
+        return out
+
+    def test_an_audit_anchors_its_own_checkers_escape_and_not_the_first(self):
+        h = CalHarness(claims=self.CLAIMS); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel(D1, "mutator"), ledger(8, 10))
+        self._seal(h, "w")
+        h.tier_a_escape("w", nonce="e1")                                            # run 0: tests, tier A
+        hawk = h.cal.file_escape("w", "tests_pass", "hawk", "v1", "nB", b"w-body-0", "any", "hk", "aud")
+        h.cal.replay_run(hawk.index, "refuted", "hk")                               # run 1: hawk, tier B
+        h.cal.adjudicate(hawk.index, "owner", "accept", "reproduced by hand")
+        audit = h.cal.file_audit("w", "tests_pass", "hawk", "v1", "nA", b"w-body-0", "any", "surv", "aud")
+        surface = custody.deletion_surface(h.cal, "w")
+        by_run: dict = {}
+        for s in surface:
+            by_run.setdefault(h.cal.events[s.index].get("run_index"), []).append(s)
+        self.assertEqual(sorted(by_run), [0, 1])
+        self.assertEqual({s.type for s in by_run[0]}, {"cal_run", "cal_replay"})
+        self.assertEqual({s.type for s in by_run[1]}, {"cal_run", "cal_replay", "cal_adjudicate"})
+        self.assertTrue(all(s.exposed for s in by_run[0]))
+        self.assertTrue(all(s.anchored_by == (("cal", audit.position),) for s in by_run[1]))
+        rebuilt = CalibrationAuthority.from_events(self._drop_run(h.cal.events, 0), h.a, h.cal.policy)
+        self.assertFalse(rebuilt.admissible("w"))                                   # still impeached by hawk
+        self.assertEqual(len(rebuilt.escapes()), 1)
+        anchored = {s.index for s in by_run[1] if s.type != "cal_run"}
+        with self.assertRaises(ValueError):
+            CalibrationAuthority.from_events(
+                [e for i, e in enumerate(h.cal.events) if i not in anchored], h.a, h.cal.policy)
+
+
+    def test_a_refusal_after_the_stamps_cut_is_exposed_and_deletes_clean(self):
+        """A same-class stamp anchors the escape before it but not a refusal
+        that came after the stamp's cut: the stamp recomputes with
+        as_of=sealed_at and never saw the refusal, so deleting the group
+        rebuilds the stamp unchanged and un-taints the seals."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.tier_a_escape("w", nonce="e1")
+        h.seal_line("x")                                         # same class: its stamp anchors the escape
+        self.assertTrue(all(not e.exposed for e in custody.deletion_surface(h.cal, "w")))
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")                  # diverges after x's cut: refuses `tests`
+        self.assertTrue(h.a.tainted("w") and h.a.tainted("x"))
+        surface = custody.deletion_surface(h.cal, "w")
+        self.assertEqual([e for e in surface if e.reason == "escape"], [])   # the refusal voids the escape (F1)
+        taint = [e for e in surface if e.reason == "taint"]
+        self.assertTrue(taint and all(e.exposed for e in taint))            # x's stamp never saw the refusal
+        drop = {e.index for e in taint}
+        adm2 = Admission.from_events([e for i, e in enumerate(h.a.events) if i not in drop], h.e, h.a.policy)
+        cal2 = CalibrationAuthority.from_events(list(h.cal.events), adm2, h.cal.policy)  # both stamps recompute
+        self.assertFalse(adm2.tainted("w"))
+        self.assertTrue(cal2.impeached("w"))                     # and the escape stands again
+
+    def test_repeated_establishing_replays_are_redundant_witnesses(self):
+        """The kernel accepts a second successful replay of an established
+        run. Each is a witness event: both are on the surface, neither is
+        exposed alone (deleting one leaves the other to establish the run),
+        and standing rises only when both are gone."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        run = h.tier_a_escape("w")
+        h.cal.replay_run(run.index, "refuted", "kill-w")           # a second, identical replay
+        surface = custody.deletion_surface(h.cal, "w")
+        replays = sorted((e for e in surface if e.type == "cal_replay"), key=lambda e: e.index)
+        self.assertEqual(len(replays), 2)
+        self.assertEqual(replays[0].redundant_with, (replays[1].index,))
+        self.assertEqual(replays[1].redundant_with, (replays[0].index,))
+        self.assertTrue(all(not e.exposed and not e.anchored_by for e in replays))
+        self.assertTrue(next(e for e in surface if e.type == "cal_run").exposed)
+        self.assertEqual(custody.standing_certificate(h.cal, "w").demonstrations, 3)
+        one = [e for i, e in enumerate(h.cal.events) if i != replays[0].index]
+        self.assertTrue(CalibrationAuthority.from_events(one, h.a, h.cal.policy).impeached("w"))
+        both = [e for i, e in enumerate(h.cal.events) if i not in {replays[0].index, replays[1].index}]
+        self.assertTrue(CalibrationAuthority.from_events(both, h.a, h.cal.policy).admissible("w"))
+
+
+    def test_a_later_escape_by_the_same_checker_is_not_an_audit_anchor(self):
+        """Only an audit (a surviving run) reads an earlier escape by its
+        checker; a second ESCAPE by the same unpinned checker reads nothing,
+        so the first escape's events are exposed and deleting them replays
+        clean with the line still impeached by the second."""
+        h = CalHarness(claims=self.CLAIMS); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel(D1, "mutator"), ledger(8, 10))
+        self._seal(h, "w")
+        for n, nonce in enumerate(("nB1", "nB2")):
+            run = h.cal.file_escape("w", "tests_pass", "hawk", "v1", nonce, b"w-body-0", "any", f"hk{n}", "aud")
+            h.cal.replay_run(run.index, "refuted", f"hk{n}")
+            h.cal.adjudicate(run.index, "owner", "accept", "reproduced by hand")
+        surface = custody.deletion_surface(h.cal, "w")
+        self.assertEqual(len(surface), 6)
+        self.assertTrue(all(e.exposed for e in surface))
+        rebuilt = CalibrationAuthority.from_events(self._drop_run(h.cal.events, 0), h.a, h.cal.policy)
+        self.assertTrue(rebuilt.impeached("w"))
+
+    def test_an_e5_close_is_read_under_the_budget_in_force_at_the_close(self):
+        """A later install that lowers e_max does not change what the E5 close
+        recomputes against: replay adopts the budgets the journal installed,
+        in order, so the anchor is judged under the budget at the close."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(e_max=1, gate="seal"); h.declare_tests()
+        h.seal_line("w"); h.seal_line("v")
+        runs = [h.tier_a_escape("w", nonce="e1"), h.tier_a_escape("v", nonce="e2")]   # two cells > e_max: demoted
+        h.fcd_open("x"); h.a.open("x", "gen", "temp=0.7")         # around CalOpen, which would refuse the pin
+        for i in range(h.k):
+            h.fcd_write("x"); h.sample("x", f"x-{i}".encode()); h.trial("x", i)
+        h.replay_all("x"); h.fcd_check("x")
+        with self.assertRaises(ValueError):
+            h.cal.seal("x")                                      # E5 close, recomputed on rebuild
+        e5 = next(i for i, e in enumerate(h.cal.events) if e.get("type") == "cal_close" and e.get("fault") == "E5")
+        before = custody.deletion_surface(h.cal, "w")
+        self.assertTrue(before and all(("cal", e5) in e.anchored_by for e in before))
+        h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+        ids = [LedgerEntry(f"m{i}", "killed") for i in range(10)] + [
+            LedgerEntry(h.cal.derived_defect_id(r), "killed") for r in runs]
+        h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"), ids)
+        succ = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(succ, CalibrationPolicy({"impl": CalibrationClass(e_max=0, demotion_gate="seal")}, version="c2"))
+        self.assertEqual(h.cal.policy.classes["impl"].e_max, 0)
+        initial = CalibrationPolicy({"impl": CalibrationClass(e_max=1, demotion_gate="seal")})
+        after = custody.deletion_surface(h.cal, "w", initial_policy=initial)
+        self.assertTrue(after and all(("cal", e5) in e.anchored_by for e in after))   # still read under e_max=1
+        # The pre-install budget is replay's input, not a journal fact: without
+        # it the companion falls back to the current policy and loses the anchor.
+        fallback = custody.deletion_surface(h.cal, "w")
+        self.assertTrue(all(("cal", e5) not in e.anchored_by for e in fallback))
+
+
+    def test_a_later_install_anchors_the_refusal_group_whose_escape_it_omits(self):
+        """A refusal voids an established escape, and a later install whose
+        ledger model omits that escape's derived id passes the ratchet only
+        because the refusal emptied the obligation (D16). Deleting the group
+        revives the escape into the corpus at the install's cut, and rebuild
+        refuses the install (`_guard_install_covers`): the install anchors
+        the group. With the id covered the install reads nothing, the group
+        is exposed, and its deletion un-taints the seal and revives the escape."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        for covered in (False, True):
+            h = CalHarness(); h.declare_tests(); h.seal_line("w")
+            run = h.tier_a_escape("w")
+            h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+            h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+            h.a.replay("z", 0, "refuted", "w-same")              # refuses `tests`: voids the escape, taints w
+            self.assertTrue(h.a.tainted("w") and not h.cal.impeached("w"))
+            h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+            ids = [LedgerEntry(f"m{i}", "killed") for i in range(10)]
+            if covered:
+                ids.append(LedgerEntry(h.cal.derived_defect_id(run), "killed"))
+            h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"), ids)
+            succ = AdmissionPolicy({"impl": ClassAdmission(
+                claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+                k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+                residual=(("correct fix", "check_stage"),))}, version="r2")
+            h.cal.install(succ)                                   # the voided escape owes nothing
+            install = len(h.cal.events) - 1
+            self.assertEqual(h.cal.events[install]["type"], "cal_install")
+            taint = [e for e in custody.deletion_surface(h.cal, "w") if e.reason == "taint"]
+            self.assertTrue(taint)
+            drop = {e.index for e in taint}
+            adm2 = Admission.from_events([e for i, e in enumerate(h.a.events) if i not in drop],
+                                         h.e, admission_policy(), succ)
+            self.assertFalse(adm2.tainted("w"))
+            if covered:
+                self.assertTrue(all(e.exposed and ("cal", install) not in e.anchored_by for e in taint))
+                cal2 = CalibrationAuthority.from_events(list(h.cal.events), adm2, h.cal.policy)
+                self.assertTrue(cal2.impeached("w"))              # the revived escape is covered: replays clean
+            else:
+                self.assertTrue(all(("cal", install) in e.anchored_by for e in taint))
+                with self.assertRaises(ValueError):               # the revived escape is not covered
+                    CalibrationAuthority.from_events(list(h.cal.events), adm2, h.cal.policy)
+
+    def test_a_shared_exclusion_is_rewritten_with_the_run_and_a_sole_one_deleted(self):
+        """An exclusion naming this run is a rewrite (`rewrites`), not a
+        `group_with` tie: the run is dropped from its `run_indices`, which
+        empties and removes one that named it alone and keeps the siblings of
+        one that named others too — deleted whole the latter would release
+        them into the obligation of a later install that covered the class
+        without them, and rebuild refuses the install. Not in the closure."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w"); h.seal_line("v")
+        r0 = h.tier_a_escape("w", nonce="e1"); r1 = h.tier_a_escape("v", nonce="e2")
+        h.cal.exclude("impl", [r0.index, r1.index], "owner", "released")
+        excl = len(h.cal.events) - 1
+        h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+        h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"),
+                    [LedgerEntry(f"m{i}", "killed") for i in range(10)])
+        succ = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(succ)                                       # both entries excluded: nothing owed
+        run_ev = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_run")
+        self.assertEqual(run_ev.rewrites, (("cal", excl),))
+        self.assertNotIn(("cal", excl), run_ev.group_with)
+        self.assertNotIn(("cal", excl), custody.deletion_closure(h.cal, run_ev))
+        self.assertTrue(run_ev.exposed)
+        fcd2 = Enforcer.from_events(list(h.e.events), fcd_policy())
+        adm2 = Admission.from_events(list(h.a.events), fcd2, admission_policy(), succ)
+        rewritten = self._drop_run(h.cal.events, r0.index)      # keeps v's run in the exclusion, renumbered
+        self.assertEqual(next(e for e in rewritten if e["type"] == "cal_exclude")["run_indices"], [r1.index - 1])
+        rebuilt = CalibrationAuthority.from_events(rewritten, adm2, h.cal.policy)
+        self.assertFalse(rebuilt.impeached("w"))
+        self.assertTrue(rebuilt.impeached("v"))
+        whole = [e for e in rewritten if e["type"] != "cal_exclude"]   # deleted whole: v's escape owes again
+        with self.assertRaises(ValueError):
+            CalibrationAuthority.from_events(whole, adm2, h.cal.policy)
+        # named alone, the exclusion is still a rewrite (it empties, and is removed)
+        g = CalHarness(); g.declare_tests(); g.seal_line("w")
+        r = g.tier_a_escape("w")
+        g.cal.exclude("impl", [r.index], "owner", "released")
+        sole = next(e for e in custody.deletion_surface(g.cal, "w") if e.type == "cal_run")
+        self.assertEqual(sole.rewrites, (("cal", len(g.cal.events) - 1),))
+        self.assertNotIn(("cal", len(g.cal.events) - 1), sole.group_with)
+        self.assertNotIn(("cal", len(g.cal.events) - 1), custody.deletion_closure(g.cal, sole))
+        self.assertTrue(sole.exposed)
+        self.assertFalse(CalibrationAuthority.from_events(self._drop_run(g.cal.events, r.index),
+                                                          g.a, g.cal.policy).impeached("w"))
+
+    def test_an_anchored_replayed_audit_carries_its_replay_into_the_closure(self):
+        """An escape anchored by an audit whose own `cal_run` was replayed: the
+        closure carries the audit's replay too (its `run_index` is range-checked
+        on rebuild), so deleting the escape and the whole closure does not orphan
+        a replay. `deletion_closure` is minimised by re-derivation, so it lists
+        exactly the deletion the kernel refuses to do without (R4-15)."""
+        h = CalHarness(claims=self.CLAIMS); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel(D1, "mutator"), ledger(8, 10))
+        self._seal(h, "w")
+        h.tier_a_escape("w", nonce="e1")                                    # run 0: tests, tier A
+        hawk = h.cal.file_escape("w", "tests_pass", "hawk", "v1", "nB", b"w-body-0", "any", "hk", "aud")
+        h.cal.replay_run(hawk.index, "refuted", "hk"); h.cal.adjudicate(hawk.index, "owner", "accept", "seen")
+        audit = h.cal.file_audit("w", "tests_pass", "hawk", "v1", "nA", b"w-body-0", "any", "surv", "aud")
+        h.cal.replay_run(audit.index, "survived", "surv")                   # the audit's cal_run now has a replay
+        surface = custody.deletion_surface(h.cal, "w")
+        run1 = next(s for s in surface if s.type == "cal_run" and custody._run_of(h.cal, s).index == hawk.index)
+        self.assertIn(("cal", audit.position), run1.anchored_by)
+        audit_replay = next(k for k, e in enumerate(h.cal.events)
+                            if e.get("type") == "cal_replay" and e.get("run_index") == audit.index)
+        closure = custody.deletion_closure(h.cal, run1)
+        self.assertIn(("cal", audit.position), closure)
+        self.assertIn(("cal", audit_replay), closure)                       # the audit's own replay, R4-15
+        gone = {run1.index} | {i for _, i in closure}
+        dr = {h.cal.events[i].get("run_index") for i in gone if h.cal.events[i].get("type") == "cal_run"}
+        alt = []
+        for i, e in enumerate(h.cal.events):
+            if i in gone:
+                continue
+            e = dict(e)
+            if isinstance(e.get("run_index"), int):
+                e["run_index"] -= sum(1 for d in dr if d is not None and d < e["run_index"])
+            alt.append(e)
+        rebuilt = CalibrationAuthority.from_events(alt, h.a, h.cal.policy)   # no orphaned replay
+        self.assertFalse(rebuilt.admissible("w"))                           # still impeached by the tier-A escape
+
+    def test_a_cal_run_whose_deletion_renumbers_a_covered_run_is_anchored_by_the_install(self):
+        """`derived_defect_id` embeds the run's journal position, so deleting an
+        earlier escape renumbers a later covered run and the install's ledger no
+        longer covers the new id (`_guard_install_covers`). The companion
+        re-derives the group deletion (`coherent`) and names the install that
+        refuses it: the run is not exposed and its `deletion_closure` includes
+        the install, and deleting run and install together rebuilds. The last
+        escape renumbers nothing before it and stays exposed."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w"); h.seal_line("v")
+        r0 = h.tier_a_escape("w", nonce="e1"); r1 = h.tier_a_escape("v", nonce="e2")
+        h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+        ids = [LedgerEntry(f"m{i}", "killed") for i in range(10)] + [
+            LedgerEntry(h.cal.derived_defect_id(r0), "killed"),
+            LedgerEntry(h.cal.derived_defect_id(r1), "killed")]
+        h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"), ids)
+        succ = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(succ)                                       # covers both position-derived ids
+        install = len(h.cal.events) - 1
+        run_w = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_run")
+        self.assertFalse(run_w.exposed)
+        self.assertIn(("cal", install), run_w.anchored_by)
+        self.assertIn(("cal", install), custody.deletion_closure(h.cal, run_w))
+        self.assertNotIn(install, [i for _, i in run_w.group_with])   # a reader, not a tie
+        with self.assertRaises(ValueError):                      # the group alone: v's renumbered id is uncovered
+            CalibrationAuthority.from_events(self._drop_run(h.cal.events, r0.index), h.a, h.cal.policy)
+        closure = [e for e in self._drop_run(h.cal.events, r0.index) if e.get("type") != "cal_install"]
+        self.assertFalse(CalibrationAuthority.from_events(closure, h.a, h.cal.policy).impeached("w"))
+        run_v = next(e for e in custody.deletion_surface(h.cal, "v") if e.type == "cal_run")
+        self.assertTrue(run_v.exposed)                           # the last escape renumbers nothing before it
+
+    def test_two_installs_that_only_jointly_cover_a_renumbered_run_are_both_anchors(self):
+        """Two installs can each cover a run only by its original position-derived
+        id, so deleting an earlier `cal_run` renumbers the survivor out of both
+        ledgers and retaining either still refuses `_guard_install_covers`. The
+        jointly necessary set is found (not a singly-sufficient probe): both
+        installs anchor the deletion and its `deletion_closure` names both, so
+        the alternative it advertises rebuilds."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w"); h.seal_line("v")
+        r0 = h.tier_a_escape("w", nonce="e1"); r1 = h.tier_a_escape("v", nonce="e2")
+        d0, d1 = h.cal.derived_defect_id(r0), h.cal.derived_defect_id(r1)
+        h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+        h.a.measure("tests", "v2", DefectModel("d1", "mutator"),
+                    [LedgerEntry(f"m{i}", "killed") for i in range(10)] + [LedgerEntry(d0, "killed"), LedgerEntry(d1, "killed")])
+        succ1 = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d1"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(succ1); i1 = len(h.cal.events) - 1
+        h.a.declare(Refuter("tests", "v3", "tester", "ledger"))
+        h.a.measure("tests", "v3", DefectModel("d2", "mutator"),
+                    [LedgerEntry(f"n{i}", "killed") for i in range(10)] + [LedgerEntry(d0, "killed"), LedgerEntry(d1, "killed")])
+        succ2 = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v3")}), "d2"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r3")
+        h.cal.install(succ2); i2 = len(h.cal.events) - 1
+        run_w = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_run")
+        self.assertFalse(run_w.exposed)
+        self.assertIn(("cal", i1), run_w.anchored_by)
+        self.assertIn(("cal", i2), run_w.anchored_by)          # jointly necessary, not singly sufficient
+        closure = custody.deletion_closure(h.cal, run_w)
+        self.assertIn(("cal", i1), closure); self.assertIn(("cal", i2), closure)
+        drop_run = self._drop_run(h.cal.events, r0.index)
+        one = [e for e in drop_run if not (e.get("type") == "cal_install" and e.get("policy_version") == "r3")]
+        with self.assertRaises(ValueError):                    # succ1 alone still refuses the renumbered id
+            CalibrationAuthority.from_events(one, h.a, h.cal.policy)
+        both = [e for e in drop_run if e.get("type") != "cal_install"]
+        self.assertFalse(CalibrationAuthority.from_events(both, h.a, h.cal.policy).impeached("w"))
+
+    def test_a_run_filed_before_a_later_stamp_is_exposed_once_the_stamp_shifts(self):
+        """A `cal_run` filed before another line's `cal_stamp` but established
+        only after it: deleting the run and its replay shifts the stamp by one,
+        and the stamp's `track_records[*].as_of` (its own `_position()`, which
+        `from_events` recomputes) must move with it. `_alt_delete` renumbers
+        that field, so the deletion re-derives and the run is exposed; leaving
+        the field at the old position is refused (R4-19)."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        r0 = h.tier_a_escape("w", nonce="e1", replay=False)    # cal_run, not yet established
+        h.seal_line("x")                                       # x's stamp, after r0's cal_run
+        h.cal.replay_run(r0.index, "refuted", "kill-w")        # establish r0 after the stamp
+        self.assertTrue(h.cal.impeached("w"))
+        run_w = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_run")
+        self.assertTrue(run_w.exposed)                         # coherent: the shifted stamp recomputes
+        self.assertEqual(run_w.anchored_by, ())
+        gone = {run_w.index} | {i for _, i in run_w.group_with}
+        rebuilt = CalibrationAuthority.from_events(custody._alt_delete(h.cal, gone, set()), h.cal.adm, h.cal.policy)
+        self.assertFalse(rebuilt.impeached("w"))               # un-impeached; the stamp recomputes at its new index
+        # the shift is load-bearing: renumbering run_index but not the stamp's as_of is refused
+        naive = []
+        for i, e in enumerate(h.cal.events):
+            if i in gone:
+                continue
+            e = dict(e)
+            if isinstance(e.get("run_index"), int):
+                e["run_index"] -= sum(1 for d in {r0.index} if d < e["run_index"])
+            naive.append(e)
+        with self.assertRaises(ValueError):
+            CalibrationAuthority.from_events(naive, h.cal.adm, h.cal.policy)
+
+    def test_an_escape_needing_both_a_stamp_and_an_install_anchor_names_both(self):
+        """An escape can need two anchors of different kinds at once: a later
+        same-class stamp (R4-3) and a later install its deletion's renumbering
+        breaks (R4-11). The install probe runs even when an analytic anchor is
+        present and deletes it in the base, so both are found; the closure
+        names both and rebuilds (R4-17)."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        r0 = h.tier_a_escape("w", nonce="e1")               # escape on w
+        h.seal_line("x")                                    # same-class stamp after it: anchors r0
+        r1 = h.tier_a_escape("x", nonce="e2")               # a later same-class run
+        d0, d1 = h.cal.derived_defect_id(r0), h.cal.derived_defect_id(r1)
+        h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+        h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"),
+                    [LedgerEntry(f"m{i}", "killed") for i in range(10)] + [LedgerEntry(d0, "killed"), LedgerEntry(d1, "killed")])
+        succ = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(succ); install = len(h.cal.events) - 1
+        stamp = next(k for k, e in enumerate(h.cal.events)
+                     if e.get("type") == "cal_stamp" and e.get("line_id") == "x")
+        run_w = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_run")
+        self.assertFalse(run_w.exposed)
+        self.assertIn(("cal", stamp), run_w.anchored_by)
+        self.assertIn(("cal", install), run_w.anchored_by)   # both, not just the stamp
+        closure = custody.deletion_closure(h.cal, run_w)
+        self.assertIn(("cal", stamp), closure)
+        self.assertIn(("cal", install), closure)
+        self.assertTrue(custody._rebuild_alt(h.cal, run_w, set(closure), None))   # the advertised closure rebuilds
+        with self.assertRaises(ValueError):                  # the stamp alone leaves the renumbered id uncovered
+            custody.CalibrationAuthority.from_events(
+                self._drop_run(h.cal.events, r0.index), h.a, h.cal.policy)
+
+    def test_a_sole_replay_named_by_an_exclusion_is_deletable_only_with_it(self):
+        """Deleting the sole establishing replay leaves the run unestablished,
+        so a `cal_exclude` that named it names a non-valid escape on rebuild.
+        That exclusion is a rewrite (`rewrites`), not a group tie: dropping the
+        run empties one that named it alone, so the coherent alternative
+        removes it — the replay alone, with the exclusion left naming the
+        invalid run, is refused. The accepting adjudication does the same."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        r = h.tier_a_escape("w")
+        h.cal.exclude("impl", [r.index], "owner", "released")
+        excl = len(h.cal.events) - 1
+        rep = next(e for e in custody.deletion_surface(h.cal, "w") if e.type == "cal_replay")
+        self.assertIn(("cal", excl), rep.rewrites)
+        self.assertNotIn(("cal", excl), rep.group_with)
+        self.assertNotIn(("cal", excl), custody.deletion_closure(h.cal, rep))   # a rewrite, not a deletion
+        self.assertTrue(rep.exposed)
+        with self.assertRaises(ValueError):                      # the replay alone orphans the exclusion
+            CalibrationAuthority.from_events([e for i, e in enumerate(h.cal.events) if i != rep.index],
+                                             h.a, h.cal.policy)
+        gone = {rep.index, excl}                                 # the sole exclusion empties and is removed
+        rebuilt = CalibrationAuthority.from_events([e for i, e in enumerate(h.cal.events) if i not in gone],
+                                                   h.a, h.cal.policy)
+        self.assertFalse(rebuilt.impeached("w"))                 # un-impeached, exclusion gone
+        # a shared exclusion is rewritten, not grouped
+        g = CalHarness(); g.declare_tests(); g.seal_line("w"); g.seal_line("v")
+        rw = g.tier_a_escape("w", nonce="e1"); g.tier_a_escape("v", nonce="e2")
+        g.cal.exclude("impl", [rw.index, rw.index + 1], "owner", "released")
+        shared = len(g.cal.events) - 1
+        repw = next(e for e in custody.deletion_surface(g.cal, "w")
+                    if e.type == "cal_replay" and custody._run_of(g.cal, e).index == rw.index)
+        self.assertIn(("cal", shared), repw.rewrites)
+        self.assertNotIn(("cal", shared), repw.group_with)
+
+    def test_a_runs_structural_events_delete_as_a_group(self):
+        """A coherent alternative that deletes a `cal_run` must delete every
+        event naming its run (they are refused without it); a tier-B run's
+        sole establishing replay takes its adjudication; a taint event takes
+        the rest of its refusal group. `deletion_closure` lists the group."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.tier_a_escape("w")                                     # tail: cal_run, cal_replay
+        surface = custody.deletion_surface(h.cal, "w")
+        run_ev = next(e for e in surface if e.type == "cal_run")
+        rep_ev = next(e for e in surface if e.type == "cal_replay")
+        self.assertEqual(run_ev.group_with, (("cal", rep_ev.index),))
+        self.assertEqual(rep_ev.group_with, ())                  # tier A: nothing needs the replay
+        self.assertTrue(run_ev.exposed and rep_ev.exposed)
+        self.assertEqual(custody.deletion_closure(h.cal, run_ev), (("cal", rep_ev.index),))
+        with self.assertRaises(ValueError):                      # the cal_run alone leaves an orphan replay
+            CalibrationAuthority.from_events([e for i, e in enumerate(h.cal.events) if i != run_ev.index],
+                                             h.a, h.cal.policy)
+        gone = {run_ev.index} | {i for _, i in run_ev.group_with}
+        rebuilt = CalibrationAuthority.from_events([e for i, e in enumerate(h.cal.events) if i not in gone],
+                                                   h.a, h.cal.policy)
+        self.assertTrue(rebuilt.admissible("w"))                 # the group deletes clean and raises standing
+        # a tier-B run: the sole establishing replay carries the adjudication
+        g = CalHarness(claims=AnchorsReadAsReplayReads.CLAIMS); g.declare_tests()
+        g.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        g.a.measure("hawk", "v1", DefectModel(D1, "mutator"), ledger(8, 10))
+        AnchorsReadAsReplayReads._seal(AnchorsReadAsReplayReads(), g, "w")
+        run = g.cal.file_escape("w", "tests_pass", "hawk", "v1", "nB", b"w-body-0", "any", "hk", "aud")
+        g.cal.replay_run(run.index, "refuted", "hk"); g.cal.adjudicate(run.index, "owner", "accept", "seen")
+        by_type = {e.type: e for e in custody.deletion_surface(g.cal, "w")}
+        self.assertEqual(by_type["cal_replay"].group_with, (("cal", by_type["cal_adjudicate"].index),))
+        with self.assertRaises(ValueError):                      # the replay alone leaves an unestablished adjudication
+            CalibrationAuthority.from_events([e for i, e in enumerate(g.cal.events) if i != by_type["cal_replay"].index],
+                                             g.a, g.cal.policy)
+        # a taint event: the rest of its refusal group
+        h2 = CalHarness(); h2.declare_tests(); h2.seal_line("w")
+        h2.fcd_open("z"); h2.a.open("z", "gen", "temp=0.7")
+        h2.fcd_write("z"); h2.sample("z", b"z0"); h2.trial("z")
+        h2.a.replay("z", 0, "refuted", "w-same")
+        taint = custody.deletion_surface(h2.cal, "w")
+        for e in taint:
+            self.assertEqual(set(e.group_with), {("rga", o.index) for o in taint if o.index != e.index})
+
+    def test_a_redundant_replays_closure_names_its_siblings_and_their_reader(self):
+        """A run replayed twice has two establishing witnesses; neither is
+        exposed alone. To delete either demonstration every sibling replay
+        must go too, and — the run then no longer an established escape — a
+        later same-class stamp that recomputed its corpus from that escape
+        anchors the collective removal. `deletion_closure` must name the
+        sibling and the stamp, or deleting the reported closure leaves the
+        sibling establishing the run and the line impeached (R4-24)."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        run = h.tier_a_escape("w")
+        h.cal.replay_run(run.index, "refuted", "kill-w")        # a second, redundant witness
+        h.seal_line("v")                                        # a later same-class stamp reads w's escape
+        surface = custody.deletion_surface(h.cal, "w")
+        replays = sorted((e for e in surface if e.type == "cal_replay"), key=lambda e: e.index)
+        self.assertEqual(len(replays), 2)
+        stamp_v = next(i for i, e in enumerate(h.cal.events)
+                       if e.get("type") == "cal_stamp" and e.get("line_id") == "v")
+        for s in replays:
+            sibling = next(o for o in replays if o.index != s.index)
+            closure = custody.deletion_closure(h.cal, s)
+            self.assertIn(("cal", sibling.index), closure)      # the sibling must go too
+            self.assertIn(("cal", stamp_v), closure)            # and v's stamp read the escape
+            gone = {s.index} | {i for _, i in closure}
+            rebuilt = CalibrationAuthority.from_events(
+                [e for i, e in enumerate(h.cal.events) if i not in gone], h.a, h.cal.policy)
+            self.assertTrue(rebuilt.admissible("w"))            # the demonstration is actually removed
+            # deleting the replay and the stamp but NOT the sibling leaves w impeached
+            half = {s.index, stamp_v}
+            still = CalibrationAuthority.from_events(
+                [e for i, e in enumerate(h.cal.events) if i not in half], h.a, h.cal.policy)
+            self.assertFalse(still.admissible("w"))
+
+    def test_a_tier_b_runs_redundant_replays_carry_its_adjudication(self):
+        """A tier-B escape replayed twice, then adjudicated: deleting either
+        replay, the coherent alternative that raises standing deletes only the
+        accepting `cal_adjudicate` — that alone invalidates the run (an
+        unadjudicated tier-B run is not a valid escape) and, being deleted, is
+        not orphaned. The sibling replay is *redundant* with it, so a minimal
+        closure names the adjudication and NOT the sibling (R4-25 corrected by
+        R7-2). Deleting all establishing replays without the adjudication is
+        the refused alternative ('adjudication requires an established
+        escape')."""
+        h = CalHarness(claims=self.CLAIMS); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel(D1, "mutator"), ledger(8, 10))
+        self._seal(h, "w")
+        run = h.cal.file_escape("w", "tests_pass", "hawk", "v1", "nB", b"w-body-0", "any", "hk", "aud")
+        h.cal.replay_run(run.index, "refuted", "hk")            # replay 1
+        h.cal.replay_run(run.index, "refuted", "hk")            # replay 2, redundant
+        h.cal.adjudicate(run.index, "owner", "accept", "seen")
+        adj = custody._adjudication_index(h.cal, run)
+        surface = custody.deletion_surface(h.cal, "w")
+        replays = sorted((e for e in surface if e.type == "cal_replay"), key=lambda e: e.index)
+        self.assertEqual(len(replays), 2)
+        for s in replays:
+            sibling = next(o for o in replays if o.index != s.index)
+            closure = custody.deletion_closure(h.cal, s)
+            self.assertEqual(closure, (("cal", adj),))          # minimal: the adjudication alone
+            self.assertNotIn(("cal", sibling.index), closure)   # the sibling is redundant, not carried
+            gone = {s.index} | {i for _, i in closure}
+            rebuilt = CalibrationAuthority.from_events(
+                [e for i, e in enumerate(h.cal.events) if i not in gone], h.a, h.cal.policy)
+            self.assertTrue(rebuilt.admissible("w"))            # the demonstration is removed
+            # deleting all establishing replays but keeping the adjudication is refused
+            with self.assertRaises(ValueError):
+                CalibrationAuthority.from_events(
+                    [e for i, e in enumerate(h.cal.events) if i not in {s.index, sibling.index}],
+                    h.a, h.cal.policy)
+
+    def test_a_refusal_propping_up_another_admissible_line_is_not_exposed(self):
+        """A refusal taints line w and, being F1's second path, also voids a
+        tier-B escape by the refused checker against a DIFFERENT sealed line v
+        (on which the checker is not pinned), leaving v admissible. Deleting
+        the refusal revives that escape and impeaches v — a real cost to
+        another line that `from_events` does not refuse and the stamp/install
+        readers miss. So the refusal group is NOT exposed ('deletable at no
+        cost to any other line'); it is anchored by v's escape, and a coherent
+        alternative that raises w at no cost to v must also delete that escape
+        (R7-1, corroborated by the companion's own `_degraders(v)`)."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel("d-hawk", "mutator"), ledger(8, 10))
+        h.seal_line("w")                                        # w pins tests
+        r2 = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("hawk", "v1")}), "d-hawk"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(r2)                                       # switch the pin to hawk
+        h.fcd_open("v"); h.cal.open("v", "gen", "temp=0.7")     # v pins hawk, not tests
+        for i in range(h.k):
+            h.fcd_write("v"); h.sample("v", f"v-{i}".encode())
+            h.trial("v", i, refuter=("hawk", "v1"), claim="tests_pass", witness="h-same")
+        h.replay_all("v"); h.fcd_check("v"); h.cal.seal("v")
+        esc = h.cal.file_escape("v", "tests_pass", "tests", "v1", "nB", b"v-0", "seed", "hk", "aud")
+        h.cal.replay_run(esc.index, "refuted", "hk")
+        h.cal.adjudicate(esc.index, "owner", "accept", "reproduced")   # tests impeaches v
+        h.a.replay("w", 0, "refuted", "diverge")               # refuse tests: taints w, voids v's escape
+        self.assertFalse(h.cal.admissible("w"))
+        self.assertTrue(h.cal.admissible("v"))
+        surface = custody.deletion_surface(h.cal, "w")
+        taint = [s for s in surface if s.reason == "taint"]
+        self.assertTrue(taint)
+        self.assertEqual(custody.exposed(h.cal, "w"), ())      # nothing freely deletable
+        for s in taint:
+            self.assertIn(("cal", esc.position), s.anchored_by)   # anchored by v's escape
+            self.assertFalse(s.exposed)
+        # the closure carries v's escape (its establishing witnesses), so
+        # deleting the group with the closure rebuilds, raises w, and leaves v
+        # admissible — the deletion is now genuinely at no cost to v
+        s = taint[0]
+        closure = set(custody.deletion_closure(h.cal, s))
+        self.assertTrue(closure)
+        self.assertTrue(custody._rebuild_alt(h.cal, s, closure, None))
+        drop = {s.index} | {i for jr, i in closure if jr == "rga"}
+        cal_del = {i for jr, i in closure if jr == "cal"}
+        adm_full = Admission.from_events([e for i, e in enumerate(h.a.events) if i not in drop],
+                                         h.e, admission_policy(), r2)
+        cal_full = CalibrationAuthority.from_events(
+            custody._shift_adm_positions(custody._alt_delete(h.cal, cal_del, set()), drop),
+            adm_full, h.cal.policy)
+        self.assertTrue(cal_full.admissible("w"))       # w raised
+        self.assertTrue(cal_full.admissible("v"))       # and v kept admissible: no cost
+        # deleting the refusal group ALONE raises w but lowers v — the cost that
+        # makes the group non-exposed
+        grp = {t.index for t in taint}
+        adm2 = Admission.from_events([e for i, e in enumerate(h.a.events) if i not in grp],
+                                     h.e, admission_policy(), r2)
+        alone = CalibrationAuthority.from_events(
+            custody._shift_adm_positions(list(h.cal.events), grp), adm2, h.cal.policy)
+        self.assertTrue(alone.admissible("w"))
+        self.assertFalse(alone.admissible("v"))
+
+    def test_a_refusal_props_closure_carries_the_adjudication_not_the_replay(self):
+        """The escape R7-1 anchors is a tier-B run against v, and a tier-B run is
+        invalidated by deleting its accepting `cal_adjudicate` alone (an
+        unadjudicated tier-B run is not a valid escape). So the coherent
+        alternative that raises w at no cost to v deletes the adjudication and
+        the refusal group — NOT the run's establishing replay, which is redundant
+        with the adjudication. The R7-2 tier-B rule must reach the anchor path an
+        F1 second-path run travels, or `deletion_closure` over-counts the replay
+        and misstates the deletion cost T11 rests on (R8-1)."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel("d-hawk", "mutator"), ledger(8, 10))
+        h.seal_line("w")
+        r2 = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("hawk", "v1")}), "d-hawk"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(r2)
+        h.fcd_open("v"); h.cal.open("v", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("v"); h.sample("v", f"v-{i}".encode())
+            h.trial("v", i, refuter=("hawk", "v1"), claim="tests_pass", witness="h-same")
+        h.replay_all("v"); h.fcd_check("v"); h.cal.seal("v")
+        esc = h.cal.file_escape("v", "tests_pass", "tests", "v1", "nB", b"v-0", "seed", "hk", "aud")
+        h.cal.replay_run(esc.index, "refuted", "hk")
+        h.cal.adjudicate(esc.index, "owner", "accept", "reproduced")
+        h.a.replay("w", 0, "refuted", "diverge")
+        run = custody._run_at_index(h.cal, esc.position)
+        self.assertEqual(run.tier, "B")
+        adj = custody._adjudication_index(h.cal, run)
+        replays = [k for k in custody._run_structural(h.cal, run)
+                   if h.cal.events[k].get("type") == "cal_replay"]
+        self.assertTrue(replays)                                 # there is an establishing replay
+        for s in [e for e in custody.deletion_surface(h.cal, "w") if e.reason == "taint"]:
+            closure = custody.deletion_closure(h.cal, s)
+            cal_idx = {i for jr, i in closure if jr == "cal"}
+            self.assertIn(adj, cal_idx)                          # the adjudication is required
+            for r in replays:
+                self.assertNotIn(r, cal_idx)                     # the establishing replay is pruned
+            # and the minimal closure still rebuilds, raising w at no cost to v
+            self.assertTrue(custody._rebuild_alt(h.cal, s, set(closure), None))
+            drop = {s.index} | {i for jr, i in closure if jr == "rga"}
+            cal_del = {i for jr, i in closure if jr == "cal"}
+            adm_full = Admission.from_events(
+                [e for i, e in enumerate(h.a.events) if i not in drop], h.e, admission_policy(), r2)
+            cal_full = CalibrationAuthority.from_events(
+                custody._shift_adm_positions(custody._alt_delete(h.cal, cal_del, set()), drop),
+                adm_full, h.cal.policy)
+            self.assertTrue(cal_full.admissible("w"))
+            self.assertTrue(cal_full.admissible("v"))
+
+    def test_a_taint_deletion_shifts_a_surviving_stamps_admission_position(self):
+        """After a refusal taints a seal, a later mediated seal under a
+        switched pin records a `cal_stamp` whose `sealed_at` names an admission
+        position. Deleting the refusal group shortens the admission journal, so
+        that stamp — which no revived escape makes an analytic anchor — must
+        have its `sealed_at` (and any close/exclude/install `as_of`) rewritten
+        with the shift, or `_rebuild_alt` refuses the advertised closure as a
+        stamp not bound to its seal (R4-21)."""
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")                 # refuses tests v1, taints w
+        h.a.declare(Refuter("pbt", "v1", "prop-author", "ledger"))
+        h.a.measure("pbt", "v1", DefectModel(D1, "mutator"), ledger(9, 10))
+        pol = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("pbt", "v1")}), D1),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.a.install(pol)                                        # switch the pin to pbt
+        h.fcd_open("y"); h.cal.open("y", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("y"); h.sample("y", f"y-{i}".encode()); h.trial("y", i, refuter=("pbt", "v1"))
+        h.replay_all("y"); h.fcd_check("y"); h.cal.seal("y")    # a mediated stamp for y, after the refusal
+        self.assertTrue(h.cal.mediated("y"))
+        taint = [e for e in custody.deletion_surface(h.cal, "w") if e.reason == "taint"]
+        self.assertTrue(taint and all(e.exposed for e in taint))
+        s = taint[0]
+        closure = set(custody.deletion_closure(h.cal, s))
+        self.assertIn(("rga", s.index), set(custody.deletion_closure(h.cal, s)) | {("rga", s.index)})
+        self.assertTrue(custody._rebuild_alt(h.cal, s, closure, None))   # the shift makes it coherent
+        # the shift is what does it: without rewriting sealed_at the rebuild refuses
+        rga_del = {s.index} | {i for jr, i in closure if jr == "rga"}
+        alt_adm = [e for i, e in enumerate(h.a.events) if i not in rga_del]
+        adm2 = Admission.from_events(alt_adm, h.e, admission_policy(), h.a.policy)
+        self.assertFalse(adm2.tainted("w"))                              # w un-tainted
+        unshifted = custody._alt_delete(h.cal, set(), set())             # the cal journal, positions unshifted
+        with self.assertRaises(ValueError):
+            CalibrationAuthority.from_events(unshifted, adm2, h.cal.policy)   # stamp not bound to its seal
+
+
+class SupportDetermination(unittest.TestCase):
+    """The value of admissible(w) depends on the record only through its
+    signed support: a later, unrelated line can be removed entirely."""
+
+    def _prune(self, h, line_id):
+        keep = lambda e: e.get("work_item_id") != line_id and e.get("line_id") != line_id
+        fcd2 = Enforcer.from_events([e for e in h.e.events if keep(e)], fcd_policy())
+        adm2 = Admission.from_events([e for e in h.a.events if keep(e)], fcd2, admission_policy())
+        return CalibrationAuthority.from_events([e for e in h.cal.events if keep(e)], adm2, h.cal.policy)
+
+    def test_removing_a_later_unrelated_line_leaves_the_value_unchanged(self):
+        for impeach in (False, True):
+            h = CalHarness(); h.declare_tests(); h.seal_line("w")
+            if impeach:
+                h.tier_a_escape("w")
+            h.seal_line("x")
+            sup = custody.support(h.cal, "w")
+            events = {"fcd": h.e.events, "rga": h.a.events, "cal": h.cal.events}
+            self.assertFalse(any(events[j][i].get("work_item_id") == "x" or events[j][i].get("line_id") == "x"
+                                 for j, i, _ in sup.positive))
+            before = h.cal.admissible("w")
+            self.assertEqual(before, not impeach)
+            rebuilt = self._prune(h, "x")
+            self.assertEqual(rebuilt.admissible("w"), before)
+            self.assertNotIn("x", rebuilt.adm.sealed)
+
+
+class SupportIncludesValidityDegraders(unittest.TestCase):
+    """T17(i): the events that void a witness against w are positive atoms of
+    admissible(w); deleting them revives the witness and lowers standing."""
+
+    def test_deleting_the_discredit_pair_revives_the_escape(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.tier_a_escape("w", nonce="e1")
+        second = h.tier_a_escape("w", nonce="e2", replay=False)
+        h.cal.replay_run(second.index, "refuted", "other")       # discredits `tests`: w un-impeached
+        self.assertTrue(h.cal.admissible("w"))
+        sup = custody.support(h.cal, "w")
+        self.assertEqual(sup.negative, ())                        # no valid witness stands
+        self.assertIn("cal_discredit", {t for _, _, t in sup.positive})
+        drop = {i for j, i, t in sup.positive if j == "cal" and t in ("cal_discredit", "cal_replay")
+                and h.cal.events[i].get("run_index", second.index) == second.index}
+        pruned = [e for i, e in enumerate(h.cal.events) if i not in drop]
+        rebuilt = CalibrationAuthority.from_events(pruned, h.a, h.cal.policy)
+        self.assertFalse(rebuilt.admissible("w"))                  # the first escape stands again
+
+
+class FindingF1DiscreditIsFailOpen(unittest.TestCase):
+    """Kernel finding F1. One party holding the sealed bytes (B12) files a second
+    tier-A escape with any witness and replays it divergently; the pinned
+    refuter is discredited and `_check_valid` voids every run of that checker,
+    including the first escape that was established by identical replay. The
+    line is un-impeached, the refuter un-demoted, nothing is tainted and
+    Admission.refused stays empty. The transition table (paper/RGA/INVARIANTS.md
+    §8.2, ReplayEscape) says 'every UNESTABLISHED escape of a discredited
+    checker is void'; the code voids established ones too, in the standing-
+    raising direction. This test documents today's behaviour."""
+
+    def test_single_party_un_impeaches_by_self_discredit(self):
+        h = CalHarness(e_max=0); h.declare_tests(); h.seal_line()
+        first = h.tier_a_escape(nonce="e1")
+        self.assertTrue(first.established)
+        self.assertTrue(h.cal.impeached("w") and h.cal.demoted("tests", "v1", "impl"))
+        second = h.tier_a_escape(nonce="e2", replay=False)
+        h.cal.replay_run(second.index, "refuted", "other-witness")     # one divergent report
+        self.assertIn(TESTS, h.cal.discredited)
+        self.assertTrue(first.established)                              # its identical replay still stands
+        self.assertFalse(h.cal.impeached("w"))
+        self.assertTrue(h.cal.admissible("w"))
+        self.assertFalse(h.cal.demoted("tests", "v1", "impl"))
+        self.assertFalse(h.a.tainted("w"))
+        self.assertEqual(h.a.refused, set())
+        self.assertEqual(custody.polarity_of("cal_discredit"), "+")
+
+
+class FindingF14RefusedCheckerAcceptedOnRebuild(unittest.TestCase):
+    """F14: from_events' cal_run branch does not re-check Admission.refused; a
+    filing by an already-refused checker, refused live, is accepted on rebuild
+    (standing-neutral: _check_valid voids it), a fail-open replay seam."""
+
+    def test_filing_by_a_refused_checker_is_refused_live_and_accepted_on_rebuild(self):
+        from rga.core import derive_seed
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")                  # `tests` refused
+        seal = h.a.sealed["w"]
+        seed = derive_seed("n", seal.artifact_hash, "tests", "v1", "tests_pass")
+        with self.assertRaises(ValueError):
+            h.cal.file_escape("w", "tests_pass", "tests", "v1", "n", b"w-body-0", seed, "k", "f")   # live: refused
+        forged = list(h.cal.events) + [{"type": "cal_run", "run_index": len(h.cal.runs), "line_id": "w",
+                                        "class": "impl", "claim_id": "tests_pass", "checker_id": "tests",
+                                        "checker_version": "v1", "tier": "A", "nonce": "n",
+                                        "artifact_hash": seal.artifact_hash, "seed": seed,
+                                        "verdict": "refuted", "witness_hash": "k", "finder": "f", "ts": 0.0}]
+        rebuilt = CalibrationAuthority.from_events(forged, h.a, h.cal.policy)   # accepted on rebuild
+        self.assertEqual(len(rebuilt.runs), 1)
+        self.assertFalse(rebuilt._check_valid(rebuilt.runs[0]))
+        self.assertFalse(rebuilt.impeached("w"))
+
+
+class FindingF1RefusalPath(unittest.TestCase):
+    """F1, second path (T5): a divergent Admission.replay report refuses a
+    checker everywhere; _check_valid then voids its escapes at every
+    position. A tier-B checker's accepted escape against w is voided by its
+    refusal on another line, un-impeaching w with no taint (w never pinned it)."""
+
+    def test_refusal_of_a_tier_b_checker_un_impeaches_without_taint(self):
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(e_max=0); h.declare_tests(); h.seal_line()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        run = h.cal.file_escape("w", "tests_pass", "hawk", "v1", "n1", b"w-body-0", "any-seed", "hk", "aud")
+        h.cal.replay_run(run.index, "refuted", "hk")
+        h.cal.adjudicate(run.index, "owner", "accept", "reproduced by hand")
+        self.assertTrue(h.cal.impeached("w"))
+        h.a.measure("hawk", "v1", DefectModel("d-hawk", "mutator"), [LedgerEntry("m0", "killed")])
+        pol = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({TESTS, ("hawk", "v1")}), D1),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.a.install(pol)                                          # around the ratchet: the probe's boundary
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z", 0, refuter=("hawk", "v1"))
+        h.a.replay("z", 0, "refuted", "w-same")                  # one divergent report
+        self.assertIn(("hawk", "v1"), h.a.refused)
+        self.assertFalse(h.cal.impeached("w"))
+        self.assertFalse(h.a.tainted("w"))
+        self.assertTrue(h.cal.admissible("w"))
+
+
+class FindingF2ReplaySeam(unittest.TestCase):
+    """Kernel finding F2. CalibrationAuthority.from_events re-checks
+    _guard_audit_checker against escapes(cls) at the FINAL registry (as_of=None),
+    so an honest journal in which an audit was filed by a checker refused
+    LATER in Admission is refused on rebuild: the live machine accepted what
+    replay refuses (an oplax seam, in the record branch's vocabulary)."""
+
+    HAWK = ("hawk", "v1")
+    CLAIMS = (ClaimSpec("tests_pass", "spec-hash-1", frozenset({TESTS}), D1),
+              ClaimSpec("lint_ok", "spec-hash-2", frozenset({HAWK}), D1))
+
+    def _seal(self, h, iid):
+        h.fcd_open(iid); h.cal.open(iid, "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write(iid); h.sample(iid, f"{iid}-body-{i}".encode())
+            h.trial(iid, i, refuter=TESTS, claim="tests_pass")
+            h.trial(iid, i, refuter=self.HAWK, claim="lint_ok", witness="h-same")
+        h.replay_all(iid); h.fcd_check(iid)
+        return h.cal.seal(iid)
+
+    def test_honest_journal_with_an_audit_by_a_later_refused_checker_is_refused_on_rebuild(self):
+        from rga.core import derive_seed
+        h = CalHarness(claims=self.CLAIMS); h.declare_tests()
+        h.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
+        h.a.measure("hawk", "v1", DefectModel(D1, "mutator"), ledger(8, 10))
+        self._seal(h, "w")
+        run = h.cal.file_escape("w", "tests_pass", "hawk", "v1", "nB", b"w-body-0", "any", "hk", "aud")
+        h.cal.replay_run(run.index, "refuted", "hk")
+        h.cal.adjudicate(run.index, "owner", "accept", "reproduced by hand")   # hawk: a valid escape's checker
+        sx = self._seal(h, "x")
+        seed = derive_seed("nA", sx.artifact_hash, "hawk", "v1", "tests_pass")
+        h.cal.file_audit("x", "tests_pass", "hawk", "v1", "nA", b"x-body-0", seed, "surv", "aud")  # accepted live
+        h.fcd_open("z"); h.cal.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0")
+        h.trial("z", 0, refuter=self.HAWK, claim="lint_ok", witness="h-same")
+        h.a.replay("z", 0, "refuted", "h-same")                        # hawk refused, after the audit
+        self.assertIn(self.HAWK, h.a.refused)
+        with self.assertRaises(ValueError):
+            rebuild(h, claims=self.CLAIMS)
+
+
+class FindingF3RollbackWritesTheLowerMachine(unittest.TestCase):
+    """Kernel finding F3. A calibration attempt that drives Admission.seal
+    (committed: rga_seal emitted) and then fails in its own half retracts the
+    committed Admission transition — restoring adm.lines/adm.sealed and
+    truncating adm._events — so C7's proof sentence that the file assigns only
+    the authority's own fields is false on the rollback path, which no kernel
+    test drives. Non-interference holds at attempt granularity, not per step."""
+
+    def test_failed_calibration_attempt_retracts_a_committed_admission_seal(self):
+        h = Harness(); h.declare_tests(); h.run_to_seal_ready()
+
+        seen = []
+
+        def clock():
+            seen.append((len(h.a.events), "w" in h.a.sealed))   # what Admission holds at the moment of failure
+            raise RuntimeError("clock unavailable")     # _emit maps it to JournalValueError
+
+        cal = CalibrationAuthority(h.a, CalibrationPolicy({"impl": CalibrationClass(e_max=1, demotion_gate="seal")}),
+                                   clock=clock)
+        before = len(h.a.events)
+        with self.assertRaises(JournalValueError):
+            cal.seal("w")
+        self.assertEqual(seen, [(before + 1, True)])       # the rga_seal had been committed when the attempt failed
+        self.assertEqual(len(h.a.events), before)          # and the committed rga_seal is gone
+        self.assertNotIn("w", h.a.sealed)
+        self.assertEqual(h.a.lines["w"].pc, "Open")
+        self.assertEqual(cal.events, ())
+
+
+class FindingF4UnregisteredPairCut(unittest.TestCase):
+    """Kernel finding F4 (T14b): a violation refused by exactly two guards is
+    invisible to single-deletion mutation. A sealed line with k+1 samples is
+    reached only when _guard_seal_complete and _guard_sample_count are both
+    deleted; the registry's JOINT table does not carry the pair."""
+
+    def test_k_plus_one_samples_seal_only_with_both_guards_deleted(self):
+        from test_rga_mutation import attempt, deleted
+
+        def body():
+            h = Harness(writes=K + 1); h.declare_tests(); h.fcd_open(); h.rga_open()
+            for i in range(K):
+                h.fcd_write(); h.sample(body=f"b{i}".encode()); h.trial(i=i)
+            h.fcd_write(); h.sample(body=b"extra")
+            h.replay_all(); h.fcd_check(); h.a.seal("w")
+            return "w" in h.a.sealed and len(h.a.lines["w"].samples) > K
+
+        self.assertFalse(attempt(body))
+        for g in ("_guard_seal_complete", "_guard_sample_count"):
+            with deleted([g]):
+                self.assertFalse(attempt(body))
+        with deleted(["_guard_seal_complete", "_guard_sample_count"]):
+            self.assertTrue(attempt(body))
+
+    def test_a_refuter_refused_before_open_seals_admissibly_only_with_both_guards_deleted(self):
+        from test_rga_mutation import attempt, deleted
+
+        def body():
+            h = Harness(); h.declare_tests()
+            h.fcd_open("x"); h.rga_open("x")
+            h.fcd_write("x"); h.sample("x", b"x0"); h.trial("x")
+            h.a.replay("x", 0, "refuted", "w-same")              # refuses `tests` before w opens
+            h.fcd_open("w"); h.rga_open("w")
+            for i in range(K):
+                h.fcd_write("w"); h.sample("w", f"w{i}".encode()); h.trial("w", i)
+            h.replay_all("w"); h.fcd_check("w"); h.a.seal("w")
+            return "w" in h.a.sealed and TESTS in h.a.refused and h.a.admissible("w")
+
+        self.assertFalse(attempt(body))
+        for g in ("_guard_pinned_before_open", "_guard_not_refused"):
+            with deleted([g]):
+                self.assertFalse(attempt(body))
+        with deleted(["_guard_pinned_before_open", "_guard_not_refused"]):
+            self.assertTrue(attempt(body))                        # tainted needs refused_at >= sealed_at
+
+    def test_one_registered_scenario_reddens_under_an_unrelated_deletion(self):
+        from test_rga_mutation import GUARDS, deleted
+        scenario = GUARDS["_guard_not_refused"][2]
+        self.assertFalse(scenario())
+        with deleted(["_check_replay"]):
+            self.assertTrue(scenario())                           # non-specific predicate (N25)
+
+
+class FindingF5InstallCoverageNotRecomputed(unittest.TestCase):
+    """F5: cal_install carries coverage primaries that rebuild never recomputes;
+    an escape before a later install deletes clean (the ratchet only eases)."""
+
+    def test_escape_before_a_later_install_deletes_clean(self):
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        run = h.tier_a_escape("w")
+        h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+        ids = [LedgerEntry(f"m{i}", "killed") for i in range(10)] + [LedgerEntry(h.cal.derived_defect_id(run), "killed")]
+        h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"), ids)
+        succ = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.cal.install(succ)                                        # ratchet: the corpus is covered
+        self.assertEqual(h.cal.events[-1].get("coverage", {}).get("impl", {}).get("corpus_size"), 1)
+        pruned = [e for e in h.cal.events if not (e.get("type") in ("cal_run", "cal_replay") and e.get("run_index") == 0)]
+        fcd2 = Enforcer.from_events(list(h.e.events), fcd_policy())
+        adm2 = Admission.from_events(list(h.a.events), fcd2, admission_policy(), succ)
+        rebuilt = CalibrationAuthority.from_events(pruned, adm2, h.cal.policy)
+        self.assertFalse(rebuilt.impeached("w"))                   # replays clean: install is not an anchor
+
+
+class FindingF7CalOpenLeavesNoTrace(unittest.TestCase):
+    """F7 (carry gate): CalOpen emits no event, so a line opened around the
+    authority with a demoted pinned refuter is mediated, admissible, and
+    replays clean. With gate=seal, CalSeal refuses it with E5 instead."""
+
+    def test_bypassed_open_with_a_demoted_pin_is_admissible_under_carry(self):
+        h = CalHarness(e_max=0, gate="carry"); h.declare_tests(); h.seal_line("w")
+        h.tier_a_escape("w")
+        self.assertTrue(h.cal.demoted("tests", "v1", "impl"))
+        h.fcd_open("x")
+        with self.assertRaises(ValueError):
+            h.cal.open("x", "gen", "temp=0.7")                     # CalOpen refuses live
+        h.a.open("x", "gen", "temp=0.7")                           # around the authority
+        for i in range(h.k):
+            h.fcd_write("x"); h.sample("x", f"x-{i}".encode()); h.trial("x", i)
+        h.replay_all("x"); h.fcd_check("x"); h.cal.seal("x")
+        self.assertTrue(h.cal.mediated("x") and h.cal.admissible("x"))
+        self.assertTrue(rebuild(h).admissible("x"))
+
+
+class FindingF11UnmediatedSealIsUnanchored(unittest.TestCase):
+    """F11: only cal_stamp.sealed_at anchors the scrutiny journal's length; a
+    refusal group before an unmediated (IR) seal deletes clean, because the
+    IR seal — produced by Admission.seal around the authority — carries no
+    stamp and nothing later recomputes against the group."""
+
+    def test_refusal_group_before_an_ir_seal_deletes_clean(self):
+        from rga.core import AdmissionPolicy, ClassAdmission
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")                  # refusal group: taints w; closes z
+        h.a.declare(Refuter("pbt", "v1", "prop-author", "ledger"))
+        h.a.measure("pbt", "v1", DefectModel(D1, "mutator"), ledger(9, 10))
+        pol = AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("pbt", "v1")}), D1),),
+            k=K, theta=1.0, p_min=0.5, excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+        h.a.install(pol)                                          # a successor pinning only pbt (tests is refused)
+        h.fcd_open("y"); h.a.open("y", "gen", "temp=0.7")         # around CalOpen: an IR line
+        for i in range(h.k):
+            h.fcd_write("y"); h.sample("y", f"y-{i}".encode()); h.trial("y", i, refuter=("pbt", "v1"))
+        h.replay_all("y"); h.fcd_check("y")
+        h.a.seal("y")                                             # Admission.seal directly: sealed, never stamped
+        self.assertIn("y", h.a.sealed)
+        self.assertFalse(h.cal.mediated("y"))                     # IR, not IRC
+        surface = custody.deletion_surface(h.cal, "w")
+        self.assertTrue(surface and all(e.exposed for e in surface))
+        drop = {e.index for e in surface}
+        pruned = [e for i, e in enumerate(h.a.events) if i not in drop]
+        rebuilt = Admission.from_events(pruned, h.e, admission_policy(), pol)
+        self.assertTrue(rebuilt.admissible("w"))                  # un-tainted by a deletion replay accepts
+        self.assertIn("y", rebuilt.sealed)                        # and the unanchored IR seal survives it
+        cert_w = custody.standing_certificate(h.cal, "w")
+        cal2 = CalibrationAuthority.from_events(list(h.cal.events), rebuilt, h.cal.policy)
+        self.assertEqual(custody.verify_certificate(cal2, cert_w), ["demonstrations", "lengths", "standing"])
+
+
+class FindingF6SortlessFloor(unittest.TestCase):
+    """Kernel finding F6. bound() accepts (epsilon=1, N=1), so a declared figure of
+    1.0 enters the cross-sort max and satisfies any p_min on a claim whose
+    kernel-counted power is 0/|D|. The floor compares a projection that has
+    forgotten its sort (the quantitative branch's T2')."""
+
+    def test_a_declared_bounded_figure_satisfies_the_floor_over_a_zero_kill_ledger(self):
+        BND = ("bnd", "v1")
+        h = CalHarness(refuters=frozenset({TESTS, BND}), p_min=0.9)
+        h.declare_tests(kills=0, size=10)
+        h.a.declare(Refuter("bnd", "v1", "bnd-author", "bounded"))
+        h.a.bound("bnd", "v1", 1.0, 1)
+        h.fcd_open("w"); h.cal.open("w", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("w"); h.sample("w", f"w-{i}".encode())
+            h.trial("w", i); h.trial("w", i, refuter=BND, witness="b-same")
+        h.replay_all("w"); h.fcd_check("w")
+        seal = h.cal.seal("w")
+        c = seal.claims[0]
+        self.assertEqual((c.composition, c.composite), ("max", 1.0))
+        self.assertEqual(next(r.power for r in c.refuters if r.mode == "ledger"), 0.0)
+        self.assertAlmostEqual(seal.power_min, 1.0)
+
+
+class FindingF8EscapeAtThePublishedTrialPoint(unittest.TestCase):
+    """Kernel finding F8. Sample nonces are journaled, and _guard_run_seed only
+    requires the seed to be the kernel's derivation from the filed nonce, so a
+    tier-A escape can be filed at exactly the seed of a trial that survived.
+    It is accepted and established; the contradiction with the trial is not
+    treated as a replay divergence of the refuter (R5 fires only through
+    Admission.replay)."""
+
+    def test_escape_at_a_surviving_trials_own_seed_is_accepted_and_established(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line()
+        s0 = h.a.lines["w"].samples[0]; t0 = h.a.lines["w"].trials[0]
+        run = h.cal.file_escape("w", "tests_pass", "tests", "v1", s0.nonce, b"w-body-0", t0.seed, "kill", "finder")
+        self.assertEqual(run.seed, t0.seed)
+        h.cal.replay_run(run.index, "refuted", "kill")
+        self.assertTrue(h.cal.impeached("w"))
+        self.assertEqual(h.a.refused, set())
+
+
+class PositionWitnessT12(unittest.TestCase):
+    """T12(c): a recorded journal position is a root on replay, range-checked
+    only, so the offline holder of a journal chooses it freely within the
+    accepting range — the before-generation guard is position-witnessed."""
+
+    def test_recorded_fcd_position_is_a_free_root_within_the_accepting_range(self):
+        from rga.core import Admission
+        h = CalHarness(); h.declare_tests(); h.seal_line()
+        events = [dict(e) for e in h.a.events]
+        opened = next(e for e in events if e["type"] == "rga_open")
+        stage_positions = [i for i, e in enumerate(h.e.events)
+                           if e.get("type") == "stage" and e.get("stage_id", "").startswith("w.")]
+        self.assertLessEqual(opened["fcd_position"], min(stage_positions))   # honest: recorded before the stages
+        opened["fcd_position"] = 0                                  # rewritten downward: accepted
+        rebuilt = Admission.from_events(events, h.e, h.a.policy)
+        self.assertIn("w", rebuilt.sealed)
+        opened["fcd_position"] = max(stage_positions) + 1           # rewritten past the stages: refused
+        with self.assertRaises(ValueError):
+            Admission.from_events(events, h.e, h.a.policy)
+        # The preimage-witnessed guard has no such freedom: a rewritten seed is refused.
+        events = [dict(e) for e in h.a.events]
+        trial = next(e for e in events if e["type"] == "rga_trial")
+        trial["seed"] = "0" * 64
+        with self.assertRaises(ValueError):
+            Admission.from_events(events, h.e, h.a.policy)
+
+
+if __name__ == "__main__":
+    unittest.main()

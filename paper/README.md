@@ -1,12 +1,21 @@
 # Admissible research papers
 
-This directory contains three connected technical reports:
+This directory contains four connected technical reports:
 
 1. [`DRAFT.md`](DRAFT.md) — *Fail-closed class dispatch* (identity layer).
 2. [`RGA/DRAFT.md`](RGA/DRAFT.md) — *Refutation-gated admission* (scrutiny and
    standing layers).
 3. [`admissible/DRAFT.md`](admissible/DRAFT.md) — the composed Admissible
    kernel and its non-interference results.
+4. [`custody/DRAFT.md`](custody/DRAFT.md) — *Custody theory*: the mathematics
+   the three machines are instances of (custodial semantics, the Asymmetry
+   theorem, the Fréchet algebra of carried power, the rewrite groupoid of
+   journals, stacked custody), read back into the kernel as twenty-eight
+   capabilities and fourteen executable findings about the kernel as it is. Its executable companion is [`custody/custody.py`](custody/custody.py)
+   with `tests/test_custody.py`; the catalogue of capabilities with their
+   verification status is [`custody/IMPROVEMENTS.md`](custody/IMPROVEMENTS.md), and
+   the record of its nine review rounds (three adversarial referee rounds, the pull request's automated review, two seven-referee re-reviews of the pull request head, and three internal six-reviewer adversarial re-reviews) is [`custody/REVIEWS.md`](custody/REVIEWS.md).
+   A draft not yet reviewed by the author, not part of the volume PDF.
 
 They are versioned technical reports, not peer-reviewed publications. The
 implementation and tests are the source of truth when prose and executable
