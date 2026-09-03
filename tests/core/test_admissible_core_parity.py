@@ -803,6 +803,63 @@ class DecisionParity(unittest.TestCase):
                         policy_digest=artifact_class.policy_digest,
                         commands=(), reviews=(), now=2000, attempt_id="")
 
+    def decide_long(self, config_module, decision_module, evidence_module):
+        """Evaluate a check whose evidence starts well past ``now`` + the skew
+        allowance but is decided later still -- a check delayed behind a long
+        suite -- against the moment of decision."""
+
+        artifact_class = config_module.parse_config(
+            POLICY_DOCUMENT).select_class("default")
+        started = 2000 + decision_module.MAX_CLOCK_SKEW_SECONDS + 400
+        record = evidence_module.command_evidence_from_dict(command_document(
+            artifact_class.check("unit").argv_digest,
+            artifact_class.policy_digest,
+            started_at=started, finished_at=started + 1))
+        return decision_module.evaluate(
+            artifact_class=artifact_class, repository=REPOSITORY,
+            commit_sha=SHA, tree_sha=TREE,
+            policy_digest=artifact_class.policy_digest,
+            commands=(record,), reviews=(), now=2000,
+            decided_at=started + 5, attempt_id=ATTEMPT)
+
+    def test_a_long_run_is_judged_against_the_decision_clock_by_both(self):
+        legacy = self.decide_long(legacy_config, legacy_decision,
+                                  legacy_evidence)
+        core = self.decide_long(core_config, core_decision, core_evidence)
+        self.assertEqual(legacy.state, legacy_decision.CHECKS_PASSED,
+                         legacy.reasons)
+        self.assertEqual(legacy_decision.decision_to_dict(legacy),
+                         core_decision.decision_to_dict(core))
+        self.assertEqual(legacy_decision.decision_digest(legacy),
+                         core_decision.decision_digest(core))
+
+    def test_both_still_refuse_evidence_ahead_of_the_decision_clock(self):
+        """The guard is measured against ``decided_at``, not disabled: evidence
+        dated past the allowance ahead of the decision clock is refused by
+        both kernels alike."""
+
+        for config_module, decision_module, evidence_module in (
+                (legacy_config, legacy_decision, legacy_evidence),
+                (core_config, core_decision, core_evidence)):
+            artifact_class = config_module.parse_config(
+                POLICY_DOCUMENT).select_class("default")
+            started = 5000 + decision_module.MAX_CLOCK_SKEW_SECONDS + 60
+            record = evidence_module.command_evidence_from_dict(
+                command_document(
+                    artifact_class.check("unit").argv_digest,
+                    artifact_class.policy_digest,
+                    started_at=started, finished_at=started + 1))
+            result = decision_module.evaluate(
+                artifact_class=artifact_class, repository=REPOSITORY,
+                commit_sha=SHA, tree_sha=TREE,
+                policy_digest=artifact_class.policy_digest,
+                commands=(record,), reviews=(), now=2000,
+                decided_at=5000, attempt_id=ATTEMPT)
+            with self.subTest(module=decision_module.__name__):
+                self.assertIn("future_dated_evidence",
+                              [reason.code for reason in result.reasons])
+                self.assertEqual(result.state, decision_module.REFUSED)
+
 
 if __name__ == "__main__":
     unittest.main()

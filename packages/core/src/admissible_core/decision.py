@@ -57,9 +57,12 @@ _DECISION_DOMAIN = "admissible/v0.6/workflow-decision"
 
 _EXIT_CODES = {CHECKS_PASSED: 0, REFUSED: 1, BLOCKED: 2}
 
-# Evidence dated slightly ahead of this clock is ordinary skew between two
-# machines. Evidence dated far ahead is a claim about a future that has not
-# happened, and staleness rules cannot bound it, so it is refused.
+# Evidence dated slightly ahead of the judging clock is ordinary skew between
+# two machines. Evidence dated far ahead is a claim about a future that has not
+# happened, and staleness rules cannot bound it, so it is refused. The judging
+# clock is the moment of decision (``decided_at``), not the moment the run
+# began, so a check that legitimately takes longer than this allowance to run
+# does not read as future-dated merely for finishing late.
 MAX_CLOCK_SKEW_SECONDS = 300
 
 # Preview readiness: what an *evaluation* has established, as distinct from what
@@ -314,7 +317,8 @@ def evaluate(*, artifact_class: ArtifactClass, repository: str,
              authorships: tuple = (),
              provenance: dict[str, str] | None = None,
              not_run: frozenset[str] | tuple[str, ...] = (),
-             base_sha: str = "", patch_sha256: str = "") -> Decision:
+             base_sha: str = "", patch_sha256: str = "",
+             decided_at: int | None = None) -> Decision:
     """Decide admissibility for one artefact from bound evidence only.
 
     Every record must describe *this* repository, commit, tree and policy, and
@@ -341,6 +345,14 @@ def evaluate(*, artifact_class: ArtifactClass, repository: str,
     remediation: list[str] = []
     provenance = dict(provenance or {})
     not_run = frozenset(not_run)
+    # The clock-skew guard is about the moment of judgment, not the moment the
+    # run began. A long check legitimately finishes minutes after ``now`` -- the
+    # attempt's start, kept as ``evaluated_at`` -- and its evidence is not "in
+    # the future": the evaluator only reached it late. A caller that judges
+    # after running the checks passes ``decided_at`` (its clock at that point),
+    # and the guard measures against that. It defaults to ``now`` so a caller
+    # that judges at the instant it stamps the attempt is unaffected.
+    decided_at = now if decided_at is None else decided_at
     advisory_reviews, verified_reviews, unverified_reviews = _split_reviews(
         reviews)
     attested_authorships, claimed_authorships = _split_authorships(authorships)
@@ -416,12 +428,12 @@ def evaluate(*, artifact_class: ArtifactClass, repository: str,
                     f"run check {check.id!r} exactly as configured: "
                     f"{' '.join(check.argv)}")
                 continue
-            if record.started_at > now + MAX_CLOCK_SKEW_SECONDS:
+            if record.started_at > decided_at + MAX_CLOCK_SKEW_SECONDS:
                 reasons.append(Reason(
                     "future_dated_evidence", check.id,
                     f"evidence for check {check.id!r} is dated "
-                    f"{record.started_at - now}s in the future, beyond the "
-                    f"{MAX_CLOCK_SKEW_SECONDS}s clock-skew allowance"))
+                    f"{record.started_at - decided_at}s in the future, beyond "
+                    f"the {MAX_CLOCK_SKEW_SECONDS}s clock-skew allowance"))
                 remediation.append(
                     f"fix the clock on the machine that ran check {check.id!r} "
                     "and produce the evidence again")
@@ -493,12 +505,12 @@ def evaluate(*, artifact_class: ArtifactClass, repository: str,
                 f"{' '.join(check.argv)}")
 
     def review_is_fresh(record, subject: str) -> bool:
-        if record.issued_at > now + MAX_CLOCK_SKEW_SECONDS:
+        if record.issued_at > decided_at + MAX_CLOCK_SKEW_SECONDS:
             reasons.append(Reason(
                 "future_dated_review", subject,
-                f"review {subject!r} is dated {record.issued_at - now}s in the "
-                f"future, beyond the {MAX_CLOCK_SKEW_SECONDS}s clock-skew "
-                "allowance; a max-age rule cannot bound it"))
+                f"review {subject!r} is dated {record.issued_at - decided_at}s "
+                f"in the future, beyond the {MAX_CLOCK_SKEW_SECONDS}s "
+                "clock-skew allowance; a max-age rule cannot bound it"))
             remediation.append(
                 f"fix the clock on the machine that signed {subject!r} and "
                 "obtain the review again")

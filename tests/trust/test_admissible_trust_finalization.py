@@ -1075,6 +1075,41 @@ class TheCommandLineDrivesTheSameThing(FinalizationCase):
         self.assertEqual(1, code)
         self.assertEqual("IMPEACHED", json.loads(out)["state"])
 
+    def test_explain_re_judges_a_long_attempt_at_its_completion_time(self):
+        """`admissible-trust explain` re-runs the evaluator over stored
+        evidence. A check that ran longer than the skew allowance finished
+        after the attempt started; the guard has to be dated at that
+        completion, not the attempt's start, or explain re-reports the evidence
+        as future-dated and contradicts the decision the run recorded."""
+
+        run_start = self.moment + 1000
+        finished = run_start + 402
+
+        def delayed_result(check_object, **_kwargs):
+            return legacy_runner.CommandResult(
+                check_id=check_object.id,
+                check_version=check_object.version,
+                argv_digest=check_object.argv_digest,
+                exit_code=0, timed_out=False, launch_failed=False,
+                duration_ms=(finished - run_start) * 1000,
+                stdout_sha256="0" * 64, stderr_sha256="0" * 64,
+                stdout_bytes=0, stderr_bytes=0, output_truncated=False,
+                started_at=finished - 1, finished_at=finished)
+
+        clock = iter((run_start, finished))
+        with mock.patch.object(legacy_runner, "run_check", delayed_result), \
+                mock.patch.object(legacy_cli.time, "time",
+                                  lambda: next(clock, finished)):
+            self.evaluate()
+
+        code, out, err = self.run_cli(
+            "explain", self.sha, "--repo", str(self.repo), "--json")
+        self.assertEqual(1, code, out + err)
+        document = json.loads(out)
+        self.assertEqual(document["recorded_decision"]["state"],
+                         "CHECKS_PASSED")
+        self.assertEqual(document["decision"]["state"], "CHECKS_PASSED")
+
     def keyring_file(self) -> Path:
         path = self.tmp / "observers.json"
         path.write_text(json.dumps(

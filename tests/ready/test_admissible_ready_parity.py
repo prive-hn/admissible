@@ -226,6 +226,42 @@ class RunPreviewParity(ReadyRepositoryCase):
                     check.pop(field, None)
         self.assertEqual(legacy_document, ready_document)
 
+    def test_a_long_run_is_dated_at_completion_on_both(self):
+        """A check delayed past the skew allowance behind a long suite is dated
+        at the decision, not the attempt's start, by both CLIs -- so both pass
+        rather than reporting legitimate evidence as future-dated."""
+
+        def patches(cli_module):
+            start, finished = 1000, 1000 + 300 + 102
+
+            def delayed_result(check_object, **_kwargs):
+                return cli_module.runner_module.CommandResult(
+                    check_id=check_object.id,
+                    check_version=check_object.version,
+                    argv_digest=check_object.argv_digest,
+                    exit_code=0, timed_out=False, launch_failed=False,
+                    duration_ms=(finished - start) * 1000,
+                    stdout_sha256="0" * 64, stderr_sha256="0" * 64,
+                    stdout_bytes=0, stderr_bytes=0, output_truncated=False,
+                    started_at=finished - 1, finished_at=finished)
+
+            clock = iter((start, finished))
+            return (mock.patch.object(cli_module.runner_module, "run_check",
+                                      delayed_result),
+                    mock.patch.object(cli_module.time, "time",
+                                      lambda: next(clock, finished)))
+
+        for name, cli_module, run in (
+                ("legacy", legacy_cli, self.run_legacy),
+                ("ready", ready_cli, self.run_ready)):
+            run_check_patch, time_patch = patches(cli_module)
+            with run_check_patch, time_patch, self.subTest(cli=name):
+                code, out, err = run(
+                    ["run", "--preview", "--repo", str(self.repo),
+                     "--no-cache", "--json"])
+                self.assertEqual(code, 0, out + err)
+                self.assertEqual(json.loads(out)["state"], "CHECKS_PASSED")
+
     def test_the_preview_artefact_agrees_apart_from_its_evidence_digests(self):
         legacy_path = Path(self.scratch("preview-legacy-")) / "preview.json"
         ready_path = Path(self.scratch("preview-ready-")) / "preview.json"
