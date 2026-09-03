@@ -105,6 +105,7 @@
     "tests.admissible_support": "Test Surface",
     "tests.architecture": "Test Surface",
     "tests.architecture.inspect_wheel": "Test Surface",
+    "tests.architecture.network_boundary_launch": "Test Surface",
     "tests.architecture.separation_guards": "Test Surface",
     "tests.architecture.separation_observer": "Test Surface",
     "tests.architecture.test_distribution_separation": "Test Surface",
@@ -593,6 +594,7 @@
       "tests.architecture.test_import_census"
     ],
     "tests.architecture.test_separation_harness": [
+      "tests.architecture.network_boundary_launch",
       "tests.architecture.separation_guards",
       "tests.architecture.separation_observer"
     ],

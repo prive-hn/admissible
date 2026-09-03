@@ -40,3 +40,6 @@ _sabotage.log
 # files, which are NOT ignored.
 eval/realdefects/bugsinpy
 eval/realdefects/srccache
+
+# Staged offline build backend for the umbrella-build proof (make wheelhouse)
+.wheelhouse/

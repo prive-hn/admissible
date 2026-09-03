@@ -1104,6 +1104,9 @@ IGNORED_DIRECTORY_NAMES = frozenset({
     # beside its scripts; both are gitignored, and the walk must agree with
     # git or the source-list check fails for anyone who reproduces the study.
     "srccache", "bugsinpy",
+    # `make test` stages the pinned isolated-build backend here (gitignored);
+    # the walk must agree with git for the same reason.
+    ".wheelhouse",
 })
 
 #: Files never copied and never digested, by exact name or by suffix.
@@ -1485,23 +1488,32 @@ NETWORK_PROFILE = "(version 1)(allow default)(deny network*)"
 
 _SANDBOX_EXEC = Path("/usr/bin/sandbox-exec")
 
+#: The Linux boundary: a launcher that installs an unprivileged seccomp filter
+#: failing internet ``socket()`` with ``EPERM``, then ``exec``s the command
+#: (the filter is inherited, so it binds the grandchild too).
+_SECCOMP_LAUNCH = Path(__file__).with_name("network_boundary_launch.py")
+
 #: What the harness expects a refused socket to look like from inside.  A
 #: connection that is merely *refused* or that times out is the network
 #: answering, not the boundary; only a permission error is the kernel saying
-#: the call was never made.
+#: the call was never made.  The two boundaries reach that permission error at
+#: different syscalls -- ``sandbox-exec`` lets ``socket()`` succeed and denies
+#: ``connect()``, while the seccomp filter denies the internet ``socket()``
+#: outright -- so the probe wraps both and reports whichever the kernel refuses.
 _DENIED_ERRNO = ("EPERM", "EACCES")
 
 _DENIAL_PROBE = (
     "import errno, socket, sys\n"
-    "probe = socket.socket()\n"
-    "probe.settimeout(5)\n"
     "try:\n"
-    "    probe.connect(('127.0.0.1', 9))\n"
-    "    sys.stdout.write('CONNECTED')\n"
+    "    probe = socket.socket()\n"
+    "    try:\n"
+    "        probe.settimeout(5)\n"
+    "        probe.connect(('127.0.0.1', 9))\n"
+    "        sys.stdout.write('CONNECTED')\n"
+    "    finally:\n"
+    "        probe.close()\n"
     "except OSError as error:\n"
     "    sys.stdout.write(errno.errorcode.get(error.errno, 'NO_ERRNO'))\n"
-    "finally:\n"
-    "    probe.close()\n"
 )
 
 #: The same question one process deeper.  The harness starts the observer
@@ -1530,9 +1542,51 @@ _DENIAL_DEPTHS = (
 #: caller's copies with a marker value that never arrives -- but they are in
 #: the child, so they are named here rather than quietly tolerated by a test
 #: that would otherwise be asserting "the harness owns every variable".
+#:
+#: The Linux boundary is a Python launcher (it installs the seccomp filter,
+#: then ``exec``s), and Python's C-locale coercion writes ``LC_CTYPE`` into the
+#: environment it hands on when the forced locale is ``C`` -- the same kind of
+#: boundary-added name, for the same reason it is tolerated on darwin.
 BOUNDARY_ADDED_NAMES: tuple[str, ...] = (
     ("LC_CTYPE", "__CF_USER_TEXT_ENCODING") if sys.platform == "darwin"
+    else ("LC_CTYPE",) if sys.platform.startswith("linux")
     else ())
+
+
+_SECCOMP_AVAILABLE: bool | None = None
+
+
+def _seccomp_boundary_available() -> bool:
+    """Whether the seccomp launcher installs *and* actually refuses an internet
+    socket on this host -- decided once, by running it.
+
+    A host where an unprivileged seccomp filter cannot be installed (a container
+    started with a profile that forbids nested filters, an architecture the
+    launcher does not know) reports no boundary, so callers get a clean
+    ``IsolationUnavailable`` rather than a boundary that is claimed but does not
+    hold.  This runs the launcher exactly as the harness will, so the check and
+    the enforcement cannot drift apart.
+    """
+
+    global _SECCOMP_AVAILABLE
+    if _SECCOMP_AVAILABLE is None:
+        probe = ("import errno, socket, sys\n"
+                 "try:\n"
+                 "    socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n"
+                 "    sys.stdout.write('OPEN')\n"
+                 "except OSError as error:\n"
+                 "    sys.stdout.write(errno.errorcode.get(error.errno, ''))\n")
+        try:
+            completed = subprocess.run(
+                [sys.executable, str(_SECCOMP_LAUNCH), sys.executable, "-I",
+                 "-c", probe],
+                capture_output=True, timeout=60, env=scrubbed_environment())
+        except (OSError, subprocess.SubprocessError):
+            _SECCOMP_AVAILABLE = False
+        else:
+            answer = completed.stdout.decode("utf-8", "replace").strip()
+            _SECCOMP_AVAILABLE = answer in _DENIED_ERRNO
+    return _SECCOMP_AVAILABLE
 
 
 def network_boundary() -> str:
@@ -1541,18 +1595,24 @@ def network_boundary() -> str:
     if (sys.platform == "darwin" and _SANDBOX_EXEC.is_file()
             and os.access(_SANDBOX_EXEC, os.X_OK)):
         return "sandbox-exec"
+    if (sys.platform.startswith("linux") and _SECCOMP_LAUNCH.is_file()
+            and _seccomp_boundary_available()):
+        return "seccomp"
     return ""
 
 
 def network_denied_command(command) -> list[str]:
-    """``command``, wrapped so that it cannot open a socket."""
+    """``command``, wrapped so that it cannot open an internet socket."""
 
-    if network_boundary() != "sandbox-exec":
-        raise IsolationUnavailable(
-            f"no verified network boundary on {sys.platform}: this harness "
-            "runs mutated build backends and mutated tests, and it will not "
-            "claim an isolation it cannot enforce")
-    return [str(_SANDBOX_EXEC), "-p", NETWORK_PROFILE, *map(str, command)]
+    boundary = network_boundary()
+    if boundary == "sandbox-exec":
+        return [str(_SANDBOX_EXEC), "-p", NETWORK_PROFILE, *map(str, command)]
+    if boundary == "seccomp":
+        return [sys.executable, str(_SECCOMP_LAUNCH), *map(str, command)]
+    raise IsolationUnavailable(
+        f"no verified network boundary on {sys.platform}: this harness "
+        "runs mutated build backends and mutated tests, and it will not "
+        "claim an isolation it cannot enforce")
 
 
 _DENIAL_PROBLEM: str | None = None

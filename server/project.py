@@ -256,7 +256,13 @@ class ProjectRegistry:
         remote = _git(repo, "remote", "get-url", "origin")
         if _normalize_remote(remote) != _normalize_remote(definition.github):
             raise ValueError("local origin does not match GitHub definition")
-        branch = _git(repo, "symbolic-ref", "--short", "HEAD")
+        # A detached HEAD is a valid checkout, not a broken repository: it is
+        # exactly how CI checks a commit out (`actions/checkout` with a sha),
+        # and `symbolic-ref --short HEAD` exits non-zero there. Read the branch
+        # quietly, as the discovery path already does, so a detached HEAD yields
+        # "" (no current branch) rather than failing the load. The base branch
+        # is still verified below by rev-parse, independent of the current one.
+        branch = _quiet_git(repo, "symbolic-ref", "--short", "HEAD")
         # The working branch may be a feature branch; only the declared base
         # must exist (or be the unborn branch for a new repository).
         base = subprocess.run(

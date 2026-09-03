@@ -112,8 +112,28 @@ class CockpitEngineTests(unittest.TestCase):
         self.assertEqual(self.engine.meta[iid]["status_override"], "failed")
 
 
+def _ipv6_loopback_available() -> bool:
+    """Whether this host can actually open an IPv6 loopback socket.
+
+    ``socket.has_ipv6`` reports only that Python was *built* with IPv6; a host
+    can still refuse ``AF_INET6`` at runtime with ``EAFNOSUPPORT`` -- many CI
+    runners and containers disable IPv6 -- so a compile-time flag over-selects.
+    Probe an actual ``::1`` bind, which is what the test under it needs.
+    """
+
+    if not socket.has_ipv6:
+        return False
+    try:
+        with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as probe:
+            probe.bind(("::1", 0))
+    except OSError:
+        return False
+    return True
+
+
 class ServerAddressFamilyTests(unittest.TestCase):
-    @unittest.skipUnless(socket.has_ipv6, "IPv6 is unavailable on this host")
+    @unittest.skipUnless(_ipv6_loopback_available(),
+                         "IPv6 loopback is unavailable on this host")
     def test_make_server_binds_an_ipv6_literal_with_an_ipv6_socket(self):
         httpd = make_server("::1", 0, CockpitEngine(seed=True))
         try:

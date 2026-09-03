@@ -1,11 +1,34 @@
 PYTHON ?= $(shell test -x .venv/bin/python && echo .venv/bin/python || echo python3)
 COCKPIT := apps/cockpit
 
-.PHONY: test test-python test-cockpit audit build cockpit paper paper-check
+# The pinned isolated-build backend that
+# tests/compatibility/test_umbrella_build_backend.py proves an offline build
+# against. That suite only ever takes the backend from a local wheelhouse
+# (never an index), so `make test` stages the pinned wheel once and points
+# ADMISSIBLE_WHEELHOUSE at it -- otherwise the suite fails closed with "no local
+# wheel ... the isolated build could not be proved offline", as it does on a
+# runner that sets no wheelhouse. An operator who already exported
+# ADMISSIBLE_WHEELHOUSE (an offline mirror, say) keeps it: `?=` defers to the
+# environment and the download is skipped whenever the wheel is already present.
+ADMISSIBLE_WHEELHOUSE ?= $(CURDIR)/.wheelhouse
+BUILD_BACKEND_PIN := setuptools==83.0.0
+BUILD_BACKEND_WHEEL := setuptools-83.0.0-py3-none-any.whl
+export ADMISSIBLE_WHEELHOUSE
+
+.PHONY: test test-python test-cockpit wheelhouse audit build cockpit paper paper-check
 
 test: test-python test-cockpit
 
-test-python:
+# Stage the pinned build backend into the wheelhouse. Needs a network once
+# (exactly the fix the suite's own message prescribes); thereafter the wheel is
+# cached in the tree. A no-op when the wheel is already present, so an offline
+# operator wheelhouse is never re-fetched.
+wheelhouse:
+	@test -f "$(ADMISSIBLE_WHEELHOUSE)/$(BUILD_BACKEND_WHEEL)" || \
+	  $(PYTHON) -m pip download $(BUILD_BACKEND_PIN) \
+	    --only-binary=:all: --no-deps -d "$(ADMISSIBLE_WHEELHOUSE)"
+
+test-python: wheelhouse
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -q
 	$(PYTHON) -m unittest discover -s atlas/tests -p 'test_*.py' -q
 
