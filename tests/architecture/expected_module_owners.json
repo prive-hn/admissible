@@ -593,6 +593,7 @@
       "tests.architecture.test_import_census"
     ],
     "tests.architecture.test_separation_harness": [
+      "tests.architecture.network_boundary_launch",
       "tests.architecture.separation_guards",
       "tests.architecture.separation_observer"
     ],

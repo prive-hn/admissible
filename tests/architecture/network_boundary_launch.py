@@ -53,11 +53,20 @@ _AF_NETLINK = 16
 # Classic-BPF opcodes and seccomp return values.
 _LD_W_ABS = 0x20        # BPF_LD | BPF_W | BPF_ABS
 _JMP_JEQ_K = 0x15       # BPF_JMP | BPF_JEQ | BPF_K
+_JGE_K = 0x35           # BPF_JMP | BPF_JGE | BPF_K
 _RET_K = 0x06           # BPF_RET | BPF_K
 _RET_ALLOW = 0x7FFF0000        # SECCOMP_RET_ALLOW
 _RET_ERRNO = 0x00050000        # SECCOMP_RET_ERRNO
 _RET_KILL = 0x80000000         # SECCOMP_RET_KILL_PROCESS
 _EPERM = 1
+
+# x86-64 carries a second ABI, x32, inside the *same* ``AUDIT_ARCH_X86_64``: its
+# calls set this bit in ``nr`` (an x32 ``socket()`` is ``41 | this`` =
+# ``0x40000029``, not ``41``). The arch check cannot tell x32 from native, so a
+# bare ``nr == 41`` compare would let an x32 ``socket()`` miss the compare and
+# fall through to ALLOW. Any ``nr`` carrying this bit is a compatibility-ABI
+# call, never a native syscall, so it is killed before the socket check.
+_X32_SYSCALL_BIT = 0x40000000
 
 # Byte offsets into ``struct seccomp_data``: nr (u32), arch (u32), then the
 # instruction pointer (u64) before the six u64 args, so args[0] low word is 16.
@@ -78,28 +87,33 @@ def _machine_arch() -> int | None:
 def _program(arch: int) -> bytes:
     """The BPF program that allows only local sockets and refuses the rest.
 
-    Ten instructions. First the architecture: a filter is inherited across
-    ``execve``, so a mutant that execs a 32-bit helper would present a
+    Eleven instructions. First the architecture: a filter is inherited across
+    ``execve``, so a mutant that execs a foreign-ABI helper would present a
     *different* ``seccomp_data.arch`` whose syscall numbers this filter does not
     know -- allowing it would leave a compatibility-ABI hole, so any non-native
-    arch is **killed** (`SECCOMP_RET_KILL_PROCESS`), not allowed. Then, for a
-    native ``socket()``, the domain is checked against an allowlist -- ``AF_UNIX``
-    and ``AF_NETLINK`` pass, every other family (``AF_INET``, ``AF_INET6``,
-    ``AF_PACKET`` and any exotic egress family) returns ``EPERM``. Non-``socket``
-    syscalls are allowed.
+    arch is **killed** (`SECCOMP_RET_KILL_PROCESS`), not allowed. x86-64 hides a
+    second ABI, x32, *inside* the native ``arch`` value; its calls set
+    ``_X32_SYSCALL_BIT`` in ``nr`` (an x32 ``socket()`` is ``0x40000029``, not
+    ``41``), so any ``nr`` carrying that bit is a compatibility-ABI call and is
+    killed before the socket check rather than falling through to ALLOW. Then,
+    for a native ``socket()``, the domain is checked against an allowlist --
+    ``AF_UNIX`` and ``AF_NETLINK`` pass, every other family (``AF_INET``,
+    ``AF_INET6``, ``AF_PACKET`` and any exotic egress family) returns ``EPERM``.
+    Non-``socket`` syscalls are allowed.
     """
 
     instructions = [
         (_LD_W_ABS, 0, 0, _OFF_ARCH),
-        (_JMP_JEQ_K, 0, 7, arch),               # not our arch -> KILL (idx 9)
+        (_JMP_JEQ_K, 0, 8, arch),               # not our arch -> KILL (idx 10)
         (_LD_W_ABS, 0, 0, _OFF_NR),
-        (_JMP_JEQ_K, 0, 4, _NR_SOCKET[arch]),   # not socket() -> ALLOW (idx 8)
+        (_JGE_K, 6, 0, _X32_SYSCALL_BIT),       # x32/compat-ABI nr -> KILL (idx 10)
+        (_JMP_JEQ_K, 0, 4, _NR_SOCKET[arch]),   # not socket() -> ALLOW (idx 9)
         (_LD_W_ABS, 0, 0, _OFF_ARG0),
-        (_JMP_JEQ_K, 2, 0, _AF_UNIX),           # AF_UNIX    -> ALLOW (idx 8)
-        (_JMP_JEQ_K, 1, 0, _AF_NETLINK),        # AF_NETLINK -> ALLOW (idx 8)
-        (_RET_K, 0, 0, _RET_ERRNO | _EPERM),    # idx 7: any other family -> EPERM
-        (_RET_K, 0, 0, _RET_ALLOW),             # idx 8
-        (_RET_K, 0, 0, _RET_KILL),              # idx 9: foreign architecture
+        (_JMP_JEQ_K, 2, 0, _AF_UNIX),           # AF_UNIX    -> ALLOW (idx 9)
+        (_JMP_JEQ_K, 1, 0, _AF_NETLINK),        # AF_NETLINK -> ALLOW (idx 9)
+        (_RET_K, 0, 0, _RET_ERRNO | _EPERM),    # idx 8: any other family -> EPERM
+        (_RET_K, 0, 0, _RET_ALLOW),             # idx 9
+        (_RET_K, 0, 0, _RET_KILL),              # idx 10: foreign arch / compat ABI
     ]
     return b"".join(struct.pack("HBBI", *each) for each in instructions)
 

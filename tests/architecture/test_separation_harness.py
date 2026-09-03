@@ -50,6 +50,7 @@ import json
 import os
 import shutil
 import socket
+import struct
 import sys
 import tempfile
 import unittest
@@ -57,6 +58,7 @@ from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
+from . import network_boundary_launch as launcher
 from . import separation_guards as guards
 from . import separation_observer as observer
 
@@ -1081,6 +1083,69 @@ class AChildSeesAPrivateWorld(unittest.TestCase):
         self.assertEqual("error", environment["PYTHONWARNINGS"])
         with self.assertRaises(guards.MutationError):
             guards.scrubbed_environment({"PYTHONWARNINGS": "a\nb"})
+
+
+class TheNetworkFilterProgramDecidesCorrectly(unittest.TestCase):
+    """Every branch of the seccomp program, checked by interpreting it directly.
+
+    The live boundary is exercised elsewhere by running real commands under it,
+    but a host cannot exercise a *foreign* ABI it does not have -- x32 in
+    particular, whose `socket()` shares the native `arch` and would otherwise
+    slip past a bare `nr == __NR_socket` compare into ALLOW. So the classic-BPF
+    program is interpreted here against synthetic `seccomp_data` to prove each
+    decision, the x32 compatibility-ABI kill included, without needing that
+    kernel present.
+    """
+
+    @staticmethod
+    def _decide(program, *, arch, nr, arg0):
+        fields = {launcher._OFF_ARCH: arch, launcher._OFF_NR: nr,
+                  launcher._OFF_ARG0: arg0}
+        instructions = [struct.unpack("HBBI", program[i:i + 8])
+                        for i in range(0, len(program), 8)]
+        accumulator = 0
+        counter = 0
+        while counter < len(instructions):
+            op, jt, jf, k = instructions[counter]
+            if op == launcher._LD_W_ABS:
+                accumulator = fields[k]
+                counter += 1
+            elif op == launcher._JMP_JEQ_K:
+                counter += 1 + (jt if accumulator == k else jf)
+            elif op == launcher._JGE_K:
+                counter += 1 + (jt if accumulator >= k else jf)
+            elif op == launcher._RET_K:
+                return k
+            else:  # pragma: no cover - the program uses no other opcode
+                raise AssertionError(f"unexpected opcode {op:#x}")
+        raise AssertionError("program fell through without returning")
+
+    def test_every_branch_of_the_x86_64_filter(self):
+        arch = launcher._AUDIT_ARCH_X86_64
+        program = launcher._program(arch)
+        socket_nr = launcher._NR_SOCKET[arch]
+        x32 = launcher._X32_SYSCALL_BIT
+        allow = launcher._RET_ALLOW
+        kill = launcher._RET_KILL
+        eperm = launcher._RET_ERRNO | launcher._EPERM
+        cases = [
+            ("AF_INET is denied", socket_nr, 2, eperm),
+            ("AF_INET6 is denied", socket_nr, 10, eperm),
+            ("AF_PACKET is denied", socket_nr, 17, eperm),
+            ("AF_UNIX passes", socket_nr, 1, allow),
+            ("AF_NETLINK passes", socket_nr, 16, allow),
+            ("a non-socket syscall passes", 1, 0, allow),
+            ("an x32 AF_INET socket() is killed", socket_nr | x32, 2, kill),
+            ("any x32 syscall is killed", 1 | x32, 0, kill),
+        ]
+        for name, nr, arg0, expected in cases:
+            with self.subTest(case=name):
+                self.assertEqual(
+                    expected,
+                    self._decide(program, arch=arch, nr=nr, arg0=arg0))
+        # A foreign architecture is killed before nr is even inspected.
+        self.assertEqual(kill, self._decide(
+            program, arch=launcher._AUDIT_ARCH_AARCH64, nr=socket_nr, arg0=1))
 
 
 if __name__ == "__main__":  # pragma: no cover - convenience only
