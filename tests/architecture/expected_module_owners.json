@@ -13,7 +13,7 @@
       "tests",
       "packages/*/src"
     ],
-    "module_count": 187
+    "module_count": 188
   },
   "module_owners": {
     "admissible": "Umbrella",
