@@ -54,7 +54,19 @@ MATH = {
 # renderer itself when it is available.
 UNSUPPORTED = {"\u2016": "|", "\u25a1": "QED",
                "\u1d62": "i", "\u2080": "0", "\u2081": "1", "\u2082": "2",
-               "\u2099": "n", "\u2c7c": "j", "\u2096": "k"}
+               "\u2099": "n", "\u2c7c": "j", "\u2096": "k",
+               # Custody-paper glyphs the base font cannot draw, mapped to a
+               # drawable, escape-safe (no <>&) substitute probed against the
+               # real renderer. \u00b5 (U+00B5) and \u2206 (U+2206) are exact visual
+               # stand-ins for \u03bc and \u0394; the guillemets \u2039 \u00ab are drawable angles.
+               "\u0100": "A", "\u0144": "n", "\u0394": "\u2206", "\u03bc": "\u00b5",
+               "\u03f1": "\u03c1", "\u2113": "l", "\u2115": "N",
+               "\u21a6": "|->", "\u21c0": "\u2192", "\u2218": "\u00b7",
+               "\u227a": "\u2039", "\u2291": "[=", "\u22a8": "|=", "\u22b3": "|>",
+               "\u22c0": "\u2227", "\u22c2": "\u2229", "\u22c3": "\u222a",
+               "\u25c1": "\u00ab", "\u27e6": "[[", "\u27e7": "]]",
+               "\u27e8": "(", "\u27e9": ")",
+               "\U0001d4ab": "P", "\U0001d50a": "G", "\U0001d51f": "b"}
 
 
 def _glyphs(t: str) -> str:
@@ -613,7 +625,14 @@ def main() -> int:
     rga_spec = {"title": "Refutation-gated admission", "author": "Roque Briceño",
                 "page_size": "letter", "page_numbers": True,
                 "elements": md_to_elements(rga_draft.read_text())}
-    return _render(rga_spec, HERE.parent / "RGA" / "refutation-gated-admission.pdf")
+    rc = _render(rga_spec, HERE.parent / "RGA" / "refutation-gated-admission.pdf")
+    if rc != 0:
+        return rc
+    custody_draft = HERE.parent / "custody" / "DRAFT.md"
+    custody_spec = {"title": "Custody theory", "author": "Roque Briceño",
+                    "page_size": "letter", "page_numbers": True,
+                    "elements": md_to_elements(custody_draft.read_text())}
+    return _render(custody_spec, HERE.parent / "custody" / "custody.pdf")
 
 
 if __name__ == "__main__":

@@ -90,9 +90,9 @@ def build_spec() -> dict:
              "(scrutiny), <b>rga/calibration.py</b> (standing)."),
         h("What this volume is", 2),
         para("The complete 0.8.0 technical-report set in one document: the composition paper, "
-             "the scrutiny and standing paper, the identity paper, each layer's premises, "
-             "invariants and proofs, plain-language companions, and the machine-readable "
-             "contracts and deterministic bench record."),
+             "the scrutiny and standing paper, the identity paper, the custody-theory paper, "
+             "each layer's premises, invariants and proofs, plain-language companions, and the "
+             "machine-readable contracts and deterministic bench record."),
         para("The predicate the whole stack computes is admissible(id) := id ∈ S_R ∧ mediated(id) "
              "∧ ¬tainted(id) ∧ ¬impeached(id): sealed under scrutiny, counter-signed by the "
              "calibration authority, no instrument it relied on later caught unreliable, and no "
@@ -112,6 +112,10 @@ def build_spec() -> dict:
              "vocabulary exposed by the reference interface."),
         para("<b>Part V — Contracts and records.</b> The journal event contract, deterministic "
              "kernel bench, and section map."),
+        para("<b>Part VI — Custody theory.</b> The mathematics the three machines are instances "
+             "of: custodial semantics and the Asymmetry theorem, the Fréchet algebra of carried "
+             "power, the record under rewriting, and stacked custody, read back into the kernel "
+             "as capabilities and findings."),
         para("The standalone PDFs are generated from the same Markdown and figure sources as "
              "this volume. Repository READMEs and review logs are intentionally not reprinted as "
              "paper content."),
@@ -177,6 +181,17 @@ def build_spec() -> dict:
     elements += doc(ROOT / "eval" / "bench" / "RESULTS.md")
     elements += [pagebreak()]
     elements += doc(HERE / "SECTIONS.md")
+
+    elements += part(
+        "Part VI — Custody theory",
+        "The mathematics the three machines are instances of. A custody is an append-only record "
+        "held by parties who may lie, certified by replay under a declared trust base; identity, "
+        "scrutiny and standing are shown to be theorems of that one structure. Custodial "
+        "semantics and the Asymmetry theorem, the Fréchet algebra of carried power, the record "
+        "under rewriting and stacked custody — read back into the kernel as twenty-eight "
+        "capabilities and fourteen executable findings. It states no new mechanism; it says what "
+        "the layers already are.")
+    elements += doc(HERE / "custody" / "DRAFT.md")
 
     return {"title": "Admissible — complete technical report volume",
             "author": "Roque Briceño", "page_size": "letter", "page_numbers": True,

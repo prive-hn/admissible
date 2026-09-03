@@ -15,7 +15,8 @@ This directory contains four connected technical reports:
    with `tests/test_custody.py`; the catalogue of capabilities with their
    verification status is [`custody/IMPROVEMENTS.md`](custody/IMPROVEMENTS.md), and
    the record of its nine review rounds (three adversarial referee rounds, the pull request's automated review, two seven-referee re-reviews of the pull request head, and three internal six-reviewer adversarial re-reviews) is [`custody/REVIEWS.md`](custody/REVIEWS.md).
-   A draft not yet reviewed by the author, not part of the volume PDF.
+   Adopted for the 0.8.0 release: its standalone PDF is `custody/custody.pdf`, and
+   it is Part VI of the combined volume.
 
 They are versioned technical reports, not peer-reviewed publications. The
 implementation and tests are the source of truth when prose and executable

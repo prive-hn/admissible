@@ -105,7 +105,7 @@ class PublicRepositorySurface(unittest.TestCase):
     def test_bibtex_inventory_matches_every_arxiv_citation(self):
         draft_ids: set[str] = set()
         for relative in ("paper/DRAFT.md", "paper/RGA/DRAFT.md",
-                         "paper/admissible/DRAFT.md"):
+                         "paper/admissible/DRAFT.md", "paper/custody/DRAFT.md"):
             draft_ids.update(re.findall(
                 r"arXiv:(\d{4}\.\d{5})",
                 (ROOT / relative).read_text(encoding="utf-8")))
@@ -119,6 +119,7 @@ class PublicRepositorySurface(unittest.TestCase):
                 "paper/fail-closed-class-dispatch.pdf",
                 "paper/RGA/refutation-gated-admission.pdf",
                 "paper/admissible/admissible.pdf",
+                "paper/custody/custody.pdf",
                 "paper/admissible-volume.pdf"):
             reader = PdfReader(ROOT / relative)
             text = "\n".join(page.extract_text() or "" for page in reader.pages)
@@ -195,7 +196,8 @@ class PublicRepositorySurface(unittest.TestCase):
         for relative in (
                 "paper/DRAFT.md",
                 "paper/RGA/DRAFT.md",
-                "paper/admissible/DRAFT.md"):
+                "paper/admissible/DRAFT.md",
+                "paper/custody/DRAFT.md"):
             text = (ROOT / relative).read_text(encoding="utf-8")
             ids = re.findall(r"arXiv:(\d{4}\.\d{5})", text)
             self.assertTrue(ids, relative)
