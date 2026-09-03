@@ -205,6 +205,7 @@ class DecisionTest(unittest.TestCase):
         return parsed.select_class("default")
 
     def evaluate(self, artifact_class, commands, reviews=(), *, now=2000,
+                 decided_at=None,
                  commit_sha=SHA, tree_sha=TREE, repository=REPO,
                  signed_by=None, authored_by="author-key",
                  base_sha="", patch_sha256=""):
@@ -243,7 +244,7 @@ class DecisionTest(unittest.TestCase):
             policy_digest=artifact_class.policy_digest,
             commands=tuple(evidence.command_evidence_from_dict(c) for c in commands),
             reviews=marked, authorships=authorships,
-            now=now, attempt_id=ATTEMPT,
+            now=now, decided_at=decided_at, attempt_id=ATTEMPT,
             base_sha=base_sha, patch_sha256=patch_sha256)
 
     def bound(self, artifact_class, **overrides):
@@ -473,6 +474,41 @@ class DecisionTest(unittest.TestCase):
         result = self.evaluate(
             klass, [self.bound(klass, started_at=ahead, finished_at=ahead + 1)])
         self.assertEqual(result.state, decision.CHECKS_PASSED, result.reasons)
+
+    def test_a_check_that_ran_long_is_judged_against_the_decision_clock(self):
+        """A check that starts well after the attempt's start, because an
+        earlier long check delayed it, is not future-dated: the skew guard
+        measures against the moment of decision, not the run's start.
+
+        Here the check starts far past ``now`` + the skew allowance -- as
+        ``make test``'s neighbours do after a five-minute suite -- but the
+        decision is made later still, so its evidence sits in the past of the
+        judging clock and counts.
+        """
+
+        klass = self.artifact_class()
+        started = 2000 + decision.MAX_CLOCK_SKEW_SECONDS + 400
+        result = self.evaluate(
+            klass,
+            [self.bound(klass, started_at=started, finished_at=started + 1)],
+            now=2000, decided_at=started + 5)
+        self.assertEqual(result.state, decision.CHECKS_PASSED, result.reasons)
+        self.assertNotIn(
+            "future_dated_evidence", [r.code for r in result.reasons])
+
+    def test_decided_at_still_refuses_evidence_ahead_of_the_decision_clock(self):
+        """The guard is not disabled -- evidence dated past the allowance ahead
+        of the decision clock is still discarded."""
+
+        klass = self.artifact_class()
+        started = 5000 + decision.MAX_CLOCK_SKEW_SECONDS + 60
+        result = self.evaluate(
+            klass,
+            [self.bound(klass, started_at=started, finished_at=started + 1)],
+            now=2000, decided_at=5000)
+        self.assertIn(
+            "future_dated_evidence", [r.code for r in result.reasons])
+        self.assertEqual(result.state, decision.REFUSED)
 
     def test_cost_ceiling_blocks(self):
         klass = self.artifact_class(max_cost_units=1)
