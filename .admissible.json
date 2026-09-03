@@ -60,16 +60,6 @@
           "cacheable": false
         },
         {
-          "id": "unit",
-          "argv": ["make", "test"],
-          "timeout_seconds": 1800,
-          "cost_units": 4,
-          "required": true,
-          "version": "1",
-          "description": "The repository's own test suite passes.",
-          "cacheable": false
-        },
-        {
           "id": "audit",
           "argv": ["make", "audit"],
           "timeout_seconds": 300,
@@ -87,6 +77,16 @@
           "required": true,
           "version": "1",
           "description": "Cockpit still builds.",
+          "cacheable": false
+        },
+        {
+          "id": "unit",
+          "argv": ["make", "test"],
+          "timeout_seconds": 1800,
+          "cost_units": 4,
+          "required": true,
+          "version": "1",
+          "description": "The repository's own test suite passes; runs last because it is the long check and every check's evidence must be dated within the evaluator's clock-skew window of the run's start.",
           "cacheable": false
         }
       ]
