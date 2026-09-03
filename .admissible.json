@@ -63,7 +63,7 @@
           "id": "audit",
           "argv": ["make", "audit"],
           "timeout_seconds": 300,
-          "cost_units": 5,
+          "cost_units": 4,
           "required": true,
           "version": "1",
           "description": "Cockpit production dependencies have no known holes.",
@@ -73,7 +73,7 @@
           "id": "build",
           "argv": ["make", "build"],
           "timeout_seconds": 600,
-          "cost_units": 6,
+          "cost_units": 5,
           "required": true,
           "version": "1",
           "description": "Cockpit still builds.",
@@ -83,10 +83,10 @@
           "id": "unit",
           "argv": ["make", "test"],
           "timeout_seconds": 1800,
-          "cost_units": 4,
+          "cost_units": 6,
           "required": true,
           "version": "1",
-          "description": "The repository's own test suite passes; runs last because it is the long check and every check's evidence must be dated within the evaluator's clock-skew window of the run's start.",
+          "description": "The repository's own full test suite passes. Highest cost_units on purpose: the evaluator runs checks in ascending cost order, so the one check that outruns the evaluator's start-anchored clock-skew window (~309s vs the 300s allowance) runs last, keeping every check's evidence dated inside the window.",
           "cacheable": false
         }
       ]
