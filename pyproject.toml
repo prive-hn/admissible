@@ -27,11 +27,11 @@ admissible = "admissible.cli:main"
 [project.optional-dependencies]
 # `build` is here because the packaging contract tests build the artefacts and
 # must fail, never skip, when they cannot: a skip reads as "this passed".
-dev = ["build==1.4.0",
-    "setuptools==83.0.0",
-    "wheel==0.47.0",
+dev = ["build==1.6.0",
+    "setuptools==84.0.0",
+    "wheel==0.48.0",
     "hypothesis==6.165.10",
-    "lxml==6.0.2",
+    "lxml==6.1.2",
     # Keep this paper closure identical to paper/requirements.txt. The artifact
     # gate compares committed PDFs and figures byte-for-byte.
     "charset-normalizer==3.5.1",
@@ -59,7 +59,7 @@ dev = ["build==1.4.0",
 [build-system]
 # The backend is pinned exactly because release artifacts record generator
 # identity and must not depend on resolver time.
-requires = ["setuptools==83.0.0"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
