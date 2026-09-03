@@ -126,7 +126,11 @@ def test_total():
 SOURCE
 
 step "1. the eight risk-shaped starter profiles"
-admissible profiles | head -30
+# `sed -n '1,30p'` not `head -30`: head closes the pipe after 30 lines, and
+# under `set -o pipefail` a producer still writing then dies of SIGPIPE and
+# fails the script. sed reads the whole stream and prints only the first 30,
+# so `admissible` always finishes writing to an open pipe.
+admissible profiles | sed -n '1,30p'
 
 step "2. init writes a conservative policy and ignores what its checks produce"
 # The gate refuses a dirty worktree, so init also makes sure the artefacts this
@@ -197,7 +201,7 @@ git checkout -q -b payments
 # ceilings, and the rule that an author key may never count as a reviewer --
 # is what this profile wrote. Only the three check commands are stood in for,
 # and the helper prints exactly which and why.
-admissible init --profile payment-change --force --no-gitignore | head -6
+admissible init --profile payment-change --force --no-gitignore | sed -n '1,6p'
 show adopt-payment-profile .admissible.json
 git add -A
 git commit -q -m "payments: adopt the payment-change profile"
