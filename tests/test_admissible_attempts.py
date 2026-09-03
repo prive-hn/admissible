@@ -149,6 +149,77 @@ class AttemptIdentityTest(Gate):
         self.assertEqual(document["state"], "UNKNOWN")
         self.assertEqual(document["decision"]["state"], "REFUSED")
 
+    def _delayed_check(self, started_at, finished_at):
+        """A check whose evidence starts long after the attempt did.
+
+        A five-minute suite pushes the checks after it well past the
+        clock-skew allowance from the attempt's start; this stands in for one
+        of those without waiting five minutes.
+        """
+
+        def delayed_result(check_object, **_kwargs):
+            return runner.CommandResult(
+                check_id=check_object.id,
+                check_version=check_object.version,
+                argv_digest=check_object.argv_digest,
+                exit_code=0, timed_out=False, launch_failed=False,
+                duration_ms=(finished_at - started_at) * 1000,
+                stdout_sha256="0" * 64, stderr_sha256="0" * 64,
+                stdout_bytes=0, stderr_bytes=0, output_truncated=False,
+                started_at=started_at, finished_at=finished_at)
+
+        return delayed_result
+
+    def test_a_long_run_is_judged_at_its_completion_not_its_start(self):
+        """The CLI dates the decision at the moment the checks finished, so a
+        check that ran longer than the skew allowance is not future-dated."""
+
+        root, sha = self.repo(policy([check("unit", ["python3", "-c", "pass"])]))
+        start = 1000
+        finished = start + decision.MAX_CLOCK_SKEW_SECONDS + 102
+        clock = iter((start, finished))
+        original_run_check = runner.run_check
+        original_time = cli.time.time
+        runner.run_check = self._delayed_check(finished - 1, finished)
+        cli.time.time = lambda: next(clock, finished)
+        self.addCleanup(lambda: setattr(runner, "run_check", original_run_check))
+        self.addCleanup(lambda: setattr(cli.time, "time", original_time))
+
+        code, out, err = self.run_cli("run", "--repo", str(root), "--sha", sha,
+                                      "--no-cache", "--json")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(json.loads(out)["state"], decision.CHECKS_PASSED)
+
+    def test_explain_re_judges_a_long_attempt_at_its_completion_time(self):
+        """`explain` re-runs the evaluator over stored evidence; it must anchor
+        the skew guard at the recorded completion, not the attempt's start, or
+        it re-reports a legitimately long check as future-dated and disagrees
+        with the decision the run already recorded."""
+
+        root, sha = self.repo(policy([check("unit", ["python3", "-c", "pass"])]))
+        start = 1000
+        finished = start + decision.MAX_CLOCK_SKEW_SECONDS + 102
+        clock = iter((start, finished))
+        original_run_check = runner.run_check
+        original_time = cli.time.time
+        runner.run_check = self._delayed_check(finished - 1, finished)
+        cli.time.time = lambda: next(clock, finished)
+        self.addCleanup(lambda: setattr(runner, "run_check", original_run_check))
+        self.addCleanup(lambda: setattr(cli.time, "time", original_time))
+
+        code, out, err = self.run_cli("run", "--repo", str(root), "--sha", sha,
+                                      "--no-cache", "--json")
+        self.assertEqual(code, 0, out + err)
+        recorded = json.loads(out)
+
+        code, out, err = self.run_cli("explain", sha, "--repo", str(root),
+                                      "--json")
+        explained = json.loads(out)
+        self.assertEqual(explained["recorded_decision"]["state"],
+                         decision.CHECKS_PASSED)
+        self.assertEqual(explained["decision"]["state"], recorded["state"])
+        self.assertEqual(explained["decision"]["state"], decision.CHECKS_PASSED)
+
     def test_standing_and_explain_never_disagree_for_one_attempt(self):
         root, sha = self.repo(policy([check("unit", ["python3", "-c", "pass"])]))
         issued = admit(self, root, sha)

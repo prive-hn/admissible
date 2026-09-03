@@ -1418,12 +1418,26 @@ def _command_explain(options, stdout: TextIO, stderr: TextIO) -> int:
                 moment = ((attempt or {}).get("started_at")
                           or (receipts[0].issued_at if receipts else 0)
                           or int(time.time()))
+                # The clock-skew guard measures evidence against the moment the
+                # decision was made -- when the checks finished -- not against
+                # the attempt's start. A check that legitimately ran longer than
+                # the allowance finished after ``moment``; anchoring the guard
+                # there would re-report its evidence as future-dated and
+                # disagree with the decision this run already recorded. ``now``
+                # stays at ``moment`` so review max-age is still answered as of
+                # when the run happened.
+                decided_at = max(
+                    (record.finished_at for record in commands),
+                    default=moment)
+                if decided_at < moment:
+                    decided_at = moment
                 result = evaluate(
                     artifact_class=artifact_class, repository=repository,
                     commit_sha=commit_sha, tree_sha=tree_sha,
                     policy_digest=artifact_class.policy_digest,
                     commands=commands, reviews=reviews,
                     authorships=authorships, now=moment,
+                    decided_at=decided_at,
                     attempt_id=attempt_id)
             except (ConfigError, ValueError) as error:
                 policy_note = str(error)

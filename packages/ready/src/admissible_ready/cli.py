@@ -738,6 +738,10 @@ def _command_run(options, stdout: TextIO, stderr: TextIO) -> int:
             policy_digest=policy_digest, commands=tuple(commands),
             reviews=tuple(reviews) + tuple(carried),
             authorships=tuple(authorships), now=now,
+            # The checks have just run; judge against the clock now, not the
+            # attempt's start, so a check that ran longer than the clock-skew
+            # allowance is not mistaken for future-dated evidence.
+            decided_at=int(time.time()),
             attempt_id=attempt_id, provenance=provenance,
             not_run=frozenset(not_run))
 
