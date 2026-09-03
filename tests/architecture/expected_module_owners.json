@@ -13,7 +13,7 @@
       "tests",
       "packages/*/src"
     ],
-    "module_count": 186
+    "module_count": 187
   },
   "module_owners": {
     "admissible": "Umbrella",
@@ -105,6 +105,7 @@
     "tests.admissible_support": "Test Surface",
     "tests.architecture": "Test Surface",
     "tests.architecture.inspect_wheel": "Test Surface",
+    "tests.architecture.network_boundary_launch": "Test Surface",
     "tests.architecture.separation_guards": "Test Surface",
     "tests.architecture.separation_observer": "Test Surface",
     "tests.architecture.test_distribution_separation": "Test Surface",
@@ -592,6 +593,7 @@
       "tests.architecture.test_import_census"
     ],
     "tests.architecture.test_separation_harness": [
+      "tests.architecture.network_boundary_launch",
       "tests.architecture.separation_guards",
       "tests.architecture.separation_observer"
     ],
@@ -1124,14 +1126,14 @@
     ],
     "tests.core.test_admissible_core_build_backend": [
       {
-        "what": "importlib.util.spec_from_file_location",
-        "target": "admissible_core_build_backend_under_test",
-        "location": null
-      },
-      {
         "what": "importlib.import_module",
         "target": null,
         "package": null
+      },
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": "admissible_core_build_backend_under_test",
+        "location": null
       }
     ],
     "tests.ready.test_admissible_ready_agent": [
@@ -1197,17 +1199,17 @@
       },
       {
         "what": "importlib.util.spec_from_file_location",
-        "target": "release_builder_symlink",
-        "location": null
-      },
-      {
-        "what": "importlib.util.spec_from_file_location",
         "target": "release_builder_race",
         "location": null
       },
       {
         "what": "importlib.util.spec_from_file_location",
         "target": "release_builder_replace",
+        "location": null
+      },
+      {
+        "what": "importlib.util.spec_from_file_location",
+        "target": "release_builder_symlink",
         "location": null
       }
     ],
