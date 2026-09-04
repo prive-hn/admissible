@@ -148,6 +148,36 @@ class RgaPowerAndFrozen(unittest.TestCase):
             self.assertEqual(seal.generator, line.generator, hist.moves)
             self.assertEqual(seal.policy_version, line.policy_version, hist.moves)
 
+    def test_R12_fields_are_frozen_from_open_through_seal(self):
+        """R12: k, theta, generator, policy_version, p_min, m_decl, sampling_hash,
+        fcd_policy_version and claims are fixed at Open and unchanged through every
+        transition to Seal. The universal test above compares the seal to the line
+        only AFTER Seal, where Seal has just copied the line's current state — a
+        pre-seal rewrite would move both together and pass. Snapshot the full tuple
+        at Open, assert it after each transition, then that the seal carries the
+        Open-time values (not a mutated later one)."""
+        h = Harness(); h.declare_tests()
+        h.fcd_open("w"); line = h.rga_open("w")
+
+        def r12(l):
+            return (l.k, l.theta, l.generator, l.policy_version, l.p_min,
+                    norm(l.m_decl), l.sampling_hash, l.fcd_policy_version, l.claims)
+
+        frozen = r12(line)
+        for i in range(h.k):
+            h.fcd_write("w"); h.sample("w", f"b{i}".encode())
+            self.assertEqual(r12(h.a.lines["w"]), frozen)      # a sample rewrites no frozen field
+            h.trial("w", i)
+            self.assertEqual(r12(h.a.lines["w"]), frozen)      # nor a trial
+        h.replay_all("w")
+        self.assertEqual(r12(h.a.lines["w"]), frozen)          # nor a replay
+        h.fcd_check("w")
+        seal = h.a.seal("w")
+        self.assertEqual(r12(h.a.lines["w"]), frozen)          # still frozen at Seal
+        self.assertEqual(                                      # and the seal carries the Open-time values
+            (seal.k, seal.theta, seal.generator, seal.policy_version, seal.p_min, seal.sampling_hash),
+            (frozen[0], frozen[1], frozen[2], frozen[3], frozen[4], frozen[6]))
+
 
 class RgaRefusalAndNonInterference(unittest.TestCase):
     """R5 (nondeterminism refuses, monotone) and R11 (RGA writes no FCD field),

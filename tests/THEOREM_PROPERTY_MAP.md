@@ -6,11 +6,16 @@ against the **live kernel** on every commit. Generated from an adversarial inven
 `paper/admissible/DRAFT.md` (Theorem 1/2), cross-checked against the kernel sites and the
 existing example tests.
 
-**80 labels — no slack.** Every label carries an executable check against the live
-kernel: a universal property over generated histories, a constructed probe that
-drives a specific forbidden transition, or a per-guard deletion proof in the
-mutation suite. The "Property coverage" column below records which; read it with
-these caveats (a later adversarial vacuity audit sharpened them):
+**77 distinct labels across 80 rows — no slack.** **R8, R11 and C7** are each
+stated **twice** — once as their own layer's invariant and once as the
+composition lemma that binds that layer to the one below (the second row of each
+carries the cross-layer framing) — so the table has 80 rows for 77 distinct
+labels; the headline count is the distinct labels, not the rows. Every label
+carries an executable check against the live kernel: a universal property over
+generated histories, a constructed probe that drives a specific forbidden
+transition, or a per-guard deletion proof in the mutation suite. The "Property
+coverage" column below records which; read it with these caveats (a later
+adversarial vacuity audit sharpened them):
 
 - The FCD context invariants **I11, I13, I14, I15, I17** are each a single
   *constructed probe* in `test_fcd_context_properties.py::ContextForbiddenTransitions`,

@@ -39,7 +39,7 @@ for _p in (os.path.join(HERE, ".."), HERE, os.path.join(HERE, "..", "paper", "cu
 
 import custody  # noqa: E402
 import custody_generators as G  # noqa: E402
-from rga.core import derive_seed  # noqa: E402
+from rga.core import Admission, derive_seed  # noqa: E402
 from rga.calibration import CalibrationAuthority  # noqa: E402
 from test_rga_invariants import D1, K, TESTS  # noqa: E402
 
@@ -189,6 +189,32 @@ class AnchoringCompletenessIV(unittest.TestCase):
                             f"({[hist.cal.events[i].get('type') for i in drop_idx]}); "
                             f"moves: {hist.moves}")
 
+    def _assert_priced_rga(self, hist, iid, drop_idx, cert, before):
+        """The scrutiny-journal counterpart. A standing-lowering event can live in
+        the RGA (Admission) journal too — a taint move emits an rga_refuse there —
+        so deleting from cal alone never reaches that class. Prune the Admission
+        journal, rebuild Admission (the FCD projection is untouched) and calibration
+        over it, and require any resulting standing-raise to be priced the same way:
+        the deletion is on the RGA deletion surface, or the certificate refuses it."""
+        pruned = [e for k, e in enumerate(hist.adm.events) if k not in drop_idx]
+        try:
+            adm2 = Admission.from_events(pruned, hist.adm.fcd, hist.adm.policy)
+            forged = CalibrationAuthority.from_events(list(hist.cal.events), adm2, hist.cal.policy)
+        except Exception:
+            return                                          # deletion left L_rep
+        after = forged.admissible(iid)
+        if after and not before:                            # a standing-raise via the RGA journal
+            surface_idx = {s.index for s in custody.deletion_surface(hist.cal, iid)
+                           if s.journal == "rga"}
+            on_surface = bool(drop_idx & surface_idx)
+            caught = [c for c in custody.verify_certificate(forged, cert)
+                      if c not in ("lengths", "standing")] != []
+            self.assertTrue(on_surface or caught,
+                            f"unpriced standing-raise on {iid} by deleting "
+                            f"rga events {sorted(drop_idx)} "
+                            f"({[hist.adm.events[i].get('type') for i in drop_idx]}); "
+                            f"moves: {hist.moves}")
+
     @attack()
     @given(G.histories())
     def test_no_unpriced_standing_raise(self, hist):
@@ -198,11 +224,16 @@ class AnchoringCompletenessIV(unittest.TestCase):
                 continue                                    # already standing; nothing to raise
             cert = custody.standing_certificate(hist.cal, iid)
             n = len(hist.cal.events)
-            for k in range(n):                              # single-event deletions
+            for k in range(n):                              # single-event deletions, cal journal
                 self._assert_priced(hist, iid, {k}, cert, before)
+            m = len(hist.adm.events)
+            for k in range(m):                              # single-event deletions, RGA journal
+                self._assert_priced_rga(hist, iid, {k}, cert, before)
             if DEEP:
-                for a, b in itertools.combinations(range(n), 2):   # pair deletions
+                for a, b in itertools.combinations(range(n), 2):   # pair deletions, cal
                     self._assert_priced(hist, iid, {a, b}, cert, before)
+                for a, b in itertools.combinations(range(m), 2):   # pair deletions, RGA
+                    self._assert_priced_rga(hist, iid, {a, b}, cert, before)
 
 
 # -- Conjecture (ii): N7 nonce chaining does not weaken B9 ---------------------
