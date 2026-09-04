@@ -24,8 +24,8 @@ for _p in (os.path.join(HERE, ".."), HERE):
 
 import rga_generators as G  # noqa: E402
 from fcd.core import norm  # noqa: E402
-from rga.core import DefectModel, LedgerEntry, Refuter  # noqa: E402
-from test_rga_invariants import D1, K, TESTS, Harness, ledger  # noqa: E402
+from rga.core import ClaimSpec, DefectModel, LedgerEntry, Refuter  # noqa: E402
+from test_rga_invariants import D1, K, PBT, TESTS, Harness, ledger  # noqa: E402
 
 DEEP = bool(os.environ.get("ADMISSIBLE_DEEP"))
 EXAMPLES = 400 if DEEP else 50
@@ -158,13 +158,30 @@ class RgaRefusalAndNonInterference(unittest.TestCase):
         h.run_to_seal_ready("w")
         h.a.replay("w", 0, "refuted", "w-flip")               # diverges from the survived trial
         self.assertIn(TESTS, h.a.refused)
-        # refused is monotone: it cannot be measured, bounded, or pinned again
-        with self.assertRaises(ValueError):
-            h.a.measure("tests", "v1", DefectModel(D1, "mutator2"), ledger(9, 10))
-        with self.assertRaises(ValueError):
-            h.a.bound("tests", "v1", 0.9, 5)
-        # and a line that pinned it, still open at refusal, was closed
-        self.assertNotEqual(h.a.lines["w"].pc, "Sealed")
+        # refused is monotone at Measure (V4): re-measuring the refused refuter is
+        # refused for THAT reason. Use a FRESH defect hash so the write-once power
+        # guard (V13, which also raises on the already-measured D1) cannot mask V4.
+        with self.assertRaisesRegex(ValueError, "is refused"):
+            h.a.measure("tests", "v1", DefectModel("d5-hash", "mutator2"), ledger(9, 10))
+        # and the line that pinned it, still open at refusal, was CLOSED by V4
+        # (a bare pc != "Sealed" would also hold of an Open line — assert the close).
+        self.assertEqual(h.a.lines["w"].pc, "Closed")
+        self.assertEqual(h.a.lines["w"].fault, "V4")
+
+    def test_R5_bound_of_a_refused_bounded_refuter_is_refused(self):
+        """V4 at Bound: a refused bounded refuter cannot be bounded. A refused
+        *bounded* refuter is required to reach V4 — with a ledger refuter bound()
+        stops at the mode gate first, so that path proves the mode gate, not V4."""
+        h = Harness(refuters=frozenset({PBT}),
+                    claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({PBT}), D1),))
+        h.a.declare(Refuter("pbt", "v1", "tester", "bounded"))
+        h.fcd_open("w"); h.rga_open("w")
+        h.fcd_write("w"); h.sample("w", b"a0")
+        h.trial("w", 0, refuter=PBT)                          # a survived trial by the bounded refuter
+        h.a.replay("w", 0, "refuted", "flip")                 # diverges -> refuses PBT
+        self.assertIn(PBT, h.a.refused)
+        with self.assertRaisesRegex(ValueError, "is refused"):
+            h.a.bound("pbt", "v1", 0.9, 5)                    # V4, not the mode gate
 
     def test_R11_rga_writes_no_fcd_field(self):
         h = Harness(); h.declare_tests()

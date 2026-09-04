@@ -10,6 +10,7 @@ its refusal.
 """
 from __future__ import annotations
 
+import base64
 import dataclasses
 import os
 import sys
@@ -92,13 +93,17 @@ class ContextForbiddenTransitions(unittest.TestCase):
     def test_I17_a_prior_attempt_receipt_is_rejected(self):
         auth, _ = self._auth()
         a1 = auth.admit("W", G.gate_spec(), specialist="w1")
-        pkg = auth.compile_package(a1.envelope.attempt_id, {"contract": b"c"})
+        auth.compile_package(a1.envelope.attempt_id, {"contract": b"c"})
         auth.close(a1.envelope.attempt_id)
         a2 = auth.admit("W", G.gate_spec(), specialist="w2")
+        # Give a2 its own package and make the stale receipt match a2 on EVERY field
+        # except the prior-attempt identity (attempt_id, nonce): the rejection must
+        # then rest solely on the I17 identity guard, not on a2's package being absent.
+        pkg2 = auth.compile_package(a2.envelope.attempt_id, {"contract": b"c"})
         stale = AdapterReceipt(
             attempt_id=a1.envelope.attempt_id, nonce=a1.envelope.nonce,
-            executor_id="codex", run_id="r1", package_hash_observed=hash_bytes(pkg.payload),
-            continuation_hash=a1.latest_continuation_hash,
+            executor_id="codex", run_id="r1", package_hash_observed=pkg2.expected_hash,
+            continuation_hash=a2.latest_continuation_hash,
             executed_provider="openai", executed_model="model-a")
         self.assertFalse(auth.accept_receipt_for(a2.envelope.attempt_id, stale))
 
@@ -124,7 +129,11 @@ class ContextForbiddenTransitions(unittest.TestCase):
         a = auth.admit("W", gate, specialist="rev")
         pkg = auth.compile_package(a.envelope.attempt_id, {
             "contract": b"contract", "candidate_diff": b"diff", "builder_transcript": b"secret"})
-        self.assertNotIn(b"secret", pkg.payload)
+        # The package stores each record base64-encoded, so raw b"secret" can never
+        # appear regardless of exclusion (a vacuous check). Assert on what actually
+        # carries a leak: the excluded category is absent and its encoded content is not.
+        self.assertNotIn("builder_transcript", pkg.categories)
+        self.assertNotIn(base64.b64encode(b"secret"), pkg.payload)
         # fresh_blind forbids executor continuity
         bad = G.gate_spec(mode="fresh_blind", continuity="executor_continue", caps=frozenset({"continue"}))
         with self.assertRaises(ValueError):
@@ -143,9 +152,31 @@ class ContextForbiddenTransitions(unittest.TestCase):
         auth, acc = self._auth(accepted=("W",))
         a = auth.admit("W", G.gate_spec(), specialist="w1")
         head = auth.project_head("p")
-        auth.promote("W", KnowledgeDelta(("f",), ("artifact:Wf",)), expected_head=head)  # head advances underneath W
-        with self.assertRaises(ValueError):
-            auth.promote("W", KnowledgeDelta(("f2",), ("artifact:Wf2",)), expected_head=head)
+        new_head = auth.promote("W", KnowledgeDelta(("f",), ("artifact:Wf",)), expected_head=head)  # head advances; W's pin stays
+        # W's pin is now stale under the advanced head. Promote again with the CURRENT
+        # head so CAS passes: the DRIFT guard (not the CAS guard test_I13 covers) must
+        # block, and it blocks specifically for want of a signed impact review.
+        with self.assertRaisesRegex(ValueError, "impact review"):
+            auth.promote("W", KnowledgeDelta(("f2",), ("artifact:Wf2",)), expected_head=new_head)
+        # ... and it blocks only UNTIL that review: a signed continue_pinned of the
+        # current head clears the drift and the promotion proceeds.
+        auth.review_impact("W", "reachable", "continue_pinned", "reviewer")
+        final = auth.promote("W", KnowledgeDelta(("f3",), ("artifact:Wf3",)), expected_head=new_head)
+        self.assertNotEqual(final, new_head)
+
+    def test_I16_cache_id_tracks_the_continuation_dimension(self):
+        """I16: cache_id is a stable, dimension-sensitive identity. Appending
+        steering advances latest_continuation_hash with every other identity field
+        held fixed, so the cache id must change — a cache_id that ignored the
+        continuation/steering dimension would reuse a stale context, and one that
+        returned a fresh value per call would destroy every cache hit."""
+        auth, _ = self._auth()
+        a = auth.admit("W", G.gate_spec(), specialist="w1")
+        aid = a.envelope.attempt_id
+        id0 = auth.cache_id(aid)
+        self.assertEqual(id0, auth.cache_id(aid))                # stable across calls
+        auth.append_steering(aid, "work", "W", "adjust")         # advances only the continuation chain
+        self.assertNotEqual(id0, auth.cache_id(aid))             # identity tracks that dimension
 
 
 class WatchdogAndStageCache(unittest.TestCase):

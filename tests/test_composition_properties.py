@@ -85,6 +85,27 @@ class Theorem1Soundness(unittest.TestCase):
         for iid in hist.lines:
             self.assertEqual(reb.admissible(iid), hist.cal.admissible(iid), (iid, hist.moves))
 
+    def test_predicate_holds_on_an_IR_not_IRC_line(self):
+        """The mediated conjunct is load-bearing. The generator only ever seals
+        through the calibration authority, so mediated is True for every sealed
+        line it grows — the mediated conjunct is never the deciding one. Drive a
+        line to a seal via Admission.seal DIRECTLY (no cal_stamp): is_sealed is
+        True but mediated is False (IR, not IRC), so the four-conjunct predicate,
+        and admissible(), must be False for want of mediation."""
+        h = CalHarness(); h.declare_tests()
+        h.fcd_open("w"); h.cal.open("w", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("w"); h.sample("w", f"w-body-{i}".encode()); h.trial("w", i)
+        h.replay_all("w"); h.fcd_check("w")
+        h.a.seal("w")                                            # layer-R seal, no cal_stamp
+        self.assertTrue(h.a.is_sealed("w"))                      # sealed in S_R ...
+        self.assertFalse(h.cal.mediated("w"))                   # ... but never mediated
+        expected = (h.a.is_sealed("w") and h.cal.mediated("w")
+                    and not h.a.tainted("w") and not h.cal.impeached("w"))
+        self.assertFalse(expected)                               # the mediated conjunct fails
+        self.assertEqual(h.cal.admissible("w"), expected)       # predicate == its four conjuncts
+        self.assertFalse(h.cal.admissible("w"))                 # so an IR seal is not admissible
+
 
 class Theorem2Loudness(unittest.TestCase):
     """No deviation is silent: no seal without evidence, no store write before a

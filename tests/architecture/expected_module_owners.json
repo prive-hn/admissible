@@ -880,7 +880,8 @@
       "rga.core"
     ],
     "tests.test_custody_theorems": [
-      "rga.calibration"
+      "rga.calibration",
+      "rga.core"
     ],
     "tests.test_decision_freshness_properties": [
       "admissible.decision"

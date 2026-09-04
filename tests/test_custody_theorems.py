@@ -274,6 +274,40 @@ class KillContextT8(unittest.TestCase):
             for key, u in kc.unique_kills.items():
                 self.assertEqual(u == 0, key in redundant, (iid, key))
 
+    def test_incidence_over_two_overlapping_refuters(self):
+        """The generator only ever pins ONE ledger refuter, so union-coverage and
+        the redundancy biconditional are never exercised (one refuter can neither
+        overlap nor be redundant). Seal a line pinning TWO ledger refuters whose
+        kill-sets overlap, one a subset of the other, and drive both: the union is
+        below the naive sum (overlap collapsed), the subset refuter has zero unique
+        kills and is exactly the one flagged redundant, and uncovered is the
+        complement."""
+        from rga.core import ClaimSpec, DefectModel, Refuter
+        from test_rga_calibration import CalHarness
+        from test_rga_invariants import D1, TESTS, ledger
+        LINT = ("lint", "v1")
+        h = CalHarness(refuters=frozenset({TESTS, LINT}),
+                       claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({TESTS, LINT}), D1),))
+        h.declare_tests()                                    # tests kills m0..m8 (9 of 10)
+        h.a.declare(Refuter("lint", "v1", "linter", "ledger"))
+        h.a.measure("lint", "v1", DefectModel(D1, "mutator"), ledger(6, 10))  # kills m0..m5 (subset)
+        h.fcd_open("w"); h.cal.open("w", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("w"); h.sample("w", f"w-body-{i}".encode())
+            h.trial("w", i, refuter=TESTS)
+            h.trial("w", i, refuter=LINT)
+        h.replay_all("w"); h.fcd_check("w")
+        h.cal.seal("w")
+        kc = custody.kill_context(h.a, "w", "tests_pass")
+        self.assertEqual(kc.size, 10)
+        self.assertEqual(kc.union, 9)                        # |{m0..m8}| — lint's kills are a subset
+        self.assertLess(kc.union, 9 + 6)                     # union below the naive sum: overlap collapsed
+        self.assertEqual(kc.uncovered, kc.size - kc.union)   # the complement (m9)
+        self.assertEqual(kc.unique_kills[TESTS], 3)          # m6, m7, m8
+        self.assertEqual(kc.unique_kills[LINT], 0)           # every lint kill is also a tests kill
+        self.assertIn(LINT, set(kc.redundant))
+        self.assertNotIn(TESTS, set(kc.redundant))
+
 
 # -- C9 (kernel C1), D7: tier as trust-base inclusion -------------------------
 
@@ -286,12 +320,24 @@ class TrustBaseC9(unittest.TestCase):
     def test_derived_tier_agrees_and_trust_base_is_wellformed(self, hist):
         for run in hist.cal.runs:
             self.assertEqual(custody.derived_tier(hist.cal, run), run.tier, hist.moves)
+            # run_base content is load-bearing, not just its tier verdict: a
+            # non-pinned checker's base carries the adjudication assumption E2,
+            # a pinned one's does not.
+            rb = custody.run_base(hist.cal, run)
+            seal = hist.adm.sealed.get(run.line_id)
+            if seal is not None:
+                pinned = hist.cal._pinned_on_claim(seal, run.claim_id)
+                self.assertEqual(custody.ADJUDICATION in rb, run.checker not in pinned, (run.line_id, rb))
         for iid in hist.sealed:
             seal = hist.adm.sealed.get(iid)
             if seal is None:
                 continue
             base = custody.trust_base(hist.adm, seal)
             self.assertTrue(all(isinstance(x, str) for x in base), (iid, base))
+            # ... and the base reflects the seal's refuter modes, not a constant set:
+            modes = {r.mode for c in seal.claims for r in c.refuters}
+            self.assertEqual("B5" in base, "ledger" in modes, (iid, base))
+            self.assertEqual("declared-(epsilon,N)-independence" in base, "bounded" in modes, (iid, base))
 
 
 # -- T16: exposure (attempt index and published refutations) ------------------
@@ -308,8 +354,34 @@ class ExposureT16(unittest.TestCase):
                 exp = custody.exposure(hist.adm, iid)
             except Exception:
                 continue
-            self.assertGreaterEqual(exp.attempt_index, 0, iid)
+            # An independent oracle for the attempt index — 1 + the earlier lines on
+            # the same bind key — kills the constant-index mutant a >=0 check misses
+            # (the generator already produces indices 2 and 3, not only 1).
+            line = hist.adm.lines[iid]
+            key = custody._bind_key(line)
+            expected = 1 + sum(1 for l in hist.adm.lines.values()
+                               if l.id != iid and custody._bind_key(l) == key
+                               and l.opened_at < line.opened_at)
+            self.assertEqual(exp.attempt_index, expected, iid)
             self.assertIsInstance(exp.published_refutations, (list, tuple))
+
+    def test_exposure_reports_a_prior_lines_published_refutation(self):
+        """The generated sweep never files a 'refuted' rga_trial (it closes the
+        line pre-seal), so published_refutations is empty on every generated line
+        and its content is untested. Drive it: refute-and-close one line, reopen a
+        second on the SAME bind key, and read the refutation off the second's
+        exposure — with the attempt index incremented to 2."""
+        from test_rga_calibration import CalHarness
+        h = CalHarness(); h.declare_tests()
+        h.fcd_open("w1"); h.a.open("w1", "gen", "temp=0.7")
+        h.fcd_write("w1"); h.sample("w1", b"b0")
+        h.trial("w1", 0, verdict="refuted")                  # a published refutation; closes w1
+        self.assertEqual(h.a.lines["w1"].pc, "Closed")
+        h.fcd_open("w2"); h.a.open("w2", "gen", "temp=0.7")  # same bind key, opened later
+        exp = custody.exposure(h.a, "w2")
+        self.assertEqual(exp.attempt_index, 2)               # w1 precedes w2 on this bind key
+        self.assertIn("w1", exp.prior_lines)
+        self.assertTrue(any(r[4] == "w1" for r in exp.published_refutations))  # the refutation is reported
 
 
 # -- T15: safety only — a machine that refuses everything is admissible-empty --

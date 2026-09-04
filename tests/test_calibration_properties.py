@@ -103,6 +103,38 @@ class CalibrationConstructed(unittest.TestCase):
     """C4 ratchet, C5 bypass, C7 non-interference, and E-faults as constructed
     probes — each a scenario proving the guard fires."""
 
+    def test_C2_charge_is_unit_across_multiple_valid_escapes(self):
+        """C2/E3: the charge is UNIT — one charge per (line, claim, refuter)
+        however many valid refuted runs prove the same miss. The universal test
+        reads charge_cells(), which is already a frozenset (so len(list)==len(set)
+        is a tautology); this drives the dedup with two valid escapes on the same
+        cell and asserts a single charge behind the two runs."""
+        h = CalHarness(e_max=5); h.declare_tests(); h.seal_line()
+        h.tier_a_escape(nonce="e1", witness="k1")
+        h.tier_a_escape(nonce="e2", witness="k2")
+        refuted = [r for r in h.cal.runs if r.line_id == "w" and r.verdict == "refuted"
+                   and h.cal._check_valid(r)]
+        self.assertGreaterEqual(len(refuted), 2)                  # two valid runs, same cell
+        self.assertEqual(h.cal.charges("tests", "v1", "impl"), 1)  # ... one charge
+        self.assertEqual(len([c for c in h.cal.charge_cells("impl") if c[0] == "w"]), 1)
+
+    def test_C1_a_discredited_checker_lifts_impeachment(self):
+        """C1/E1: impeachment needs a VALID established escape, not merely an
+        established+refuted one. Establish an escape (impeaches), then discredit
+        its checker via a divergent replay: the established+refuted run is still on
+        record, but the checker is discredited so impeached() — which reads the
+        validity half of _check_valid — is False. The universal test's first clause
+        checks only establishment, so this drives the discredited/validity half."""
+        h = CalHarness(); h.declare_tests(); h.seal_line()
+        h.tier_a_escape(nonce="e1")                              # established+refuted -> impeaches
+        self.assertTrue(h.cal.impeached("w"))
+        second = h.tier_a_escape(nonce="e2", replay=False)
+        h.cal.replay_run(second.index, "refuted", "other-witness")  # diverges -> discredits checker
+        self.assertIn(TESTS, h.cal.discredited)
+        self.assertTrue(any(r.line_id == "w" and r.verdict == "refuted" and r.established
+                            for r in h.cal.runs))                # the established+refuted run remains
+        self.assertFalse(h.cal.impeached("w"))                   # ... yet impeachment is lifted
+
     def test_C4_ratchet_refuses_forgetting_a_valid_escape(self):
         h = CalHarness(); h.declare_tests(); h.seal_line()
         run = h.tier_a_escape()                                   # a valid established escape

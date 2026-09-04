@@ -1,13 +1,18 @@
 """Property sweep for the FCD identity layer: I1..I9 and the forbidden
 transitions F1, F3, F6, F7, F8, F10, asserted against the live Enforcer over a
 generated space of histories with fault injection (tests/fcd_generators.py).
+Two guards the generated space does not reach on its own are added as constructed
+probes: a bare decide with no Observe (I1) and a direct Accept while a required
+stage is still Open (I5/I8).
 
 Where tests/test_invariants.py pins each claim on one example, this asserts it
 universally: for every history the generator grows, the identity invariants hold
 of every reachable state, and each forbidden transition is refused wherever it
-could be attempted. F2 (needs a runtime-instance field), F4 (watchdog; see
-test_fcd_watchdog_cache_properties.py), F5 (policy well-formedness) and F9 (chat
-status) are example-only or covered elsewhere, per tests/THEOREM_PROPERTY_MAP.md.
+could be attempted. F2 (needs a runtime-instance field), F4 (watchdog; covered in
+test_fcd_context_properties.py::WatchdogAndStageCache), F5 (phi(a) not an API
+identity; its malformed-identity path is subsumed by bind's usability guard) and
+F9 (a silent stop — a chat stop with status not accepted) are example-only or
+covered elsewhere, per tests/THEOREM_PROPERTY_MAP.md.
 """
 from __future__ import annotations
 
@@ -190,6 +195,32 @@ class FcdForbiddenTransitions(unittest.TestCase):
             e.observe("w", "vendorA:model-g")                 # not Running
         with self.assertRaises(ValueError):
             e.decide_pass("w")                                # not Running
+
+    def test_I1_decide_pass_requires_a_provider_observe(self):
+        """I1 (journal form): a Pass must rest on a provider Observe. decide_pass
+        with pc=Running but no Observe (m_exec is None) is refused. The generator
+        always pairs observe with decide, so test_I1's journal clause never sees a
+        bare decide; this drives the guard the round-3 finding hardened (Bind must
+        not write m_exec, or the Pass check goes tautological)."""
+        e = self._fresh()
+        e.admit("w", "gen"); e.bind("w", True)                # Running, m_exec still None
+        self.assertIsNone(e.items["w"].stages[0].m_exec)
+        with self.assertRaisesRegex(ValueError, "Observe"):
+            e.decide_pass("w")                                # no observe -> refused
+
+    def test_I5_I8_accept_requires_all_stages_passed(self):
+        """I5/I8: Accept's own guard — a direct accept while a required stage is
+        still Open is refused, so the store (written only by Accept) admits only
+        fully-passed items. Generated histories reach 'accepted' only via
+        decide_pass after every stage Passed, so this guard is otherwise never
+        exercised on its own."""
+        e = self._fresh()                                     # stages [write, check]
+        e.admit("w", "gen"); e.bind("w", True)
+        e.observe("w", "vendorA:model-g"); e.decide_pass("w")  # write Passed; check still Open
+        self.assertEqual([s.pc for s in e.items["w"].stages], ["Passed", "Open"])
+        with self.assertRaisesRegex(ValueError, "all stages Passed"):
+            e.accept("w")
+        self.assertNotIn("w", e.store)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,29 @@ against the **live kernel** on every commit. Generated from an adversarial inven
 `paper/admissible/DRAFT.md` (Theorem 1/2), cross-checked against the kernel sites and the
 existing example tests.
 
-**80 labels — no slack.** 73 fully property-testable, 6 partial, 1 example-only.
+**80 labels — no slack.** Every label carries an executable check against the live
+kernel: a universal property over generated histories, a constructed probe that
+drives a specific forbidden transition, or a per-guard deletion proof in the
+mutation suite. The "Property coverage" column below records which; read it with
+these caveats (a later adversarial vacuity audit sharpened them):
+
+- The FCD context invariants **I11, I13, I14, I15, I17** are each a single
+  *constructed probe* in `test_fcd_context_properties.py::ContextForbiddenTransitions`,
+  not a universal property; only **I10** (write-once pins) and **I16** (per-attempt
+  cache identity, with a steering-sensitivity probe) are asserted universally over
+  generated histories.
+- **F5** (phi(a) not an API identity) has no distinct kernel guard — its
+  malformed-identity path is subsumed by Bind's usability check (F3) — so it is
+  reachable only through that guard, not tested on its own.
+- **E5** (the demotion gate at CalSeal) and **V7** (a sample carrying an excluded
+  category) are exercised by the per-guard *deletion* suite
+  (`tests/test_rga_mutation.py`), not by the property sweeps, whose generators do
+  not grow those states.
+- The RGA **bounded-power** branch (Bound, V4-at-Bound) is a constructed probe in
+  `test_rga_properties.py`; the scrutiny generator draws only ledger-mode refuters.
+
+F2 alone is example-only, for want of a runtime-instance field the machine does
+not carry.
 
 
 ## FCD identity (I)

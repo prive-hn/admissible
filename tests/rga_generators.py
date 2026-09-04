@@ -4,11 +4,13 @@ injection, for the scrutiny-layer property sweep (tests/test_rga_properties.py).
 The custody generator drives RGA only on the sealing path (all trials survive,
 theta=1, identical witnesses, always replayed). This one draws the faults the
 scrutiny invariants exist to forbid — refuted / inconclusive verdicts, witnesses
-that disagree across samples, a divergent replay that refuses a refuter, a
-bounded (epsilon, N) refuter, a second measure/bound on a live key — over one
-or more lines and claims, so R1..R13 are exercised against the paths that could
-break them. Each kernel call is guard-checked; a refused move is dropped, so
-every produced history is a real trace of the composed machine.
+that disagree across samples, a divergent replay that refuses a refuter — over
+one or more lines and claims, so R1..R13 are exercised against the paths that
+could break them. The bounded-power branch (Bound) and V4-at-Bound are driven by
+a constructed probe in tests/test_rga_properties.py rather than by this
+generator, which draws only ledger-mode refuters. Each kernel call is
+guard-checked; a refused move is dropped, so every produced history is a real
+trace of the composed machine.
 """
 from __future__ import annotations
 

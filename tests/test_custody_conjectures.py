@@ -134,6 +134,29 @@ class PolarityCompletenessI(unittest.TestCase):
         self.assertIn(("hawk", "v1"), g.a.refused)
         self.assertTrue(g.cal.admissible("w"))
 
+    def test_cal_discredit_raise_matches_its_declared_polarity(self):
+        """cal_discredit is declared '+' — the event §9(i) records as caught
+        mislabelled ('wrong twice'). The generator-driven sign sweep never records
+        its delta: a cal_discredit is always emitted right after a diverged replay,
+        and from_events refuses the prefix ending at that replay, so prev_ok is
+        always False there. Drive it directly: an established escape impeaches w
+        (lowering admissible), then discrediting its checker via a divergent replay
+        lifts the impeachment — a +1 raise that must lie inside the declared
+        polarity (a '-' or '0' label would exclude +1 and fail here)."""
+        from test_rga_calibration import CalHarness
+        h = CalHarness(); h.declare_tests(); h.seal_line()
+        h.tier_a_escape(nonce="e1")                        # established+refuted -> impeaches
+        mid = int(h.cal.admissible("w"))                   # 0 (lowered)
+        self.assertEqual(mid, 0)
+        second = h.tier_a_escape(nonce="e2", replay=False)
+        h.cal.replay_run(second.index, "refuted", "other-witness")   # diverges -> cal_discredit
+        self.assertIn(TESTS, h.cal.discredited)
+        self.assertTrue(any(e.get("type") == "cal_discredit" for e in h.cal.events))
+        after = int(h.cal.admissible("w"))                 # 1 (impeachment lifted)
+        sign = max(-1, min(1, after - mid))                # +1
+        self.assertEqual(sign, 1)
+        self.assertIn(sign, _SIGN[custody.polarity_of("cal_discredit")])
+
 
 # -- Conjecture (iv): the anchoring relation T4.1 is complete ------------------
 
@@ -154,7 +177,12 @@ class AnchoringCompletenessIV(unittest.TestCase):
             surface_idx = {s.index for s in custody.deletion_surface(hist.cal, iid)
                            if s.journal == "cal"}
             on_surface = bool(drop_idx & surface_idx)
-            caught = custody.verify_certificate(forged, cert) != []
+            # "lengths" changes on ANY deletion and "standing" IS the raise being
+            # tested, so both are true-by-construction on every standing-raise and
+            # make `caught` unfalsifiable. A certificate that PRICES the raise must
+            # refuse for a substantive reason beyond those two.
+            caught = [c for c in custody.verify_certificate(forged, cert)
+                      if c not in ("lengths", "standing")] != []
             self.assertTrue(on_surface or caught,
                             f"unpriced standing-raise on {iid} by deleting "
                             f"cal events {sorted(drop_idx)} "
