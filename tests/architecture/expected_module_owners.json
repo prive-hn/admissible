@@ -13,7 +13,7 @@
       "tests",
       "packages/*/src"
     ],
-    "module_count": 191
+    "module_count": 193
   },
   "module_owners": {
     "admissible": "Umbrella",
@@ -129,6 +129,7 @@
     "tests.core.test_admissible_core_store": "Test Surface",
     "tests.core.test_admissible_core_store_open": "Test Surface",
     "tests.custody_generators": "Test Surface",
+    "tests.fcd_generators": "Test Surface",
     "tests.ready": "Test Surface",
     "tests.ready.test_admissible_ready_agent": "Test Surface",
     "tests.ready.test_admissible_ready_boundary": "Test Surface",
@@ -178,6 +179,7 @@
     "tests.test_custody_conjectures": "Test Surface",
     "tests.test_custody_theorems": "Test Surface",
     "tests.test_e8_handcheck": "Test Surface",
+    "tests.test_fcd_enforcer_properties": "Test Surface",
     "tests.test_human_review_receipt": "Test Surface",
     "tests.test_invariants": "Test Surface",
     "tests.test_journal_hardening": "Test Surface",
@@ -686,6 +688,9 @@
       "rga.calibration",
       "rga.core"
     ],
+    "tests.fcd_generators": [
+      "fcd.core"
+    ],
     "tests.ready.test_admissible_ready_agent": [
       "admissible.agent_mcp",
       "admissible_core.store_base",
@@ -855,6 +860,9 @@
     ],
     "tests.test_custody_theorems": [
       "rga.calibration"
+    ],
+    "tests.test_fcd_enforcer_properties": [
+      "fcd.core"
     ],
     "tests.test_human_review_receipt": [
       "fcd.head",
