@@ -13,7 +13,7 @@
       "tests",
       "packages/*/src"
     ],
-    "module_count": 197
+    "module_count": 198
   },
   "module_owners": {
     "admissible": "Umbrella",
@@ -181,6 +181,7 @@
     "tests.test_custody": "Test Surface",
     "tests.test_custody_conjectures": "Test Surface",
     "tests.test_custody_theorems": "Test Surface",
+    "tests.test_decision_freshness_properties": "Test Surface",
     "tests.test_e8_handcheck": "Test Surface",
     "tests.test_fcd_enforcer_properties": "Test Surface",
     "tests.test_human_review_receipt": "Test Surface",
@@ -875,6 +876,9 @@
     ],
     "tests.test_custody_theorems": [
       "rga.calibration"
+    ],
+    "tests.test_decision_freshness_properties": [
+      "admissible.decision"
     ],
     "tests.test_fcd_enforcer_properties": [
       "fcd.core"
