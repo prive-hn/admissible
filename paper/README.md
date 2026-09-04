@@ -17,7 +17,7 @@ This directory contains four connected technical reports:
    with a conjecture-attack lane (`tests/test_custody_conjectures.py`); the catalogue of capabilities with their
    verification status is [`custody/IMPROVEMENTS.md`](custody/IMPROVEMENTS.md), and
    the record of its nine review rounds (three adversarial referee rounds, the pull request's automated review, two seven-referee re-reviews of the pull request head, and three internal six-reviewer adversarial re-reviews) is [`custody/REVIEWS.md`](custody/REVIEWS.md).
-   Adopted for the 0.8.0 release: its standalone PDF is `custody/custody.pdf`, and
+   Adopted for the 0.8.1 release: its standalone PDF is `custody/custody.pdf`, and
    it is Part VI of the combined volume.
 
 They are versioned technical reports, not peer-reviewed publications. The
@@ -46,7 +46,7 @@ composed report. [`REFERENCES.bib`](REFERENCES.bib) contains the machine-readabl
 arXiv entries used across the manuscripts; non-arXiv works remain identified in
 each report's bibliography. Cite a layer paper by its title and the author name
 printed in that manuscript. No DOI, journal acceptance, or peer-review status
-is claimed for version 0.8.0.
+is claimed for version 0.8.1.
 
 ## License
 

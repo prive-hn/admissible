@@ -4,7 +4,7 @@ The signing side of [Admissible](https://github.com/prive-hn/admissible): the
 half that holds a credential and therefore never runs a candidate's code.
 
 ```bash
-pip install admissible-trust     # pulls admissible-core==0.8.0, and nothing else
+pip install admissible-trust     # pulls admissible-core==0.8.1, and nothing else
 admissible-trust policy trust --repo /trusted/checkout
 admissible-trust finalize --preview preview.json --sha "$SHA" \
     --policy-root /trusted/checkout --evaluation-attestation evaluation.json

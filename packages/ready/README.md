@@ -4,7 +4,7 @@ The candidate side of [Admissible](https://github.com/prive-hn/admissible): the
 half that runs on a developer's machine and inside a hosted evaluate job.
 
 ```bash
-pip install admissible-ready      # pulls admissible-core==0.8.0, and nothing else
+pip install admissible-ready      # pulls admissible-core==0.8.1, and nothing else
 admissible-ready init --profile python-library
 admissible-ready check
 ```
@@ -45,7 +45,7 @@ code can reach.
 - **It cannot import Trust.** `admissible_ready` imports the standard library,
   `admissible_core`, and `fcd.journal` for the one canonical serialisation Core
   itself uses. The wheel declares exactly one dependency,
-  `admissible-core==0.8.0`, with no extras and no environment markers.
+  `admissible-core==0.8.1`, with no extras and no environment markers.
 - **It cannot load a signing credential.** There is no key loader, no keyring
   reader and no verifier in the distribution. Instead every entry point that
   can read the repository, open the store, bind a socket or start a subprocess

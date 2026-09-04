@@ -251,7 +251,7 @@ class ImportingReadyDragsInNoAuthority(unittest.TestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         loaded, version = completed.stdout.splitlines()[:2]
         self.assertEqual("", loaded, f"importing the package loaded {loaded}")
-        self.assertEqual("0.8.0", version)
+        self.assertEqual("0.8.1", version)
 
 
 def _import_path() -> str:

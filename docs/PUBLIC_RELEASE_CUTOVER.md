@@ -1,6 +1,6 @@
 # Public repository cutover
 
-This is the approved clean-history cutover for Admissible 0.8.0. It is an
+This is the approved clean-history cutover for Admissible 0.8.1. It is an
 operator runbook, not evidence that the external steps have occurred.
 
 ## Decision
@@ -24,7 +24,7 @@ its accepted head is frozen, and the named gate is authorized:
 1. rename the private repository;
 2. create or change the visibility of the public repository;
 3. push the public root commit;
-4. create `v0.8.0` or a GitHub Release;
+4. create `v0.8.1` or a GitHub Release;
 5. configure PyPI Trusted Publishing or upload packages.
 
 Never move a published tag and never force-push either repository.
@@ -166,9 +166,9 @@ four wheels and four sdists, and record verified Apache-2.0 metadata, canonical
 
 Only after exact public-commit read-back and release authorization:
 
-1. verify the `0.8.0` date, citation metadata, and generated PDFs in the exact
+1. verify the `0.8.1` date, citation metadata, and generated PDFs in the exact
    commit that will be tagged;
-2. create annotated tag `v0.8.0` on the accepted public commit;
+2. create annotated tag `v0.8.1` on the accepted public commit;
 3. push and read back the tag object and peeled commit;
 4. create the GitHub Release and attach the verified artifacts and manifest;
 5. configure PyPI Trusted Publishing for the exact owner, repository, workflow,

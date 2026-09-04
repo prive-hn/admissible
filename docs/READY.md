@@ -14,7 +14,7 @@ available under technical details.
 
 Since 0.8.0 the boundary below is a packaging fact and not only a rule.
 `pip install admissible-ready` installs the candidate side and
-`admissible-core==0.8.0`; it **does not install `admissible-trust`**, under any
+`admissible-core==0.8.1`; it **does not install `admissible-trust`**, under any
 extra or environment marker, and the Ready wheel does not contain Trust's
 modules, so nothing on that machine can import a receipt signer, a keyring
 reader or a verifier even by a path no census walks.

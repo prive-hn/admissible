@@ -85,11 +85,11 @@ def build_spec() -> dict:
     elements: list[dict] = [
         h("Admissible", 1),
         para("<b>A fail-closed admissibility kernel for agents that do not repeat.</b>"),
-        para("Roque Briceño. Version 0.8.0, 30 August 2026. CC BY 4.0."),
+        para("Roque Briceño. Version 0.8.1, 4 September 2026. CC BY 4.0."),
         para("Reference implementation: <b>fcd/core.py</b> (identity), <b>rga/core.py</b> "
              "(scrutiny), <b>rga/calibration.py</b> (standing)."),
         h("What this volume is", 2),
-        para("The complete 0.8.0 technical-report set in one document: the composition paper, "
+        para("The complete 0.8.1 technical-report set in one document: the composition paper, "
              "the scrutiny and standing paper, the identity paper, the custody-theory paper, "
              "each layer's premises, invariants and proofs, plain-language companions, and the "
              "machine-readable contracts and deterministic bench record."),

@@ -18,7 +18,7 @@ from email.parser import Parser
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 PROJECTS = (
     ("admissible-core", ROOT / "packages" / "core"),
     ("admissible-ready", ROOT / "packages" / "ready"),

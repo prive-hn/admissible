@@ -1099,7 +1099,7 @@ def _setuptools_distribution_version() -> str:
     ``setuptools.__version__`` is computed through ``importlib.metadata`` at
     import time.  In Python 3.14's PEP 517 subprocess an extracted project's
     local ``*.egg-info`` can satisfy that unscoped lookup first, making
-    setuptools report the *project* version (``0.8.0``) as its own.  Search only
+    setuptools report the *project* version (``0.8.1``) as its own.  Search only
     the site-packages directory containing the loaded ``build_meta`` module and
     then require the distribution's exact metadata name instead.
     """

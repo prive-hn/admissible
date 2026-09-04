@@ -80,7 +80,7 @@ from tests.architecture import inspect_wheel
 from . import CORE_PROJECT, REPO_ROOT
 
 BACKEND_PATH = CORE_PROJECT / "build_backend.py"
-SDIST_NAME = "admissible_core-0.8.0"
+SDIST_NAME = "admissible_core-0.8.1"
 
 # The roots the backend stages, and the subdirectories it prunes at the copy.
 STAGED_ROOTS = {"fcd": (), "rga": (), "atlas": ("tests",), "protocol": ()}
@@ -1097,8 +1097,8 @@ def write_wheel(path: Path, members: dict[str, bytes], *,
     """A minimal wheel-shaped ZIP holding exactly ``members`` as its payload."""
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr("admissible_core/__init__.py", b"# core\n")
-        archive.writestr("admissible_core-0.8.0.dist-info/METADATA",
-                         "Name: admissible-core\nVersion: 0.8.0\n")
+        archive.writestr("admissible_core-0.8.1.dist-info/METADATA",
+                         "Name: admissible-core\nVersion: 0.8.1\n")
         for name, body in members.items():
             info = zipfile.ZipInfo(name)
             mode = (stat.S_IFLNK | 0o777) if name in links else (stat.S_IFREG | 0o644)
@@ -1127,7 +1127,7 @@ def write_sdist(path: Path, files: dict[str, bytes], *, manifest: bytes | None,
             info.mtime = 0
             archive.addfile(info)
 
-        add(f"{SDIST_NAME}/PKG-INFO", b"Name: admissible-core\nVersion: 0.8.0\n")
+        add(f"{SDIST_NAME}/PKG-INFO", b"Name: admissible-core\nVersion: 0.8.1\n")
         add(f"{SDIST_NAME}/build_backend.py", b"# backend\n")
         add_directory(f"{SDIST_NAME}/_staged")
         for root in sorted(STAGED_ROOTS):
@@ -1174,7 +1174,7 @@ class TheBuiltWheelIsReopenedAndCheckedAgainstTheClosure(unittest.TestCase):
         self.workspace = tempfile.TemporaryDirectory(prefix="core-wheel-check-")
         self.addCleanup(self.workspace.cleanup)
         self.root = Path(self.workspace.name)
-        self.wheel = self.root / "admissible_core-0.8.0-py3-none-any.whl"
+        self.wheel = self.root / "admissible_core-0.8.1-py3-none-any.whl"
 
     def refuse(self, members: dict[str, bytes], **kwargs) -> str:
         write_wheel(self.wheel, members, **kwargs)
@@ -1212,12 +1212,12 @@ class TheBuiltWheelIsReopenedAndCheckedAgainstTheClosure(unittest.TestCase):
         """``*.data/purelib/`` installs onto ``sys.path`` like the archive root."""
         members = dict(STAGED_SAMPLE)
         del members["fcd/journal.py"]
-        members["admissible_core-0.8.0.data/purelib/fcd/journal.py"] = b"BACKDOOR\n"
+        members["admissible_core-0.8.1.data/purelib/fcd/journal.py"] = b"BACKDOOR\n"
         self.assertIn("fcd/journal.py", self.refuse(members))
 
     def test_two_members_installing_to_one_path_are_refused(self):
         members = dict(STAGED_SAMPLE)
-        members["admissible_core-0.8.0.data/purelib/fcd/journal.py"] = b"VALUE = 1\n"
+        members["admissible_core-0.8.1.data/purelib/fcd/journal.py"] = b"VALUE = 1\n"
         self.assertIn("fcd/journal.py", self.refuse(members))
 
     def test_members_outside_the_staged_roots_are_not_the_closure_s_business(self):

@@ -3,7 +3,7 @@
 **The mathematics the identity, scrutiny, and standing machines are instances of.**
 
 Roque Briceño  
-Version 0.8.0. 30 August 2026.
+Version 0.8.1. 4 September 2026.
 Licensed under [CC BY 4.0](../../LICENSES/CC-BY-4.0.txt).
 
 *Drafted with AI assistance from the kernel and the three layer papers, and adopted by the author for this release.*

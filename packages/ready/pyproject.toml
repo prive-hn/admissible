@@ -1,6 +1,6 @@
 [project]
 name = "admissible-ready"
-version = "0.8.0"
+version = "0.8.1"
 description = "The candidate side of Admissible: exact-commit checks, Ready state, MCP and the loopback UI"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -31,7 +31,7 @@ classifiers = [
 # python_version >= "3.10"` is satisfied by every interpreter this project
 # supports, so a marked requirement would pull the umbrella, and Trust with it,
 # into every ordinary install.
-dependencies = ["admissible-core==0.8.0"]
+dependencies = ["admissible-core==0.8.1"]
 
 [project.urls]
 Documentation = "https://github.com/prive-hn/admissible#readme"

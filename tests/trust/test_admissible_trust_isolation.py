@@ -262,7 +262,7 @@ class ImportingTrustDragsInNoExecutor(unittest.TestCase):
         self.assertEqual(0, completed.returncode, completed.stderr)
         loaded, version = completed.stdout.splitlines()[:2]
         self.assertEqual("", loaded, f"importing the package loaded {loaded}")
-        self.assertEqual("0.8.0", version)
+        self.assertEqual("0.8.1", version)
 
     def test_importing_the_whole_graph_starts_no_subprocess_module(self):
         """Only the git adapter may put ``subprocess`` in ``sys.modules``.

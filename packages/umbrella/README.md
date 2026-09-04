@@ -6,7 +6,7 @@ command you already type working, by handing each invocation to the
 distribution that owns it.
 
 ```bash
-pip install admissible          # pulls admissible-core, -ready and -trust, all ==0.8.0
+pip install admissible          # pulls admissible-core, -ready and -trust, all ==0.8.1
 admissible check                # handled by admissible-ready
 admissible finalize --preview preview.json ...   # handled by admissible-trust
 ```
@@ -150,7 +150,7 @@ these sources move to `src/`.
 
 That root project is also still named `admissible`, at `0.7.0`: it is the
 pre-split monolith, and it is what the repository's own legacy suites run
-against during the migration window. This project is the `0.8.0` successor to
+against during the migration window. This project is the `0.8.1` successor to
 it — same distribution name, none of the implementation — and it is the one
 that pins the three split distributions.
 

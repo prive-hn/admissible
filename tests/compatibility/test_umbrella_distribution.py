@@ -39,7 +39,7 @@ from tests.compatibility import (CORE_SRC, CREDENTIAL_VARIABLES, READY_SRC,
                                  REPO_ROOT, TRUST_SRC, UMBRELLA_PACKAGE,
                                  UMBRELLA_PROJECT)
 
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 DISTRIBUTION = "admissible"
 NAMESPACE = "admissible"
 CONSOLE_SCRIPT = "admissible"
@@ -306,7 +306,7 @@ class SdistDerivedWheelAgrees(BuiltCase):
 
     def test_the_sdist_is_named_for_the_distribution(self):
         self.sdist_wheel()
-        self.assertEqual("admissible-0.8.0.tar.gz", self.sdist.name)
+        self.assertEqual("admissible-0.8.1.tar.gz", self.sdist.name)
 
     def test_both_wheels_install_the_same_paths(self):
         self.assertEqual(sorted(self.wheel().installed_paths),

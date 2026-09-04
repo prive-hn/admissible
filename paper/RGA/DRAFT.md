@@ -3,7 +3,7 @@
 **Integrity for agents that do not repeat.**
 
 Roque Briceño  
-Version 0.8.0. 30 August 2026.
+Version 0.8.1. 4 September 2026.
 Licensed under [CC BY 4.0](../../LICENSES/CC-BY-4.0.txt).
 
 ## Abstract

@@ -139,7 +139,7 @@ class ProtocolParity(AgentCase):
         self.assertEqual(agent_mcp.MCP_VERSION, result["protocolVersion"])
         self.assertEqual("admissible-ready", result["serverInfo"]["name"])
         self.assertEqual("Admissible Ready", result["serverInfo"]["title"])
-        self.assertEqual("0.8.0", result["serverInfo"]["version"])
+        self.assertEqual("0.8.1", result["serverInfo"]["version"])
 
     def test_initialize_may_be_called_only_once(self):
         server = self.initialized()

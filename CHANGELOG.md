@@ -7,6 +7,16 @@ Semantic Versioning for its coordinated public distributions.
 
 No changes yet.
 
+## [0.8.1] - 04/09/2026
+
+### Fixed
+
+- Anchor the clock-skew freshness guard at the decision clock (`decided_at`)
+  rather than the wall clock or a check's start time, across `admissible-core`,
+  `admissible-ready`, and `admissible-trust`: evidence or a review dated more
+  than the allowed skew beyond the decision clock is refused as future-dated,
+  and the freshness window follows the decision, not `now`.
+
 ## [0.8.0] - 30/08/2026
 
 The first formal public baseline for the coordinated Admissible distributions.

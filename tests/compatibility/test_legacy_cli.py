@@ -126,7 +126,7 @@ sys.stdout.write(json.dumps({
                 self.assertTrue(
                     found[key].startswith(str(UMBRELLA_PACKAGE)),
                     f"{key} resolved to {found[key]}")
-        self.assertEqual("0.8.0", found["version"])
+        self.assertEqual("0.8.1", found["version"])
 
     def test_the_monolith_is_reachable_from_the_root_but_not_first(self):
         """The leak this ordering could have: proved absent, not hoped for."""
