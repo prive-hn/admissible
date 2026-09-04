@@ -13,7 +13,7 @@
       "tests",
       "packages/*/src"
     ],
-    "module_count": 188
+    "module_count": 191
   },
   "module_owners": {
     "admissible": "Umbrella",
@@ -128,6 +128,7 @@
     "tests.core.test_admissible_core_parity": "Test Surface",
     "tests.core.test_admissible_core_store": "Test Surface",
     "tests.core.test_admissible_core_store_open": "Test Surface",
+    "tests.custody_generators": "Test Surface",
     "tests.ready": "Test Surface",
     "tests.ready.test_admissible_ready_agent": "Test Surface",
     "tests.ready.test_admissible_ready_boundary": "Test Surface",
@@ -174,6 +175,8 @@
     "tests.test_context_server": "Test Surface",
     "tests.test_core": "Test Surface",
     "tests.test_custody": "Test Surface",
+    "tests.test_custody_conjectures": "Test Surface",
+    "tests.test_custody_theorems": "Test Surface",
     "tests.test_e8_handcheck": "Test Surface",
     "tests.test_human_review_receipt": "Test Surface",
     "tests.test_invariants": "Test Surface",
@@ -678,6 +681,11 @@
       "admissible_core.store_open",
       "tests.core"
     ],
+    "tests.custody_generators": [
+      "fcd.core",
+      "rga.calibration",
+      "rga.core"
+    ],
     "tests.ready.test_admissible_ready_agent": [
       "admissible.agent_mcp",
       "admissible_core.store_base",
@@ -840,6 +848,13 @@
       "fcd.journal",
       "rga.calibration",
       "rga.core"
+    ],
+    "tests.test_custody_conjectures": [
+      "rga.calibration",
+      "rga.core"
+    ],
+    "tests.test_custody_theorems": [
+      "rga.calibration"
     ],
     "tests.test_human_review_receipt": [
       "fcd.head",
