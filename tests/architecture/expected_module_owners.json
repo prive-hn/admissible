@@ -13,7 +13,7 @@
       "tests",
       "packages/*/src"
     ],
-    "module_count": 188
+    "module_count": 200
   },
   "module_owners": {
     "admissible": "Umbrella",
@@ -128,6 +128,9 @@
     "tests.core.test_admissible_core_parity": "Test Surface",
     "tests.core.test_admissible_core_store": "Test Surface",
     "tests.core.test_admissible_core_store_open": "Test Surface",
+    "tests.custody_generators": "Test Surface",
+    "tests.fcd_context_generators": "Test Surface",
+    "tests.fcd_generators": "Test Surface",
     "tests.ready": "Test Surface",
     "tests.ready.test_admissible_ready_agent": "Test Surface",
     "tests.ready.test_admissible_ready_boundary": "Test Surface",
@@ -136,6 +139,7 @@
     "tests.ready.test_admissible_ready_isolation": "Test Surface",
     "tests.ready.test_admissible_ready_parity": "Test Surface",
     "tests.ready.test_admissible_ready_store": "Test Surface",
+    "tests.rga_generators": "Test Surface",
     "tests.test_adapter_attestation": "Test Surface",
     "tests.test_admissible_attempts": "Test Surface",
     "tests.test_admissible_authority": "Test Surface",
@@ -170,11 +174,18 @@
     "tests.test_authenticated_receipt": "Test Surface",
     "tests.test_bench": "Test Surface",
     "tests.test_cache": "Test Surface",
+    "tests.test_calibration_properties": "Test Surface",
+    "tests.test_composition_properties": "Test Surface",
     "tests.test_context_envelope": "Test Surface",
     "tests.test_context_server": "Test Surface",
     "tests.test_core": "Test Surface",
     "tests.test_custody": "Test Surface",
+    "tests.test_custody_conjectures": "Test Surface",
+    "tests.test_custody_theorems": "Test Surface",
+    "tests.test_decision_freshness_properties": "Test Surface",
     "tests.test_e8_handcheck": "Test Surface",
+    "tests.test_fcd_context_properties": "Test Surface",
+    "tests.test_fcd_enforcer_properties": "Test Surface",
     "tests.test_human_review_receipt": "Test Surface",
     "tests.test_invariants": "Test Surface",
     "tests.test_journal_hardening": "Test Surface",
@@ -188,6 +199,7 @@
     "tests.test_rga_citations": "Test Surface",
     "tests.test_rga_invariants": "Test Surface",
     "tests.test_rga_mutation": "Test Surface",
+    "tests.test_rga_properties": "Test Surface",
     "tests.test_rga_schema_conformance": "Test Surface",
     "tests.test_scale": "Test Surface",
     "tests.test_self_admit_evidence": "Test Surface",
@@ -678,6 +690,17 @@
       "admissible_core.store_open",
       "tests.core"
     ],
+    "tests.custody_generators": [
+      "fcd.core",
+      "rga.calibration",
+      "rga.core"
+    ],
+    "tests.fcd_context_generators": [
+      "fcd.context"
+    ],
+    "tests.fcd_generators": [
+      "fcd.core"
+    ],
     "tests.ready.test_admissible_ready_agent": [
       "admissible.agent_mcp",
       "admissible_core.store_base",
@@ -736,6 +759,10 @@
       "admissible_ready.ready",
       "admissible_ready.store",
       "tests.ready"
+    ],
+    "tests.rga_generators": [
+      "fcd.core",
+      "rga.core"
     ],
     "tests.test_adapter_attestation": [
       "fcd.adapter_attestation",
@@ -825,6 +852,13 @@
       "fcd.cache",
       "fcd.core"
     ],
+    "tests.test_calibration_properties": [
+      "rga.calibration",
+      "rga.core"
+    ],
+    "tests.test_composition_properties": [
+      "rga.calibration"
+    ],
     "tests.test_context_envelope": [
       "fcd",
       "fcd.context"
@@ -840,6 +874,26 @@
       "fcd.journal",
       "rga.calibration",
       "rga.core"
+    ],
+    "tests.test_custody_conjectures": [
+      "rga.calibration",
+      "rga.core"
+    ],
+    "tests.test_custody_theorems": [
+      "rga.calibration",
+      "rga.core"
+    ],
+    "tests.test_decision_freshness_properties": [
+      "admissible.decision"
+    ],
+    "tests.test_fcd_context_properties": [
+      "fcd.cache",
+      "fcd.context",
+      "fcd.core",
+      "fcd.watchdog"
+    ],
+    "tests.test_fcd_enforcer_properties": [
+      "fcd.core"
     ],
     "tests.test_human_review_receipt": [
       "fcd.head",
@@ -875,6 +929,10 @@
       "rga.core"
     ],
     "tests.test_rga_mutation": [
+      "fcd.core",
+      "rga.core"
+    ],
+    "tests.test_rga_properties": [
       "fcd.core",
       "rga.core"
     ],

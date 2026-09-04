@@ -12,7 +12,9 @@ This directory contains four connected technical reports:
    theorem, the Fréchet algebra of carried power, the rewrite groupoid of
    journals, stacked custody), read back into the kernel as twenty-eight
    capabilities and fourteen executable findings about the kernel as it is. Its executable companion is [`custody/custody.py`](custody/custody.py)
-   with `tests/test_custody.py`; the catalogue of capabilities with their
+   with `tests/test_custody.py`, and the theorems' functional content is asserted
+   against the live kernel by a property harness (`tests/test_custody_theorems.py`)
+   with a conjecture-attack lane (`tests/test_custody_conjectures.py`); the catalogue of capabilities with their
    verification status is [`custody/IMPROVEMENTS.md`](custody/IMPROVEMENTS.md), and
    the record of its nine review rounds (three adversarial referee rounds, the pull request's automated review, two seven-referee re-reviews of the pull request head, and three internal six-reviewer adversarial re-reviews) is [`custody/REVIEWS.md`](custody/REVIEWS.md).
    Adopted for the 0.8.0 release: its standalone PDF is `custody/custody.pdf`, and
