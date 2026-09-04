@@ -323,7 +323,7 @@ class ReadyDocumentationContractTest(unittest.TestCase):
 
 
 class OneRepositoryFourCoordinatedDistributions(unittest.TestCase):
-    """Statement 1: one repository, four 0.8.0 wheels, separate processes."""
+    """Statement 1: one repository, four 0.8.1 wheels, separate processes."""
 
     def test_the_readme_names_all_four_distributions_at_one_version(self):
         text = read("README.md")
@@ -584,7 +584,7 @@ class TheLegacyMonolithIsLabelledMigrationOnly(unittest.TestCase):
 
 
 class TheCoordinatedPinsAreExact(unittest.TestCase):
-    """Statement 12: every sibling edge is `==0.8.0`, and the docs say so."""
+    """Statement 12: every sibling edge is `==0.8.1`, and the docs say so."""
 
     def test_the_declared_edges_are_all_exact(self):
         for distribution, requirements in EXPECTED_REQUIREMENTS.items():
@@ -900,7 +900,7 @@ class TheHostedJobResolvesTheRootMonolithAndNotTheUmbrella(unittest.TestCase):
                                 f"repository root")
 
     def test_the_package_at_the_root_is_the_pre_split_monolith(self):
-        """0.7.0 in both places the root declares it, and not the split 0.8.0."""
+        """0.7.0 in both places the root declares it, and not the split 0.8.1."""
         self.assertIn('version = "0.7.0"', read("pyproject.toml"))
         self.assertIn('__version__ = "0.7.0"', read("admissible/__init__.py"))
         self.assertNotEqual(VERSION, "0.7.0",

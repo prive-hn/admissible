@@ -1,6 +1,6 @@
 [project]
 name = "admissible-trust"
-version = "0.8.0"
+version = "0.8.1"
 description = "The signing side of Admissible: reviews, evaluations, policy trust, finalization, receipts and authenticated standing"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -31,7 +31,7 @@ classifiers = [
 # condition on it. `Requires-Dist: admissible; python_version >= "3.10"` is
 # satisfied by every interpreter this project supports, so a marked requirement
 # would pull the umbrella, and the runner with it, into every ordinary install.
-dependencies = ["admissible-core==0.8.0"]
+dependencies = ["admissible-core==0.8.1"]
 
 [project.urls]
 Documentation = "https://github.com/prive-hn/admissible#readme"

@@ -11,7 +11,7 @@ from pathlib import Path
 
 DEFAULT_AUTHOR_NAME = "Roque Briceño"
 DEFAULT_AUTHOR_EMAIL = "roque@priveperfumeshn.com"
-DEFAULT_MESSAGE = "Admissible 0.8.0 public release"
+DEFAULT_MESSAGE = "Admissible 0.8.1 public release"
 
 
 class ExportError(RuntimeError):

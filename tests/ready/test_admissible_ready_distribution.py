@@ -41,7 +41,7 @@ from tests.architecture import inspect_wheel
 
 from . import CORE_PROJECT, READY_PROJECT, REPO_ROOT
 
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 DISTRIBUTION = "admissible-ready"
 NAMESPACE = "admissible_ready"
 CONSOLE_SCRIPT = "admissible-ready"

@@ -1,4 +1,4 @@
-"""Public-release metadata and export-surface contract for Admissible 0.8.0."""
+"""Public-release metadata and export-surface contract for Admissible 0.8.1."""
 from __future__ import annotations
 
 import json
@@ -128,7 +128,7 @@ class PublicRepositorySurface(unittest.TestCase):
                 page.extract_text() or ""
                 for page in reader.pages[:front_page_count])
             with self.subTest(pdf=relative):
-                self.assertIn("Version 0.8.0", front)
+                self.assertIn("Version 0.8.1", front)
                 self.assertIn("CC BY 4.0", front)
                 self.assertNotIn("release candidate", front.lower())
                 self.assertNotIn("Working draft", front)
@@ -231,8 +231,8 @@ class PublicRepositorySurface(unittest.TestCase):
 
     def test_citation_names_the_release_and_approved_copyright_holders(self):
         citation = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
-        self.assertRegex(citation, r"(?m)^version:\s*[\"']?0\.8\.0")
-        self.assertRegex(citation, r'(?m)^date-released: "2026-08-30"$')
+        self.assertRegex(citation, r"(?m)^version:\s*[\"']?0\.8\.1")
+        self.assertRegex(citation, r'(?m)^date-released: "2026-09-04"$')
         self.assertIn("Roque", citation)
         self.assertIn("Briceño", citation)
         notice = (ROOT / "NOTICE").read_text(encoding="utf-8")

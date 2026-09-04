@@ -5,8 +5,8 @@ type: software
 authors:
   - family-names: "Briceño"
     given-names: "Roque"
-version: "0.8.0"
-date-released: "2026-08-30"
+version: "0.8.1"
+date-released: "2026-09-04"
 license: "Apache-2.0"
 repository-code: "https://github.com/prive-hn/admissible"
 url: "https://github.com/prive-hn/admissible"

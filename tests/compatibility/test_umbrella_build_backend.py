@@ -97,7 +97,7 @@ from tests.architecture import inspect_wheel
 
 from tests.compatibility import REPO_ROOT, UMBRELLA_PACKAGE, UMBRELLA_PROJECT
 
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 DISTRIBUTION = "admissible"
 
 #: The backend, named once and exactly.

@@ -1,6 +1,6 @@
 [project]
 name = "admissible-core"
-version = "0.8.0"
+version = "0.8.1"
 description = "The authority-neutral Admissible kernel: identity, policy, evidence, decision, schemas"
 readme = "README.md"
 requires-python = ">=3.10"

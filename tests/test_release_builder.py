@@ -1,4 +1,4 @@
-"""Release-builder contract for the coordinated Admissible 0.8.0 artifacts."""
+"""Release-builder contract for the coordinated Admissible 0.8.1 artifacts."""
 from __future__ import annotations
 
 import hashlib
@@ -16,14 +16,14 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 BUILDER = ROOT / "scripts" / "build_release_artifacts.py"
 EXPECTED = {
-    "admissible_core-0.8.0-py3-none-any.whl",
-    "admissible_core-0.8.0.tar.gz",
-    "admissible_ready-0.8.0-py3-none-any.whl",
-    "admissible_ready-0.8.0.tar.gz",
-    "admissible_trust-0.8.0-py3-none-any.whl",
-    "admissible_trust-0.8.0.tar.gz",
-    "admissible-0.8.0-py3-none-any.whl",
-    "admissible-0.8.0.tar.gz",
+    "admissible_core-0.8.1-py3-none-any.whl",
+    "admissible_core-0.8.1.tar.gz",
+    "admissible_ready-0.8.1-py3-none-any.whl",
+    "admissible_ready-0.8.1.tar.gz",
+    "admissible_trust-0.8.1-py3-none-any.whl",
+    "admissible_trust-0.8.1.tar.gz",
+    "admissible-0.8.1-py3-none-any.whl",
+    "admissible-0.8.1.tar.gz",
 }
 
 
@@ -106,7 +106,7 @@ class ReleaseBuilderProducesBoundArtifacts(unittest.TestCase):
                 path = output / item["name"]
                 self.assertEqual(item["size"], path.stat().st_size)
                 self.assertEqual(item["sha256"], hashlib.sha256(path.read_bytes()).hexdigest())
-                self.assertEqual(item["version"], "0.8.0")
+                self.assertEqual(item["version"], "0.8.1")
                 self.assertEqual(item["license_expression"], "Apache-2.0")
                 self.assertEqual(item["generator"], "setuptools (83.0.0)")
                 self.assertTrue(item["contains_license"])
@@ -203,7 +203,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "admissible-ready"
-version = "0.8.0"
+version = "0.8.1"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
@@ -255,7 +255,7 @@ packages = ["admissible_ready"]
             self.assertEqual(
                 manifest["source"]["tree"], manifest["source"]["working_tree"]
             )
-            wheel = output / "admissible_ready-0.8.0-py3-none-any.whl"
+            wheel = output / "admissible_ready-0.8.1-py3-none-any.whl"
             with zipfile.ZipFile(wheel) as archive:
                 self.assertNotIn(
                     "admissible_ready/race_ignored_payload.py", archive.namelist()

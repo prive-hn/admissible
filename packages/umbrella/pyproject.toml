@@ -1,6 +1,6 @@
 [project]
 name = "admissible"
-version = "0.8.0"
+version = "0.8.1"
 description = "Developer-convenience umbrella: the legacy `admissible` command, dispatched to the distribution that owns it"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -32,9 +32,9 @@ classifiers = [
 # says so; this one says the opposite, in the open, so that "which of these did
 # I install?" has a visible answer.
 dependencies = [
-  "admissible-core==0.8.0",
-  "admissible-ready==0.8.0",
-  "admissible-trust==0.8.0",
+  "admissible-core==0.8.1",
+  "admissible-ready==0.8.1",
+  "admissible-trust==0.8.1",
 ]
 
 [project.urls]

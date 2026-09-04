@@ -41,7 +41,7 @@ from tests.architecture import inspect_wheel
 
 from . import CORE_PROJECT, READY_PROJECT, REPO_ROOT, TRUST_PROJECT
 
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 DISTRIBUTION = "admissible-trust"
 NAMESPACE = "admissible_trust"
 CONSOLE_SCRIPT = "admissible-trust"
@@ -298,7 +298,7 @@ class SdistDerivedWheelAgrees(BuiltCase):
 
     def test_the_sdist_is_named_for_the_distribution(self):
         self.sdist_wheel()
-        self.assertEqual("admissible_trust-0.8.0.tar.gz", self.sdist.name)
+        self.assertEqual("admissible_trust-0.8.1.tar.gz", self.sdist.name)
 
     def test_both_wheels_install_the_same_paths(self):
         self.assertEqual(sorted(self.wheel().installed_paths),

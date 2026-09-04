@@ -280,7 +280,7 @@ def build_spec(paths: dict[str, Path]) -> dict:
         "elements": [
             h("Fail-closed class dispatch"),
             para("<b>Class-admitted work, data-plane bind. This machine has no leftover-hop edge.</b>"),
-            para("Roque Briceño · Version 0.8.0 · 30 August 2026 · CC BY 4.0 · Reference implementation 0.5.0."),
+            para("Roque Briceño · Version 0.8.1 · 4 September 2026 · CC BY 4.0 · Reference implementation 0.5.0."),
             h("Abstract", 2),
             para(
                 "A specialized model fleet is a checkable claim only if a work item of class c "

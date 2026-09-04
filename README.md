@@ -33,10 +33,10 @@ This is Clark–Wilson integrity applied to LLM binds, not a new algebra.
 | `paper/fail-closed-class-dispatch.pdf` | Research PDF, structural and live cockpit figures only |
 | `paper/VISUAL.md` | Author interpretation. Not the name, not a 3D task |
 | `paper/RGA/` | Refutation-gated admission: `PREMISE.md` (the attack on the brief + round-1 addendum), `INVARIANTS.md` (B0–B11, transitions, R1–R13, faults V1–V15), `PROOFS.md`, `DRAFT.md` |
-| `packages/core/` | `admissible-core` 0.8.0: the authority-neutral kernel — identity, policy, evidence, decision, schemas. No console command, no dependencies |
-| `packages/ready/` | `admissible-ready` 0.8.0: the candidate side. Runs checks, serves the loopback UI and MCP, holds no key. Depends on `admissible-core==0.8.0` and nothing else |
-| `packages/trust/` | `admissible-trust` 0.8.0: the signing side. Reviews, attestations, policy trust, finalization, standing. Starts no candidate command. Depends on `admissible-core==0.8.0` and nothing else |
-| `packages/umbrella/` | `admissible` 0.8.0: the developer-convenience dispatcher that keeps the legacy `admissible` command working. Pins all three siblings at `==0.8.0`, installs both authorities, and is forbidden in trusted infrastructure |
+| `packages/core/` | `admissible-core` 0.8.1: the authority-neutral kernel — identity, policy, evidence, decision, schemas. No console command, no dependencies |
+| `packages/ready/` | `admissible-ready` 0.8.1: the candidate side. Runs checks, serves the loopback UI and MCP, holds no key. Depends on `admissible-core==0.8.1` and nothing else |
+| `packages/trust/` | `admissible-trust` 0.8.1: the signing side. Reviews, attestations, policy trust, finalization, standing. Starts no candidate command. Depends on `admissible-core==0.8.1` and nothing else |
+| `packages/umbrella/` | `admissible` 0.8.1: the developer-convenience dispatcher that keeps the legacy `admissible` command working. Pins all three siblings at `==0.8.1`, installs both authorities, and is forbidden in trusted infrastructure |
 | `admissible/` | The **pre-split monolith**, still at 0.7.0 and kept only for the one-release migration window — it is what the source-checkout CI gate runs and what the legacy suites are written against. 18 CLI commands, eight risk-shaped starter profiles, Python 3.10+. It is history with a window, not the current split architecture: that is `packages/` |
 | `admissible/templates/` | The workflow/action files `admissible init --ci github` scaffolds, byte-identical to this repository's own copies. Only `consumer-workflow.yml` also ships inside the `admissible-ready` wheel |
 | `.github/workflows/admissible-gate.yml` | The reusable `workflow_call` gate a consumer pins by commit. It is **evaluate-only**: it runs candidate commands, holds no signing key and no reviewer keyring, and contains no finalize job at all. `admissible-trust finalize` runs elsewhere, on a trusted machine that has no candidate executor installed, and is the only place ADMITTED is ever issued |
@@ -71,7 +71,7 @@ This is Clark–Wilson integrity applied to LLM binds, not a new algebra.
 
 ## Installing Admissible
 
-Admissible is **one repository** and **four coordinated 0.8.0 distributions**,
+Admissible is **one repository** and **four coordinated 0.8.1 distributions**,
 built from `packages/`, meant to be installed into **separate processes**. The
 separation is physical rather than conventional: the Ready wheel does not
 contain Trust's modules, the Trust wheel does not contain Ready's, and neither
@@ -85,10 +85,10 @@ declares the other as a dependency under any extra or environment marker.
 | `admissible` | `admissible` | none of its own: static compatibility dispatch of the legacy verb to whichever sibling owns it |
 
 ```bash
-pip install admissible-core==0.8.0   # kernel alone; no dependencies
-pip install admissible-ready==0.8.0  # + exact Core; candidate execution
-pip install admissible-trust==0.8.0  # + exact Core; trusted finalization
-pip install admissible==0.8.0        # developer umbrella; all three siblings
+pip install admissible-core==0.8.1   # kernel alone; no dependencies
+pip install admissible-ready==0.8.1  # + exact Core; candidate execution
+pip install admissible-trust==0.8.1  # + exact Core; trusted finalization
+pip install admissible==0.8.1        # developer umbrella; all three siblings
 ```
 
 Those index commands become valid only after all four artifacts exist in the
@@ -97,7 +97,7 @@ build from this exact checkout with
 `.venv/bin/python scripts/build_release_artifacts.py` and install the verified
 local artifacts from `dist/`.
 
-Every sibling edge is an **exact** `==0.8.0` pin, never a range. The four agree
+Every sibling edge is an **exact** `==0.8.1` pin, never a range. The four agree
 about what a policy digest is, what an evidence record hashes to and what a
 decision means; a range would let a Ready wheel evaluate against a kernel that
 computes one of those differently, and the disagreement would surface as a
@@ -373,7 +373,7 @@ repository, and the workflow should not be read as if it were.
 
 The split distributions — `admissible-core`, `admissible-ready`,
 `admissible-trust` and the `admissible` umbrella under `packages/` — are all
-**0.8.0**, versioned and built together and pinned to each other with `==`.
+**0.8.1**, versioned and built together and pinned to each other with `==`.
 That is a coordinated version and a coordinated build in this repository, and
 nothing more: no distribution here has been published anywhere. The root
 project is still the pre-split monolith at **0.7.0**; it is retained for the
@@ -714,7 +714,7 @@ No quality theorem. No item liveness. No leftover-hop “corollary.” I1 is Pas
 
 Historical frozen-head research reviews live in `eval/reviews/`; they are
 evidence about the commits they name, not approval of a later release. The
-public 0.8.0 release record will bind its reviews, tests, artifacts, and tag to
+public 0.8.1 release record will bind its reviews, tests, artifacts, and tag to
 one accepted commit.
 
 ## Community and security
@@ -726,7 +726,7 @@ rules, [`SECURITY.md`](SECURITY.md) for private vulnerability reporting, and
 ## Citation
 
 Use [`CITATION.cff`](CITATION.cff) and the paper-specific guidance in
-[`paper/README.md`](paper/README.md). Version 0.8.0 is a technical-report and
+[`paper/README.md`](paper/README.md). Version 0.8.1 is a technical-report and
 software release; no DOI, journal acceptance, or peer-review status is claimed.
 
 ## License

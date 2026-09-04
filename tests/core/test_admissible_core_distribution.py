@@ -1,4 +1,4 @@
-"""Contract: ``admissible-core==0.8.0`` builds, ships, and installs as itself.
+"""Contract: ``admissible-core==0.8.1`` builds, ships, and installs as itself.
 
 Task 2's separation suite asserts the whole four-way split and stays red until
 every project exists.  This one is narrower on purpose: it is the Core half of
@@ -32,7 +32,7 @@ from . import CORE_PROJECT, REPO_ROOT
 
 DISTRIBUTION = "admissible-core"
 NAMESPACE = "admissible_core"
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 REQUIRES_PYTHON = ">=3.10"
 
 # Core carries the kernel plus the shared roots every dependent needs.  Stated
@@ -102,7 +102,7 @@ class CoreProjectBuilds(unittest.TestCase):
         wheel = built_wheel()
         digest = hashlib.sha256(wheel.path.read_bytes()).hexdigest()
         self.assertEqual(64, len(digest))
-        self.assertTrue(wheel.path.name.startswith("admissible_core-0.8.0-"))
+        self.assertTrue(wheel.path.name.startswith("admissible_core-0.8.1-"))
         self.assertTrue(wheel.path.name.endswith(".whl"))
 
 
@@ -247,7 +247,7 @@ class CoreSdistCarriesEverythingItNeeds(unittest.TestCase):
             return sorted(archive.getnames())
 
     def test_the_sdist_is_named_for_the_distribution_and_version(self):
-        self.assertEqual("admissible_core-0.8.0.tar.gz", self.sdist().name)
+        self.assertEqual("admissible_core-0.8.1.tar.gz", self.sdist().name)
 
     def test_the_sdist_carries_every_namespace_the_wheel_ships(self):
         members = self.members()
@@ -260,7 +260,7 @@ class CoreSdistCarriesEverythingItNeeds(unittest.TestCase):
 
     def test_the_sdist_carries_the_backend_that_builds_it(self):
         """``backend-path`` names a file; an sdist without it cannot build."""
-        self.assertIn("admissible_core-0.8.0/build_backend.py", self.members())
+        self.assertIn("admissible_core-0.8.1/build_backend.py", self.members())
 
     def test_the_sdist_prunes_the_atlas_test_suite(self):
         stowaways = [member for member in self.members() if "/atlas/tests" in member]
@@ -291,7 +291,7 @@ class CoreSdistCarriesEverythingItNeeds(unittest.TestCase):
         extracted = self.root / "extracted"
         with tarfile.open(self.sdist()) as archive:
             archive.extractall(extracted, filter="data")
-        project = extracted / "admissible_core-0.8.0"
+        project = extracted / "admissible_core-0.8.1"
         rebuilt = inspect_wheel.inspect_wheel(
             inspect_wheel.build_wheel(project, self.root / "rebuilt"))
         self.assertEqual(EXPECTED_TOP_LEVEL, rebuilt.top_level)
@@ -307,7 +307,7 @@ class CoreSdistCarriesEverythingItNeeds(unittest.TestCase):
         extracted = self.root / "generator-extracted"
         with tarfile.open(self.sdist()) as archive:
             archive.extractall(extracted, filter="data")
-        project = extracted / "admissible_core-0.8.0"
+        project = extracted / "admissible_core-0.8.1"
         wheel = inspect_wheel.build_wheel(project, self.root / "generator-wheel")
         with zipfile.ZipFile(wheel) as archive:
             member = next(
@@ -315,7 +315,7 @@ class CoreSdistCarriesEverythingItNeeds(unittest.TestCase):
                 if name.endswith(".dist-info/WHEEL"))
             metadata = archive.read(member).decode("utf-8")
         self.assertIn("Generator: setuptools (83.0.0)\n", metadata)
-        self.assertNotIn("Generator: setuptools (0.8.0)\n", metadata)
+        self.assertNotIn("Generator: setuptools (0.8.1)\n", metadata)
 
 
 class CoreInstallsAndImports(unittest.TestCase):

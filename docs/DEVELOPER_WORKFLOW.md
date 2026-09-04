@@ -11,7 +11,7 @@ it, that it is bound to this exact commit, and that it is fresh.
 
 ## Install
 
-Admissible is one repository and four coordinated 0.8.0 distributions, built
+Admissible is one repository and four coordinated 0.8.1 distributions, built
 from `packages/` and meant to run in separate processes. Which one you install
 is a decision about what that machine is allowed to do.
 
@@ -24,14 +24,14 @@ is a decision about what that machine is allowed to do.
 
 ```bash
 pip install admissible-core       # the kernel alone; it has no dependencies
-pip install admissible-ready      # + admissible-core==0.8.0; Python 3.10+
-pip install admissible-trust      # + admissible-core==0.8.0; Python 3.10+
+pip install admissible-ready      # + admissible-core==0.8.1; Python 3.10+
+pip install admissible-trust      # + admissible-core==0.8.1; Python 3.10+
 pip install admissible            # developer convenience; pins all three siblings
 admissible-ready profiles         # see the eight starter profiles
 ```
 
 Only `admissible-core` has no dependencies. Each of the other three declares at
-least one, pinned exactly at `==0.8.0`, and the umbrella declares all three.
+least one, pinned exactly at `==0.8.1`, and the umbrella declares all three.
 
 A trusted machine installs exactly one authority: `admissible-ready` where
 candidate code runs, `admissible-trust` where a key is held. The `admissible`

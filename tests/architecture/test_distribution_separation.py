@@ -53,7 +53,7 @@ from .test_import_census import READY, TRUST, load_manifest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 REQUIRES_PYTHON = ">=3.10"
 
 

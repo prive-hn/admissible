@@ -1,8 +1,8 @@
 # Third-party notices
 
-Admissible 0.8.0 has no third-party Python runtime dependency in
+Admissible 0.8.1 has no third-party Python runtime dependency in
 `admissible-core`; the Ready and Trust distributions depend only on the exact
-`admissible-core==0.8.0` sibling, and the umbrella depends only on the three
+`admissible-core==0.8.1` sibling, and the umbrella depends only on the three
 exact Admissible siblings.
 
 The optional browser cockpit is built from packages recorded in

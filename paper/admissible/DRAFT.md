@@ -1,7 +1,7 @@
 # Admissible: A Fail-Closed Admissibility Kernel for Agents That Do Not Repeat
 
 Roque Briceño  
-Version 0.8.0. 30 August 2026.
+Version 0.8.1. 4 September 2026.
 Licensed under [CC BY 4.0](../../LICENSES/CC-BY-4.0.txt).
 
 Companion reports: *Fail-Closed Class Dispatch* (layer I) and *Refutation-Gated Admission* (layers R and C). Each report stands on its own, with its own invariants, proofs and review rounds; this paper is the composition — one machine, one predicate, and the two theorems the composition earns. It adds framing and two composition results, not new mathematics, and says so.
