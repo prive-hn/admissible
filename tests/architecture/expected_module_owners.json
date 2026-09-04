@@ -13,7 +13,7 @@
       "tests",
       "packages/*/src"
     ],
-    "module_count": 193
+    "module_count": 195
   },
   "module_owners": {
     "admissible": "Umbrella",
@@ -138,6 +138,7 @@
     "tests.ready.test_admissible_ready_isolation": "Test Surface",
     "tests.ready.test_admissible_ready_parity": "Test Surface",
     "tests.ready.test_admissible_ready_store": "Test Surface",
+    "tests.rga_generators": "Test Surface",
     "tests.test_adapter_attestation": "Test Surface",
     "tests.test_admissible_attempts": "Test Surface",
     "tests.test_admissible_authority": "Test Surface",
@@ -193,6 +194,7 @@
     "tests.test_rga_citations": "Test Surface",
     "tests.test_rga_invariants": "Test Surface",
     "tests.test_rga_mutation": "Test Surface",
+    "tests.test_rga_properties": "Test Surface",
     "tests.test_rga_schema_conformance": "Test Surface",
     "tests.test_scale": "Test Surface",
     "tests.test_self_admit_evidence": "Test Surface",
@@ -750,6 +752,10 @@
       "admissible_ready.store",
       "tests.ready"
     ],
+    "tests.rga_generators": [
+      "fcd.core",
+      "rga.core"
+    ],
     "tests.test_adapter_attestation": [
       "fcd.adapter_attestation",
       "fcd.core",
@@ -898,6 +904,10 @@
       "rga.core"
     ],
     "tests.test_rga_mutation": [
+      "fcd.core",
+      "rga.core"
+    ],
+    "tests.test_rga_properties": [
       "fcd.core",
       "rga.core"
     ],
