@@ -13,7 +13,7 @@
       "tests",
       "packages/*/src"
     ],
-    "module_count": 198
+    "module_count": 200
   },
   "module_owners": {
     "admissible": "Umbrella",
@@ -129,6 +129,7 @@
     "tests.core.test_admissible_core_store": "Test Surface",
     "tests.core.test_admissible_core_store_open": "Test Surface",
     "tests.custody_generators": "Test Surface",
+    "tests.fcd_context_generators": "Test Surface",
     "tests.fcd_generators": "Test Surface",
     "tests.ready": "Test Surface",
     "tests.ready.test_admissible_ready_agent": "Test Surface",
@@ -183,6 +184,7 @@
     "tests.test_custody_theorems": "Test Surface",
     "tests.test_decision_freshness_properties": "Test Surface",
     "tests.test_e8_handcheck": "Test Surface",
+    "tests.test_fcd_context_properties": "Test Surface",
     "tests.test_fcd_enforcer_properties": "Test Surface",
     "tests.test_human_review_receipt": "Test Surface",
     "tests.test_invariants": "Test Surface",
@@ -693,6 +695,9 @@
       "rga.calibration",
       "rga.core"
     ],
+    "tests.fcd_context_generators": [
+      "fcd.context"
+    ],
     "tests.fcd_generators": [
       "fcd.core"
     ],
@@ -879,6 +884,12 @@
     ],
     "tests.test_decision_freshness_properties": [
       "admissible.decision"
+    ],
+    "tests.test_fcd_context_properties": [
+      "fcd.cache",
+      "fcd.context",
+      "fcd.core",
+      "fcd.watchdog"
     ],
     "tests.test_fcd_enforcer_properties": [
       "fcd.core"
