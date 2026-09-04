@@ -61,6 +61,11 @@ class ContextEnvelopeInvariants(unittest.TestCase):
     def test_I16_cache_identity_is_per_attempt(self, hist):
         ids = [hist.auth.cache_id(a.envelope.attempt_id) for a in hist.attempts]
         self.assertEqual(len(ids), len(set(ids)), hist.moves)     # each attempt a distinct identity
+        for a in hist.attempts:                                   # ... and a STABLE one: cache_id is a
+            aid = a.envelope.attempt_id                           # pure function of attempt state, so a
+            self.assertEqual(hist.auth.cache_id(aid),             # repeat call returns the same id (a
+                             hist.auth.cache_id(aid), hist.moves) # random-per-call id would still be
+                                                                  # distinct across attempts, yet wrong)
 
 
 class ContextForbiddenTransitions(unittest.TestCase):

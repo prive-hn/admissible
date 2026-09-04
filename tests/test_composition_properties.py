@@ -141,12 +141,14 @@ class CompositionNonInterference(unittest.TestCase):
         h.seal_line()
         f0, a0 = fcd_snap(), adm_snap()
         h.tier_a_escape()
+        self.assertEqual(fcd_snap()[0], f0[0])                        # no FCD item field written (full items)
         self.assertEqual(fcd_snap()[1], f0[1]); self.assertEqual(fcd_snap()[2], f0[2])
-        self.assertEqual(set(adm_snap()[0]), set(a0[0])); self.assertEqual(adm_snap()[1], a0[1])
+        self.assertEqual(adm_snap()[0], a0[0]); self.assertEqual(adm_snap()[1], a0[1])   # sealed contents, not just keys
         # R11: an RGA transition (sample) changes no FCD field
         h.fcd_open("z"); h.rga_open("z"); h.fcd_write("z")
         f1 = fcd_snap()
         h.sample("z", b"z0")
+        self.assertEqual(fcd_snap()[0], f1[0])                        # FCD items unchanged by sample (full items)
         self.assertEqual(fcd_snap()[1], f1[1])                        # FCD store unchanged by sample
         self.assertEqual(fcd_snap()[2], f1[2])                        # no FCD event emitted by sample
 

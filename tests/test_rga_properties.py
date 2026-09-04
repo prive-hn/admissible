@@ -179,14 +179,17 @@ class RgaRefusalAndNonInterference(unittest.TestCase):
         for i in range(h.k):
             h.fcd_write("w")
             before = snap(); h.sample("w", f"b{i}".encode())
-            self.assertEqual(snap()[0].keys(), before[0].keys())
+            self.assertEqual(snap()[0], before[0])             # RGA writes NO FCD item field (full items, not just keys)
             self.assertEqual(snap()[1], before[1]); self.assertEqual(snap()[2], before[2])
             before = snap(); h.trial("w", i)
+            self.assertEqual(snap()[0], before[0])             # a trial leaves every FCD item byte-identical
             self.assertEqual(snap()[1], before[1]); self.assertEqual(snap()[2], before[2])
         before = snap(); h.replay_all("w")
+        self.assertEqual(snap()[0], before[0])                 # replay writes only the RGA line
         self.assertEqual(snap()[1], before[1]); self.assertEqual(snap()[2], before[2])
         h.fcd_check("w")
         before = snap(); h.a.seal("w")
+        self.assertEqual(snap()[0], before[0])                 # Seal writes S_R, not any FCD item
         self.assertEqual(snap()[1], before[1])                 # Seal writes S_R, not S
         self.assertEqual(snap()[2], before[2])                 # no FCD event emitted
 
@@ -202,9 +205,16 @@ class RgaSeparationOfDuty(unittest.TestCase):
             h.fcd_open("w"); h.rga_open("w")                   # pinning refuses at open
 
     def test_R3_defect_model_author_is_fixed_by_first_record(self):
-        h = Harness(); h.declare_tests()
-        with self.assertRaises(ValueError):
-            h.a.measure("tests", "v1", DefectModel(D1, "someone-else"), ledger(9, 10))
+        h = Harness(); h.declare_tests()               # first record fixes D1's author to "mutator"
+        h.a.declare(Refuter("audit", "v1", "auditor", "ledger"))
+        # A fresh refuter clears the write-once power guard (_guard_power_once runs
+        # first), so execution actually reaches the author-fixity guard this test is
+        # named for: re-declaring D1's model under a different author than its first
+        # record is refused there. Pin the message so a green run is evidence for
+        # THAT guard, not the incidental duplicate-power refusal.
+        with self.assertRaises(ValueError) as cm:
+            h.a.measure("audit", "v1", DefectModel(D1, "someone-else"), ledger(9, 10))
+        self.assertIn("author differs", str(cm.exception))
 
 
 if __name__ == "__main__":

@@ -134,8 +134,9 @@ class CalibrationConstructed(unittest.TestCase):
 
         before = snap(); h.tier_a_escape()
         after = snap()
+        self.assertEqual(after[0], before[0])                    # no FCD item field written (full items)
         self.assertEqual(after[1], before[1]); self.assertEqual(after[2], before[2])
-        self.assertEqual(set(after[3]), set(before[3]))          # Admission.sealed untouched
+        self.assertEqual(after[3], before[3])                    # Admission.sealed contents untouched (not just keys)
 
     def test_E6_filing_guards_bytes_and_seed(self):
         h = CalHarness(); h.declare_tests(); h.seal_line()
