@@ -13,7 +13,7 @@
       "tests",
       "packages/*/src"
     ],
-    "module_count": 195
+    "module_count": 196
   },
   "module_owners": {
     "admissible": "Umbrella",
@@ -173,6 +173,7 @@
     "tests.test_authenticated_receipt": "Test Surface",
     "tests.test_bench": "Test Surface",
     "tests.test_cache": "Test Surface",
+    "tests.test_calibration_properties": "Test Surface",
     "tests.test_context_envelope": "Test Surface",
     "tests.test_context_server": "Test Surface",
     "tests.test_core": "Test Surface",
@@ -843,6 +844,10 @@
     "tests.test_cache": [
       "fcd.cache",
       "fcd.core"
+    ],
+    "tests.test_calibration_properties": [
+      "rga.calibration",
+      "rga.core"
     ],
     "tests.test_context_envelope": [
       "fcd",
