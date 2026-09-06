@@ -75,7 +75,7 @@ admissible = "admissible.cli:main"
 # It refuses a range outright, builds this project twice from a local
 # wheelhouse in two throwaway environments with no index and no network, and
 # compares the complete SHA-256 of the wheel files.
-requires = ["setuptools==83.0.0"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
