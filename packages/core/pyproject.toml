@@ -33,7 +33,7 @@ Repository = "https://github.com/prive-hn/admissible"
 [build-system]
 # The backend is pinned exactly because release artifacts record generator
 # identity and must not depend on resolver time.
-requires = ["setuptools==83.0.0"]
+requires = ["setuptools==84.0.0"]
 # setuptools, wrapped by an in-tree backend that stages the root-owned research
 # and schema sources into `_staged/` before each hook and removes them after.
 # `build_backend.py` says why at length; the short version is that a
