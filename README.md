@@ -563,6 +563,22 @@ No numbers in the paper until those calls run on a write-ahead journal after a n
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
+Two prerequisites, both worth stating because a run without them fails in a
+way that reads as broken code rather than a missing tool:
+
+- **`build`, `setuptools` and `wheel` must be importable *system-wide*, not
+  from the user site.** The packaging suites launch every subprocess with
+  `PYTHONNOUSERSITE=1` on purpose, so that an import canary reports what the
+  wheel ships rather than what the developer's shell happens to have. A
+  `pip install --user build` is therefore invisible to them and roughly 290
+  checks fail with `No module named build`. Install into the interpreter the
+  suites run (`sudo python3 -m pip install --break-system-packages build
+  setuptools wheel`), or use a virtualenv whose site-packages carry them.
+- **A `.venv/` at the repository root**, because the documented `PYTHON`
+  override may be relative and one check runs the demo through
+  `.venv/bin/python` to prove the relative path is resolved before the script
+  changes directory.
+
 3169 checks green in this repository, in two scopes that are counted
 separately because they prove different things:
 
