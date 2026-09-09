@@ -6,7 +6,7 @@
   "type": "object",
   "required": ["type"],
   "properties": {
-    "type": {"type": "string", "enum": ["cal_run", "cal_replay", "cal_discredit", "cal_adjudicate", "cal_resolve", "cal_exclude", "cal_install", "cal_stamp", "cal_close"]},
+    "type": {"type": "string", "enum": ["cal_open", "cal_run", "cal_replay", "cal_discredit", "cal_adjudicate", "cal_resolve", "cal_exclude", "cal_install", "cal_stamp", "cal_close"]},
     "ts": {"type": "number"}
   },
   "$defs": {
@@ -24,6 +24,17 @@
     }
   },
   "allOf": [
+    {
+      "if": {"properties": {"type": {"const": "cal_open"}}},
+      "then": {
+        "required": ["line_id", "class", "generator"],
+        "properties": {
+          "line_id": {"type": "string"},
+          "class": {"type": "string"},
+          "generator": {"type": "string"}
+        }
+      }
+    },
     {
       "if": {"properties": {"type": {"const": "cal_run"}}},
       "then": {

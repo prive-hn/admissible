@@ -1344,12 +1344,14 @@ class FindingCF5InstallCoverageNotRecomputed(unittest.TestCase):
         self.assertFalse(rebuilt.impeached("w"))                   # replays clean: install is not an anchor
 
 
-class FindingCF7CalOpenLeavesNoTrace(unittest.TestCase):
-    """CF7 (carry gate): CalOpen emits no event, so a line opened around the
-    authority with a demoted pinned refuter is mediated, admissible, and
-    replays clean. With gate=seal, CalSeal refuses it with E5 instead."""
+class RepairedCF7CalOpenIsJournaled(unittest.TestCase):
+    """CF7, closed. CalOpen emitted no event, so C6's open-time demotion gate
+    was never re-verified on rebuild and -- worse -- a line opened around the
+    authority and then sealed through it still answered `mediated`, because
+    that query read the stamp alone. Mediation now requires both halves, so
+    the bypass is visible as layer IR."""
 
-    def test_bypassed_open_with_a_demoted_pin_is_admissible_under_carry(self):
+    def test_a_bypassed_open_with_a_demoted_pin_is_ir_under_carry(self):
         h = CalHarness(e_max=0, gate="carry"); h.declare_tests(); h.seal_line("w")
         h.tier_a_escape("w")
         self.assertTrue(h.cal.demoted("tests", "v1", "impl"))
@@ -1360,8 +1362,11 @@ class FindingCF7CalOpenLeavesNoTrace(unittest.TestCase):
         for i in range(h.k):
             h.fcd_write("x"); h.sample("x", f"x-{i}".encode()); h.trial("x", i)
         h.replay_all("x"); h.fcd_check("x"); h.cal.seal("x")
-        self.assertTrue(h.cal.mediated("x") and h.cal.admissible("x"))
-        self.assertTrue(rebuild(h).admissible("x"))
+        self.assertIsNotNone(h.cal.sealed_stamp("x"))              # stamped ...
+        self.assertIsNone(h.cal.sealed_open("x"))                  # ... but never opened here
+        self.assertFalse(h.cal.mediated("x"))
+        self.assertFalse(h.cal.admissible("x"))
+        self.assertFalse(rebuild(h).admissible("x"))
 
 
 class FindingCF11UnmediatedSealIsUnanchored(unittest.TestCase):

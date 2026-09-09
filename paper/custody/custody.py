@@ -61,6 +61,11 @@ POLARITY: dict[str, str] = {
     "cal_adjudicate": "-",      # decision=accept impeaches a tier-B run; reject is neutral
     "cal_resolve": "+",         # decision=void is the one event that raises a line's standing,
                                 # and only for a contested run, with a named actor (C3)
+    "cal_open": "e",            # enabling: never lowers, and `mediated` requires it, so a line
+                                # without it is IR whatever its stamp says. It is not the event at
+                                # which admissible rises -- the stamp is -- and it cannot be
+                                # deleted quietly, because the stamp's `as_of` primary counts the
+                                # calibration journal's own length
     "cal_exclude": "0", "cal_install": "0", "cal_close": "0",
     "cal_stamp": "+",           # mediated
 }

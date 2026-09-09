@@ -124,6 +124,18 @@ def _journal_atomic(*state_fields):
                         item_id in self.adm.sealed,
                         len(self.adm._events),
                     )
+                elif name == "admission_line_optional":
+                    # CalOpen: the line does not exist yet, so absence is the
+                    # state to restore to. Without this the rollback would key
+                    # into `adm.lines` before the delegated transition created
+                    # the entry.
+                    item_id = args[0]
+                    snapshot[name] = (
+                        item_id,
+                        item_id in self.adm.lines,
+                        copy.deepcopy(self.adm.lines.get(item_id)),
+                        len(self.adm._events),
+                    )
                 elif name == "exclusions":
                     cls = args[0]
                     snapshot[name] = (
@@ -169,6 +181,13 @@ def _journal_atomic(*state_fields):
                             self.adm.sealed[item_id] = seal
                         else:
                             self.adm.sealed.pop(item_id, None)
+                        del self.adm._events[adm_event_count:]
+                    elif name == "admission_line_optional":
+                        item_id, existed, line, adm_event_count = value
+                        if existed:
+                            self.adm.lines[item_id] = line
+                        else:
+                            self.adm.lines.pop(item_id, None)
                         del self.adm._events[adm_event_count:]
                     elif name == "exclusions":
                         cls, existed, excluded = value
@@ -452,12 +471,22 @@ class CalibrationAuthority:
                    for r in self.runs)
 
     def mediated(self, line_id: str) -> bool:
-        """C5 totality: this seal passed through CalSeal, evidenced by exactly
-        one stamp bound to its position. A seal produced by calling
-        Admission.seal directly carries layer-R standing only — it is IR, not
-        IRC — and a consumer must be able to tell the two apart."""
+        """C5 totality: this line passed through the authority at BOTH gates —
+        exactly one journaled CalOpen, and exactly one stamp bound to the
+        seal's own position. A line that took either transition directly on
+        the lower machine carries layer-R standing only — it is IR, not IRC —
+        and a consumer must be able to tell the two apart.
+
+        Reading the stamp alone was not enough: a line opened around this
+        authority, and so never subjected to C6's open-time demotion gate,
+        could be sealed through it and answer mediated on the strength of the
+        stamp (finding CF7). Both halves are now required."""
         seal = self.adm.sealed.get(line_id)
         if seal is None:
+            return False
+        opens = [ev for ev in self._events
+                 if ev.get("type") == "cal_open" and ev.get("line_id") == line_id]
+        if len(opens) != 1:
             return False
         stamps = [ev for ev in self._events
                   if ev.get("type") == "cal_stamp" and ev.get("line_id") == line_id]
@@ -545,16 +574,29 @@ class CalibrationAuthority:
                    coverage=coverage, dropped_defect_ids=sorted(dropped),
                    dropped_classes=dropped_classes)
 
+    @_journal_atomic("admission_line_optional")
     def open(self, item_id: str, generator: str, sampling_hash: str):
         """CalOpen: the class carries an explicit budget (E9) and no demoted
-        pin (C6); Admission.open does the rest."""
+        pin (C6); Admission.open does the rest.
+
+        The check is journaled (C5). Without an event it was never re-verified
+        on rebuild, and worse, a line opened *around* this authority and then
+        sealed through it still answered `mediated` — so a consumer could not
+        tell that C6's open-time gate never ran on it (finding CF7). The event
+        is emitted after `Admission.open` succeeds, so a refused open leaves no
+        trace; deleting it afterwards lowers the line to layer IR and can never
+        raise standing, which is the direction a missing mediation record must
+        fail in."""
         item = self.adm.fcd.items.get(item_id)
         if item is not None:
             self._guard_class_configured(item.cls)                        # E9
             spec = self.adm.policy.classes.get(item.cls)
             if spec is not None:
                 self._guard_open_demoted(item.cls, spec)                  # C6
-        return self.adm.open(item_id, generator, sampling_hash)
+        line = self.adm.open(item_id, generator, sampling_hash)
+        self._emit(type="cal_open", line_id=item_id,
+                   **{"class": getattr(item, "cls", line.cls)}, generator=generator)
+        return line
 
     @_journal_atomic("admission_line")
     def seal(self, item_id: str):
@@ -600,6 +642,13 @@ class CalibrationAuthority:
     def sealed_stamp(self, line_id: str) -> Optional[dict]:
         for ev in self._events:
             if ev.get("type") == "cal_stamp" and ev.get("line_id") == line_id:
+                return ev
+        return None
+
+    def sealed_open(self, line_id: str) -> Optional[dict]:
+        """The journaled CalOpen for this line, if the authority mediated it."""
+        for ev in self._events:
+            if ev.get("type") == "cal_open" and ev.get("line_id") == line_id:
                 return ev
         return None
 
@@ -932,6 +981,24 @@ class CalibrationAuthority:
                          for cls, b in journaled.items()},
                         version=ev.get("calibration_policy_version", a.policy.version))
                     _require_coverage(pol, a.policy)                      # E9 on rebuild
+                a._events.append(JournalEvent(dict(ev)))
+            elif t == "cal_open":
+                line = admission.lines.get(ev["line_id"])
+                if line is None:
+                    raise ValueError(f"replay diverged: open of an unknown line {ev['line_id']!r}")
+                if line.cls != ev["class"] or line.generator != ev["generator"]:
+                    raise ValueError("replay diverged: open is not bound to its line")
+                if a.sealed_open(ev["line_id"]) is not None:
+                    raise ValueError("replay diverged: a second open for one line")
+                # The gate is re-verified, not trusted: charges accumulate in
+                # journal order, so the corpus folded so far is the one the
+                # live open saw. The pinned set comes from the policy the line
+                # itself pinned, not from whichever is current.
+                a._guard_class_configured(line.cls)                       # E9
+                spec = admission._policies.get(line.policy_version, admission.policy)
+                cls_spec = spec.classes.get(line.cls)
+                if cls_spec is not None:
+                    a._guard_open_demoted(line.cls, cls_spec)             # C6
                 a._events.append(JournalEvent(dict(ev)))
             elif t == "cal_stamp":
                 seal = admission.sealed.get(ev["line_id"])

@@ -252,6 +252,84 @@ class ReplaySeamsReadTheLiveCut(unittest.TestCase):
         self.assertEqual(len(rebuilt.audit_exposure("w")), 1)
 
 
+class C5MediationCoversTheWholeLine(unittest.TestCase):
+    """The repair of finding CF7. `mediated` read the seal's stamp alone, so a
+    line opened around the authority — bypassing C6's open-time demotion gate
+    — and then sealed *through* it reported mediated, and no consumer could
+    tell that half the mediation never happened. CalOpen now journals its
+    check, `mediated` requires it, and rebuild re-verifies the gate."""
+
+    def test_a_line_opened_around_the_authority_is_not_mediated(self):
+        h = CalHarness(e_max=0, gate="carry"); h.declare_tests(); h.seal_line("w")
+        h.tier_a_escape("w")
+        self.assertTrue(h.cal.demoted("tests", "v1", "impl"))
+        h.fcd_open("x")
+        with self.assertRaises(ValueError):
+            h.cal.open("x", "gen", "temp=0.7")               # CalOpen refuses the demoted pin
+        h.a.open("x", "gen", "temp=0.7")                     # around the authority
+        for i in range(h.k):
+            h.fcd_write("x"); h.sample("x", f"x-{i}".encode()); h.trial("x", i)
+        h.replay_all("x"); h.fcd_check("x")
+        h.cal.seal("x")                                      # sealed and stamped
+        self.assertIsNotNone(h.cal.sealed_stamp("x"))         # the stamp is there ...
+        self.assertFalse(h.cal.mediated("x"))                 # ... and mediation still refuses
+        self.assertFalse(h.cal.admissible("x"))
+        with self.assertRaises(ValueError):
+            h.cal.check_dependencies(["x"], floor=0.0)
+
+    def test_a_line_opened_through_the_authority_journals_its_check(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        opens = [e for e in h.cal.events if e["type"] == "cal_open"]
+        self.assertEqual([e["line_id"] for e in opens], ["w"])
+        self.assertEqual(opens[0]["class"], "impl")
+        self.assertTrue(h.cal.mediated("w") and h.cal.admissible("w"))
+
+    def test_the_open_event_replays_and_a_forged_one_is_refused(self):
+        h = CalHarness(e_max=0, gate="carry"); h.declare_tests(); h.seal_line("w")
+        rebuilt = CalibrationAuthority.from_events(list(h.cal.events), h.a, h.cal.policy)
+        self.assertTrue(rebuilt.mediated("w") and rebuilt.admissible("w"))
+        # an open forged for a line whose pin was demoted at that point is
+        # refused on rebuild: the gate is re-verified, not trusted
+        h.tier_a_escape("w")
+        h.fcd_open("x"); h.a.open("x", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("x"); h.sample("x", f"x-{i}".encode()); h.trial("x", i)
+        h.replay_all("x"); h.fcd_check("x"); h.cal.seal("x")
+        forged = list(h.cal.events)
+        at = next(i for i, e in enumerate(forged) if e["type"] == "cal_stamp"
+                  and e["line_id"] == "x")
+        forged.insert(at, dict(type="cal_open", line_id="x", **{"class": "impl"},
+                               generator="gen", ts=0.0))
+        with self.assertRaises(ValueError) as caught:
+            CalibrationAuthority.from_events(forged, h.a, h.cal.policy)
+        self.assertIn("demoted", str(caught.exception))
+
+    def test_deleting_an_open_event_is_refused_by_its_own_stamp(self):
+        """The open event is anchored, not merely fail-closed on absence. A
+        stamp's `track_records` carry an `as_of` primary that counts the
+        calibration journal's own length, so dropping any earlier event —
+        including this one — makes the stamp fail to recompute. Deletion is
+        therefore refused rather than quietly lowering the line to IR, which
+        is a stronger property than a missing mediation record needs."""
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        pruned = [e for e in h.cal.events if e["type"] != "cal_open"]
+        with self.assertRaises(ValueError) as caught:
+            CalibrationAuthority.from_events(pruned, h.a, h.cal.policy)
+        self.assertIn("recompute", str(caught.exception))
+
+    def test_an_unstamped_line_is_ir_whichever_half_is_missing(self):
+        h = CalHarness(); h.declare_tests()
+        h.fcd_open("y"); h.cal.open("y", "gen", "temp=0.7")   # opened through the authority
+        for i in range(h.k):
+            h.fcd_write("y"); h.sample("y", f"y-{i}".encode()); h.trial("y", i)
+        h.replay_all("y"); h.fcd_check("y")
+        h.a.seal("y")                                          # sealed around it: no stamp
+        self.assertIsNotNone(h.cal.sealed_open("y"))
+        self.assertIsNone(h.cal.sealed_stamp("y"))
+        self.assertFalse(h.cal.mediated("y"))
+        self.assertFalse(h.cal.admissible("y"))
+
+
 class C2ChargeTotalityAndUnit(unittest.TestCase):
     def test_one_charge_per_cell_however_many_witnesses(self):
         h = CalHarness(); h.declare_tests(); h.seal_line()

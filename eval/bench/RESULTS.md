@@ -62,7 +62,7 @@ Union composite carried on seals: **0.9091**.
 - Escapes: **2 filed, 2 established**, 2 lines impeached — by scenario: honest: 0, sloppy: 2, unstable: 0.
 - Charges: {'spec-strong@v1': 2, 'spec-weak@v1': 2} — demoted: {'spec-strong@v1': True, 'spec-weak@v1': True} (e_max=1).
 - Ratchet: corpus 2; successor policy installed; successor power **0.9231** (was 0.8182); 1/2 escaped artifacts killed by the successor at its calibration seed. The successor is the SAME checker code re-versioned and re-measured at fresh calibration seeds over D ∪ corpus — the power movement is seed-roll and corpus growth, not a better checker — and demotion charges do not carry across versions: what the ratchet proves is coverage (C4), not improvement.
-- Journals on cut [0, 896]: fcd 372, rga 357, cal 15 events.
+- Journals on cut [0, 934]: fcd 372, rga 357, cal 53 events.
 
 ## Target: `wrap`
 
@@ -91,7 +91,7 @@ Union composite carried on seals: **1.0**.
 - Escapes: **0 filed, 0 established**, 0 lines impeached — by scenario: honest: 0, sloppy: 0, unstable: 0.
 - Charges: {'spec-strong@v1': 0, 'spec-weak@v1': 0} — demoted: {'spec-strong@v1': False, 'spec-weak@v1': False} (e_max=1).
 - Ratchet: corpus 0; no install — no escapes, nothing owed.
-- Journals on cut [0, 838]: fcd 352, rga 326, cal 8 events.
+- Journals on cut [0, 876]: fcd 352, rga 326, cal 46 events.
 
 ## Target: `normpath`
 
@@ -120,7 +120,7 @@ Union composite carried on seals: **0.6667**.
 - Escapes: **2 filed, 2 established**, 2 lines impeached — by scenario: honest: 0, sloppy: 2, unstable: 0.
 - Charges: {'spec-strong@v1': 2, 'spec-weak@v1': 2} — demoted: {'spec-strong@v1': True, 'spec-weak@v1': True} (e_max=1).
 - Ratchet: corpus 2; successor policy installed; successor power **0.9091** (was 0.6667); 2/2 escaped artifacts killed by the successor at its calibration seed. The successor is the SAME checker code re-versioned and re-measured at fresh calibration seeds over D ∪ corpus — the power movement is seed-roll and corpus growth, not a better checker — and demotion charges do not carry across versions: what the ratchet proves is coverage (C4), not improvement.
-- Journals on cut [0, 895]: fcd 369, rga 358, cal 16 events.
+- Journals on cut [0, 933]: fcd 369, rga 358, cal 54 events.
 
 ## Target: `quantiles`
 
@@ -149,7 +149,7 @@ Union composite carried on seals: **0.9524**.
 - Escapes: **3 filed, 3 established**, 3 lines impeached — by scenario: honest: 0, sloppy: 3, unstable: 0.
 - Charges: {'spec-strong@v1': 3, 'spec-weak@v1': 3} — demoted: {'spec-strong@v1': True, 'spec-weak@v1': True} (e_max=1).
 - Ratchet: corpus 3; successor policy installed; successor power **0.9167** (was 0.9524); 3/3 escaped artifacts killed by the successor at its calibration seed. The successor is the SAME checker code re-versioned and re-measured at fresh calibration seeds over D ∪ corpus — the power movement is seed-roll and corpus growth, not a better checker — and demotion charges do not carry across versions: what the ratchet proves is coverage (C4), not improvement.
-- Journals on cut [0, 969]: fcd 403, rga 394, cal 20 events.
+- Journals on cut [0, 1007]: fcd 403, rga 394, cal 58 events.
 
 ## Reading
 

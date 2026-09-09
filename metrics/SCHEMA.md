@@ -207,6 +207,10 @@ Emitted by `rga/core.py`. They support the R1–R13 audits (fault codes V1–V15
 
 Emitted by `rga/calibration.py` (`CalibrationAuthority`). They support the C1–C7 audits in `paper/RGA/PROOFS.md`; fault codes are E1–E9. Positions are indices into the calibration journal.
 
+### `cal_open`
+
+- `ts`, `line_id`, `class`, `generator`. Emitted after `Admission.open` succeeds, so a refused CalOpen leaves no trace. It is what makes C6's open-time demotion gate auditable: `mediated` requires exactly one of these beside the seal's stamp, so a line opened around the authority and sealed through it is layer IR however good its stamp looks, and rebuild re-verifies the gate against the corpus folded up to this point under the policy the line pinned. Deleting one is refused rather than merely lowering standing, because each stamp's `track_records[*].as_of` counts the calibration journal's own length.
+
 ### `cal_run`
 
 - `ts`, `run_index`, `line_id`, `class`, `claim_id`, `checker_id`, `checker_version`
