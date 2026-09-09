@@ -184,8 +184,9 @@ Emitted by `rga/core.py`. They support the R1–R13 audits (fault codes V1–V15
 ### `rga_seal`
 
 - `ts`, `work_item_id`, `class`, `body_hash`, `artifact_hash`, `k`, `theta`, `p_min`, `power_min`, `sampling_hash`, `policy_version` (RGA), `fcd_policy_version`, `generator`, `executed_model`
-- `claims` list of `{claim_id, spec_hash, composite, composition single|union|max, agreeing, k, refuters: [{id, version, mode, power, defect_model_hash, kills, size, epsilon, n}]}` — ledger refuters carry `kills`/`size`, bounded refuters `epsilon`/`n`; the null fields mark the other mode
+- `claims` list of `{claim_id, spec_hash, composite, composition single|union|max, agreeing, k, ledger_composite, bounded_composite, floor_basis, floor_witness, refuters: [{id, version, mode, power, defect_model_hash, kills, size, epsilon, n}]}` — ledger refuters carry `kills`/`size`, bounded refuters `epsilon`/`n`; the null fields mark the other mode. `ledger_composite` and `bounded_composite` are the two sorts' own coordinates, never collapsed into one another; `floor_basis` is the weaker of the sorts present, which is what the V5 gate compared, and `floor_witness` names the contributor that realized it
 - `residual` list of `[intent, disposition]`; `check_stage` only if an FCD check stage Passed
+- `fcd_position` the identity-journal position the seal read, recorded as `rga_open` and `rga_sample` record theirs. The store is grow-only, so reading current membership on rebuild reads a superset of what the live guard saw; witnessing the Accept in the identity journal up to this cut makes the live and rebuilt paths agree. Range-checked on rebuild, and a root there like every recorded position in this stack
 
 ### `rga_close`
 

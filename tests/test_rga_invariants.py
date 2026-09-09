@@ -337,6 +337,51 @@ class R2PowerCarriedNeverInferred(unittest.TestCase):
         self.assertIn("bounded", c.floor_witness)
 
 
+class R8SealRecordsItsIdentityCut(unittest.TestCase):
+    """The seal records the identity-journal position it read, as Open and
+    Sample already did, and rebuild witnesses the Accept there.
+
+    The store is grow-only, so reading current membership on rebuild reads a
+    superset of what the live guard saw — the shape of the filing seams. This
+    closes it by witnessing the accept in the journal up to the recorded cut
+    rather than inferring it from a monotone set."""
+
+    def test_the_seal_carries_the_position_it_read(self):
+        h = Harness(); h.declare_tests(); h.run_to_seal_ready()
+        before = len(h.e.events)
+        h.a.seal("w")
+        ev = [e for e in h.a.events if e["type"] == "rga_seal"][-1]
+        self.assertEqual(ev["fcd_position"], before)
+
+    def test_a_seal_whose_accept_is_not_yet_witnessed_is_refused(self):
+        h = Harness(); h.declare_tests(); h.run_to_seal_ready()
+        accept_at = next(i for i, e in enumerate(h.e.events)
+                         if e["type"] == "accept" and e.get("work_item_id") == "w")
+        # a cut that predates the accept: the store says yes, the journal does not
+        with self.assertRaises(ValueError) as caught:
+            h.a._seal("w", accept_at)
+        self.assertIn("recorded position", str(caught.exception))
+        self.assertNotIn("w", h.a.sealed)
+
+    def test_the_recorded_cut_is_range_checked_on_rebuild(self):
+        h = Harness(); h.declare_tests(); h.run_to_seal_ready(); h.a.seal("w")
+        for bad in (-1, len(h.e.events) + 1):
+            forged = [dict(e) for e in h.a.events]
+            at = next(i for i, e in enumerate(forged) if e["type"] == "rga_seal")
+            forged[at]["fcd_position"] = bad
+            with self.assertRaises(ValueError):
+                Admission.from_events(forged, h.e, admission_policy())
+
+    def test_an_honest_seal_replays_at_its_own_cut(self):
+        h = Harness(); h.declare_tests(); h.run_to_seal_ready(); h.a.seal("w")
+        h.fcd_open("x")                     # the identity journal grows afterwards
+        for _ in range(h.k):
+            h.fcd_write("x")
+        rebuilt = Admission.from_events(list(h.a.events), h.e, admission_policy())
+        self.assertIn("w", rebuilt.sealed)
+        self.assertTrue(rebuilt.admissible("w"))
+
+
 class R3SeparationOfDuty(unittest.TestCase):
     def test_refuter_authored_by_generator_cannot_be_pinned(self):
         h = Harness()

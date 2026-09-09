@@ -941,6 +941,13 @@ class CalibrationAuthority:
                 tier = "A" if checker in pinned else "B"
                 if tier != ev["tier"]:
                     raise ValueError("replay diverged: journaled tier is not the seal's")
+                # The class is the seal's, not the filer's. Rebuild took the
+                # `Run.cls` from the seal but never compared the journaled
+                # field, so a rewritten `class` was accepted and then SERVED
+                # from the record — the shape the scrutiny layer's field-by-
+                # field comparison exists to refuse.
+                if ev["class"] != seal.cls:
+                    raise ValueError("replay diverged: journaled class is not the seal's")
                 if ev["verdict"] not in RUN_VERDICTS:
                     raise ValueError(f"replay diverged: unknown verdict {ev['verdict']!r}")
                 a._guard_run_cut(seal, ev["as_of"], last_cut)                 # E6
@@ -966,6 +973,11 @@ class CalibrationAuthority:
                 if not 0 <= ev["run_index"] < len(a.runs):
                     raise ValueError("replay diverged: replay of a run the journal does not contain")
                 run = a.runs[ev["run_index"]]
+                # The live path refuses an out-of-enum verdict
+                # (`_guard_replay_verdict`); rebuild did not, so a forged
+                # `cal_replay` speaking a verdict no schema knows was accepted
+                # and served. Same shape as the refusal seam, one event over.
+                a._guard_replay_verdict(ev["verdict"])                        # E1
                 if run.checker in a.discredited and not run.established:
                     raise ValueError("replay diverged: replay of a discredited checker")
                 diverged = a._check_run_replay(run, ev["verdict"], ev["witness_hash"])

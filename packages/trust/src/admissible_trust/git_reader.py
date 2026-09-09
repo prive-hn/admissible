@@ -321,6 +321,25 @@ def _preserved(source, name: str) -> str | None:
     return value
 
 
+def _without_credentials(url: str) -> str:
+    """Drop the userinfo from a remote URL, keeping everything else.
+
+    `scheme://user:secret@host/path` becomes `scheme://host/path`. Only the
+    authority's userinfo is touched, so a path containing `@` survives; an SCP
+    form (`git@host:path`) is left alone because its userinfo is not a secret
+    and removing it would change what the address means.
+    """
+    text = url.strip()
+    if "://" not in text:
+        return text
+    scheme, _, rest = text.partition("://")
+    authority, slash, path = rest.partition("/")
+    if "@" not in authority:
+        return text
+    _userinfo, _, host = authority.rpartition("@")
+    return f"{scheme}://{host}{slash}{path}"
+
+
 class GitReader:
     """Answers Core's six questions by running a fixed set of git commands."""
 
@@ -383,7 +402,17 @@ class GitReader:
         return self._run(root, "status", "--porcelain", "--untracked-files=all")
 
     def origin_url(self, root: Path | str) -> str:
-        return self._run(root, "remote", "get-url", "origin", required=False)
+        """The origin remote, with any credential in it removed.
+
+        `git remote get-url` applies `url.<rewritten>.insteadOf`, and a common
+        rewrite -- CI runners and coding agents both do it -- substitutes a
+        token-bearing URL for the plain one. This answer is recorded on an
+        identity record and travels with the evidence, so returning it raw puts
+        a live credential into a document whose whole purpose is to be shared.
+        The namespace derived from it was already userinfo-free; this makes the
+        raw field agree, and the redaction is deliberately not reversible."""
+        return _without_credentials(
+            self._run(root, "remote", "get-url", "origin", required=False))
 
     def root_commits(self, root: Path | str, commit: str) -> str:
         return self._run(root, "rev-list", "--max-parents=0", commit)

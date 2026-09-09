@@ -17,16 +17,25 @@ preprint carries what one refereeable article can defend.
 ## Build
 
 ```bash
-cd paper/arxiv && make          # admissible.pdf
-make check                      # page count, unresolved refs, overfull boxes
+cd paper/arxiv && make          # figures, admissible.bbl, admissible.pdf
+make figures                    # regenerate the five PNGs only
+make check                      # pages, unresolved refs, overfull boxes, bibtex warnings
 ```
 
-LaTeX runs in a scratch directory and only the PDF is copied back. Leaving
-`.aux`, `.log` and `.out` beside the source would put files in the working tree
-that Git ignores but a directory walk still sees, and
-`tests/architecture/test_separation_sabotage.py` asserts those two answers
-agree — "the clone is complete" means nothing once they diverge. That check
-caught exactly this when the preprint was first added.
+LaTeX runs in a scratch directory and only the two products that ship — the PDF
+and the `.bbl` — are copied back. Leaving `.aux`, `.log` and `.blg` beside the
+source would put files in the working tree that Git ignores but a directory
+walk still sees, and `tests/architecture/test_separation_sabotage.py` asserts
+those two answers agree — "the clone is complete" means nothing once they
+diverge. That check caught exactly this when the preprint was first added.
+
+The five figures are **derived, not copied**. `figures.py` drives the same
+generators the technical reports use, so a figure cannot silently disagree with
+the kernel or the evaluation artifacts it draws — `fig4-bench` reads the bench
+record and `fig5-realdefects` the real-defect study. It also strips the
+`Figure N.` prefix those generators bake into their titles, because the reports
+number their own figures in the image and LaTeX numbers them again in the
+caption; left alone, one figure would print two different numbers.
 
 Requires `pdflatex` with `amsmath`, `booktabs`, `longtable`, `microtype`,
 `hyperref` and `cleveref` — on Debian and Ubuntu, `texlive-latex-base`,
@@ -42,8 +51,22 @@ missing `.bbl` fails there rather than here.
 ## Submitting
 
 arXiv prefers TeX source and will typically reject a PDF produced from TeX
-source, so upload `admissible.tex` alone. It has no `\input`, no figures and no
-local style files, so it needs no archive.
+source, so upload the source as one archive:
+
+```
+admissible.tex  admissible.bbl  references.bib
+fig1-composition.png  fig2-writers.png  fig3-seal.png
+fig4-bench.png  fig5-realdefects.png
+```
+
+The `.bbl` is not optional. arXiv runs the TeX toolchain but does **not** run
+BibTeX, so a submission carrying only `references.bib` fails there with
+unresolved citations rather than failing here. `references.bib` is included
+anyway, because it is the source of the `.bbl` and costs nothing.
+
+There is no `\input`, no local style file and no hidden directory, so nothing
+else is needed. The figures are PNG, which is what PDFLaTeX wants; do not mix
+in `.eps`.
 
 Before uploading, check the things arXiv checks:
 

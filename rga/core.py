@@ -430,6 +430,12 @@ class Admission:
             raise ValueError("bound requires a bounded-mode refuter")
         self._guard_not_refused(r.key)                                   # V4
         self._guard_bound_once(r)                                        # V13
+        # N counts draws, so it is an integer. The event contract has always
+        # declared it one; the kernel accepted 2.5 and True, which is a drift
+        # the schema-conformance test cannot catch because the harness never
+        # emitted a non-integer.
+        if not isinstance(n, int) or isinstance(n, bool):
+            raise ValueError("bound requires an integer N (a count of draws)")
         if not (0.0 < epsilon <= 1.0) or n < 1:
             raise ValueError("bound requires 0 < epsilon <= 1 and N >= 1")
         rec = PowerRecord(r.id, r.version, "bounded", None, epsilon=epsilon, n=n)
@@ -586,7 +592,11 @@ class Admission:
 
     @_journal_atomic("line", "sealed_item")
     def seal(self, item_id: str) -> Seal:
-        """The only writer of S_R."""
+        """The only writer of S_R. The public row takes no journal position:
+        the kernel reads its own, as Open and Sample do."""
+        return self._seal(item_id, self.fcd._position())
+
+    def _seal(self, item_id: str, fpos: int) -> Seal:
         line = self._line(item_id)
         if line.pc != "Open":
             raise ValueError("seal requires pc=Open")
@@ -594,7 +604,7 @@ class Admission:
         self._guard_seal_replayed(line)                                       # V11
         self._guard_seal_measured(line)                                       # V12
         self._guard_seal_independent(line)                                    # V14
-        self._guard_seal_accepted(line)                                       # V15
+        self._guard_seal_accepted(line, fpos)                                 # V15
         self._guard_seal_residual(line)                                       # V15
         claims = tuple(self._claim_seal(line, c) for c in line.claims)
         if not self._check_concordance(line, claims):                         # V2
@@ -630,7 +640,7 @@ class Admission:
                                           "kills": r.kills, "size": r.size,
                                           "epsilon": r.epsilon, "n": r.n} for r in c.refuters]}
                            for c in claims],
-                   residual=[list(x) for x in s.residual])
+                   residual=[list(x) for x in s.residual], fcd_position=fpos)
         return s
 
     def _closed_seal_attempt(self, line: Line) -> Seal:
@@ -842,10 +852,26 @@ class Admission:
             if self.defect_authors.get(claim.defect_model_hash) == line.generator:
                 raise ValueError(f"defect model {claim.defect_model_hash!r} authored by the generator")
 
-    def _guard_seal_accepted(self, line: Line) -> None:
-        """V15. Seal implies FCD Accept: id in S."""
+    def _guard_seal_accepted(self, line: Line, fcd_position: int) -> None:
+        """V15. Seal implies FCD Accept: id in S, as of the identity-journal
+        position the kernel recorded here.
+
+        The store is grow-only (I8: only Accept writes it, and nothing
+        shrinks it), so reading current membership on rebuild is a read of a
+        superset of what the live guard saw — the same shape as the filing
+        seams. Witnessing the accept in the identity journal up to the
+        recorded cut, as the before-generation guard does, makes the two
+        paths agree. We could not exhibit an exploit of the unordered
+        version, because the identity machine's own field-by-field replay
+        refuses the journal reordering it would take; this closes the seam
+        rather than a demonstrated attack, and the ordering is now witnessed
+        instead of inferred from a monotone set."""
         if line.id not in self.fcd.store:
             raise ValueError("seal requires FCD Accept (id in S)")
+        for ev in self.fcd._events[:fcd_position]:
+            if ev.get("type") == "accept" and ev.get("work_item_id") == line.id:
+                return
+        raise ValueError("seal requires FCD Accept at or before its recorded position")
 
     def _guard_seal_residual(self, line: Line) -> None:
         """V15. A residual disposition of check_stage is derived from FCD
@@ -1064,7 +1090,9 @@ class Admission:
             elif t == "rga_refuse":
                 pass  # emitted by replay; not re-driven
             elif t == "rga_seal":
-                a.seal(ev["work_item_id"])
+                if not 0 <= ev["fcd_position"] <= fcd._position():
+                    raise ValueError("journal fcd_position out of range")
+                a._seal(ev["work_item_id"], ev["fcd_position"])
             elif t == "rga_close":
                 fault = ev.get("fault")
                 if fault in {"V2", "V5"}:

@@ -1,0 +1,172 @@
+\begin{thebibliography}{10}
+
+\bibitem{daubert}
+{Daubert v. Merrell Dow Pharmaceuticals, Inc.}, 509 u.s. 579, 1993.
+\newblock Supreme Court of the United States.
+
+\bibitem{anderson}
+James~P. Anderson.
+\newblock Computer security technology planning study.
+\newblock Technical Report ESD-TR-73-51, U.S. Air Force Electronic Systems
+  Division, 1972.
+
+\bibitem{beller}
+Moritz Beller, Chu-Pan Wong, Johannes Bader, Andrew Scott, Mateusz Machalica,
+  Satish Chandra, and Erik Meijer.
+\newblock What it would take to use mutation testing in industry --- a study at
+  facebook.
+\newblock In {\em IEEE/ACM International Conference on Software Engineering:
+  Software Engineering in Practice (ICSE-SEIP)}, 2021.
+
+\bibitem{bloomfield}
+Robin Bloomfield, Kate Netkachova, and John Rushby.
+\newblock Defeaters and eliminative argumentation in assurance 2.0, 2024.
+
+\bibitem{repo}
+Roque Brice\~no.
+\newblock Admissible: source repository, kernels, journal contract and
+  evaluation artifacts, 2026.
+\newblock \url{https://github.com/prive-hn/admissible}.
+
+\bibitem{chen2023}
+Xinyun Chen, Renat Aksitov, Uri Alon, Jie Ren, Kefan Xiao, Pengcheng Yin,
+  Sushant Prakash, Charles Sutton, Xuezhi Wang, and Denny Zhou.
+\newblock Universal self-consistency for large language model generation, 2023.
+
+\bibitem{clarkwilson}
+David~D. Clark and David~R. Wilson.
+\newblock A comparison of commercial and military computer security policies.
+\newblock In {\em IEEE Symposium on Security and Privacy}, 1987.
+
+\bibitem{rfc5280}
+David Cooper, Stefan Santesson, Stephen Farrell, Sharon Boeyen, Russell
+  Housley, and Tim Polk.
+\newblock Internet x.509 public key infrastructure certificate and certificate
+  revocation list (crl) profile.
+\newblock Technical Report RFC 5280, IETF, 2008.
+
+\bibitem{crosby}
+Scott~A. Crosby and Dan~S. Wallach.
+\newblock Efficient data structures for tamper-evident logging.
+\newblock In {\em USENIX Security Symposium}, 2009.
+
+\bibitem{demillo}
+Richard~A. DeMillo, Richard~J. Lipton, and Frederick~G. Sayward.
+\newblock Hints on test data selection: help for the practicing programmer.
+\newblock {\em IEEE Computer}, 11(4):34--41, 1978.
+
+\bibitem{doyle}
+Jon Doyle.
+\newblock A truth maintenance system.
+\newblock {\em Artificial Intelligence}, 12(3):231--272, 1979.
+
+\bibitem{dung}
+Phan~Minh Dung.
+\newblock On the acceptability of arguments and its fundamental role in
+  nonmonotonic reasoning, logic programming and n-person games.
+\newblock {\em Artificial Intelligence}, 77(2):321--357, 1995.
+
+\bibitem{farquhar}
+Sebastian Farquhar, Jannik Kossen, Lorenz Kuhn, and Yarin Gal.
+\newblock Detecting hallucinations in large language models using semantic
+  entropy.
+\newblock {\em Nature}, 630:625--630, 2024.
+
+\bibitem{freivalds}
+R\=usi\c{n}\v{s} Freivalds.
+\newblock Probabilistic machines can use less running time.
+\newblock In {\em IFIP Congress}, 1977.
+
+\bibitem{gibbs}
+Isaac Gibbs and Emmanuel Cand\`es.
+\newblock Adaptive conformal inference under distribution shift.
+\newblock In {\em Advances in Neural Information Processing Systems (NeurIPS)},
+  2021.
+
+\bibitem{ggr}
+Oded Goldreich, Shafi Goldwasser, and Dana Ron.
+\newblock Property testing and its connection to learning and approximation.
+\newblock {\em Journal of the ACM}, 45(4):653--750, 1998.
+
+\bibitem{goodenough}
+John Goodenough, Charles Weinstock, and Ari Klein.
+\newblock Eliminative argumentation: a basis for arguing confidence in system
+  properties.
+\newblock Technical Report CMU/SEI-2015-TR-005, Software Engineering Institute,
+  Carnegie Mellon University, 2015.
+
+\bibitem{higherorder}
+Yue Jia and Mark Harman.
+\newblock Higher order mutation testing.
+\newblock In {\em Information and Software Technology}, 2009.
+
+\bibitem{jiaharman}
+Yue Jia and Mark Harman.
+\newblock An analysis and survey of the development of mutation testing.
+\newblock {\em IEEE Transactions on Software Engineering}, 37(5):649--678,
+  2011.
+
+\bibitem{just}
+Ren\'e Just, Darioush Jalali, Laura Inozemtseva, Michael~D. Ernst, Reid Holmes,
+  and Gordon Fraser.
+\newblock Are mutants a valid substitute for real faults in software testing?
+\newblock In {\em ACM SIGSOFT International Symposium on the Foundations of
+  Software Engineering (FSE)}, 2014.
+
+\bibitem{sel4}
+Gerwin Klein, Kevin Elphinstone, Gernot Heiser, June Andronick, David Cock,
+  Philip Derrin, Dhammika Elkaduwe, Kai Engelhardt, Rafal Kolanski, Michael
+  Norrish, Thomas Sewell, Harvey Tuch, and Simon Winwood.
+\newblock sel4: formal verification of an os kernel.
+\newblock In {\em ACM Symposium on Operating Systems Principles (SOSP)}, 2009.
+
+\bibitem{knightleveson}
+John~C. Knight and Nancy~G. Leveson.
+\newblock An experimental evaluation of the assumption of independence in
+  multiversion programming.
+\newblock {\em IEEE Transactions on Software Engineering}, 12(1):96--109, 1986.
+
+\bibitem{kocher}
+Paul~C. Kocher.
+\newblock On certificate revocation and validation.
+\newblock In {\em Financial Cryptography}, 1998.
+
+\bibitem{kuhn}
+Lorenz Kuhn, Yarin Gal, and Sebastian Farquhar.
+\newblock Semantic uncertainty: linguistic invariances for uncertainty
+  estimation in natural language generation.
+\newblock In {\em International Conference on Learning Representations (ICLR)},
+  2023.
+
+\bibitem{laurie}
+Ben Laurie, Adam Langley, and Emilia Kasper.
+\newblock Certificate transparency.
+\newblock Technical Report RFC 6962, IETF, 2013.
+
+\bibitem{naor}
+Moni Naor and Kobbi Nissim.
+\newblock Certificate revocation and certificate update.
+\newblock In {\em USENIX Security Symposium}, 1998.
+
+\bibitem{necula}
+George~C. Necula and Peter Lee.
+\newblock Safe kernel extensions without run-time checking.
+\newblock In {\em USENIX Symposium on Operating Systems Design and
+  Implementation (OSDI)}, 1996.
+
+\bibitem{pollock}
+John~L. Pollock.
+\newblock Defeasible reasoning.
+\newblock {\em Cognitive Science}, 11(4):481--518, 1987.
+
+\bibitem{saltzer}
+Jerome~H. Saltzer and Michael~D. Schroeder.
+\newblock The protection of information in computer systems.
+\newblock {\em Proceedings of the IEEE}, 63(9):1278--1308, 1975.
+
+\bibitem{tufano}
+Michele Tufano, Cody Watson, Gabriele Bavota, Massimiliano Di~Penta, Martin
+  White, and Denys Poshyvanyk.
+\newblock Learning how to mutate source code from bug-fixes, 2018.
+
+\end{thebibliography}

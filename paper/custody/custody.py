@@ -610,9 +610,14 @@ def _install_e5_candidates(cal: CalibrationAuthority, j: int) -> list:
 def _shift_adm_positions(events: list, adm_del: set) -> list:
     """Rewrite the cal journal's recorded admission positions after deleting
     `adm_del` from the admission journal: `cal_stamp.sealed_at` and the `as_of`
-    of a `cal_close`, `cal_exclude` or `cal_install` each name an admission
-    position, and `from_events` checks them against the rebuilt admission, so
-    each shifts by the deletions before it (T12c)."""
+    of a `cal_run`, `cal_close`, `cal_exclude` or `cal_install` each name an
+    admission position, and `from_events` checks them against the rebuilt
+    admission, so each shifts by the deletions before it (T12c).
+
+    `cal_run.as_of` is included because it is range- and order-checked on
+    rebuild: an unshifted filing cut reads as out of range once the scrutiny
+    journal is shorter, and the minimizer would then report a coherent
+    deletion as incoherent."""
     def shift(p: int) -> int:
         return p - sum(1 for d in adm_del if d < p)
 
@@ -621,7 +626,8 @@ def _shift_adm_positions(events: list, adm_del: set) -> list:
         ev = dict(ev)
         if ev.get("type") == "cal_stamp" and isinstance(ev.get("sealed_at"), int):
             ev["sealed_at"] = shift(ev["sealed_at"])
-        if ev.get("type") in ("cal_close", "cal_exclude", "cal_install") and isinstance(ev.get("as_of"), int):
+        if (ev.get("type") in ("cal_run", "cal_close", "cal_exclude", "cal_install")
+                and isinstance(ev.get("as_of"), int)):
             ev["as_of"] = shift(ev["as_of"])
         out.append(ev)
     return out
@@ -867,7 +873,9 @@ ROOT_FIELDS: dict[str, tuple[str, ...]] = {
     "rga_trial": ("work_item_id", "refuter_id", "refuter_version", "claim_id", "sample_index",
                   "inputs_hash", "verdict", "witness_hash"),
     "rga_replay": ("work_item_id", "trial_index", "verdict", "witness_hash"),
-    "rga_seal": ("work_item_id",),
+    "rga_seal": ("work_item_id", "fcd_position"),
+    "cal_run": ("line_id", "claim_id", "checker_id", "checker_version", "nonce",
+                "artifact_hash", "verdict", "witness_hash", "finder", "as_of"),
     "cal_stamp": ("line_id", "sealed_at"),
 }
 

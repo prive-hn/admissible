@@ -954,6 +954,29 @@ def _field(field: slice, value: bytes, *, pax: bool, index: int = 0):
     return mutate
 
 
+def _octal_field(field: slice, *, pax: bool, index: int = 0):
+    """Increment one octal header field, whatever it currently holds.
+
+    A fixed replacement value is a mutation only when it differs from what the
+    archive already carries, and for the ownership fields it need not: the
+    constant this table used for uid and gid was ``0001750``, which is decimal
+    1000, which is the first non-root uid on most Linux distributions. Built by
+    such a user, the "mutation" wrote back the bytes that were already there
+    and the blind-spot battery reported that the normalisation could not see a
+    field it sees perfectly well. Deriving the new value from the old one, as
+    the checksum mutator already does, makes the mutation a mutation on every
+    builder rather than on most of them."""
+    width = field.stop - field.start
+
+    def mutate(tar_bytes: bytes) -> bytes:
+        offset, header, _size = find_block(tar_bytes, pax=pax, index=index)
+        current = int(header[field].split(b"\0")[0].strip() or b"0", 8)
+        raised = (current + 1) % (1 << (3 * (width - 2)))
+        return patched(tar_bytes, offset + field.start,
+                       (b"%0*o\0" % (width - 1, raised))[:width])
+    return mutate
+
+
 def _checksum_field(*, pax: bool, index: int = 0):
     """Move the recorded checksum and nothing else, so it stops covering."""
     def mutate(tar_bytes: bytes) -> bytes:
@@ -1001,11 +1024,11 @@ MUTATIONS: dict[str, tuple[object, bool]] = {
     "the extended header's name": (
         _field(_TAR_NAME, b"././@PaxHeadeR", pax=True), False),
     "the extended header's mode": (
-        _field(_TAR_MODE, b"0000644\0", pax=True), False),
+        _octal_field(_TAR_MODE, pax=True), False),
     "the extended header's uid": (
-        _field(_TAR_UID, b"0001750\0", pax=True), False),
+        _octal_field(_TAR_UID, pax=True), False),
     "the extended header's gid": (
-        _field(_TAR_GID, b"0001750\0", pax=True), False),
+        _octal_field(_TAR_GID, pax=True), False),
     "the extended header's declared size": (
         _field(_TAR_SIZE, b"00000000037\0", pax=True), False),
     "the extended header's checksum": (_checksum_field(pax=True), False),
@@ -1034,11 +1057,11 @@ MUTATIONS: dict[str, tuple[object, bool]] = {
     "a member's name": (
         _field(_TAR_NAME, b"root/other.txt", pax=False, index=1), True),
     "a member's mode": (
-        _field(_TAR_MODE, b"0000600\0", pax=False, index=1), True),
+        _octal_field(_TAR_MODE, pax=False, index=1), True),
     "a member's uid": (
-        _field(_TAR_UID, b"0001750\0", pax=False, index=1), True),
+        _octal_field(_TAR_UID, pax=False, index=1), True),
     "a member's gid": (
-        _field(_TAR_GID, b"0001750\0", pax=False, index=1), True),
+        _octal_field(_TAR_GID, pax=False, index=1), True),
     "a member's uname": (
         _field(_TAR_UNAME, b"root", pax=False, index=1), True),
     "a member's type flag": (

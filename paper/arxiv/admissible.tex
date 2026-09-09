@@ -8,6 +8,8 @@
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
 \usepackage{longtable}
+\usepackage{graphicx}
+\usepackage{float}
 \usepackage{lmodern}
 % Protrusion only: font expansion needs expandable font sets that a minimal
 % TeX Live install may not carry, and arXiv compiles the source itself.
@@ -34,7 +36,11 @@
 \author{%
   Roque Brice\~no\\
   \small Independent researcher, PRIV\'E, S.\ de R.L., Honduras\\
-  \small \texttt{roque@priveperfumeshn.com}
+  \small \texttt{roque@priveperfumeshn.com}\\
+  % Replace with the author's ORCID iD before submission; arXiv links it from
+  % the abstract page and it is the only stable identifier an independent
+  % researcher has.
+  \small ORCID: 0000-0000-0000-0000
 }
 
 \date{\today}
@@ -93,7 +99,14 @@ The name is an argument as well as a label. Evidence law admits testimony not be
 \[
   \mathcal{F}\ (\text{identity}) \;\longleftarrow\; \mathcal{A}\ (\text{scrutiny}) \;\longleftarrow\; \mathcal{L}\ (\text{standing}).
 \]
-$\mathcal{A}$ reads $\mathcal{F}$'s state and writes none of it (R11); $\mathcal{L}$ reads both and writes neither directly, driving $\mathcal{A}$ only through its own guarded transitions (C7). Every transition appends to an append-only journal, and every machine rebuilds deterministically from its journal, re-checking on rebuild what it checked live.
+$\mathcal{A}$ reads $\mathcal{F}$'s state and writes none of it (R11); $\mathcal{L}$ reads both and writes neither directly, driving $\mathcal{A}$ only through its own guarded transitions (C7). Every transition appends to an append-only journal, and every machine rebuilds deterministically from its journal, re-checking on rebuild what it checked live. \Cref{fig:composition} states the predicate and the layers it decomposes into.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.82\textwidth]{fig1-composition.png}
+  \caption{The composed machine. Each conjunct of $\adm$ is the top of one theorem family, and each layer answers exactly one of \Cref{sec:intro}'s three questions.}
+  \label{fig:composition}
+\end{figure}
 
 \paragraph{Adversary.} In scope: any sequence of public transitions by untrusted parties --- mis-binding, fallback hopping, claim-shaping, refuter-shaping, tailoring outputs to known tests, witness multiplication, corpus flooding with true filings, inconsistent journal tampering detected at replay, and selection across retries. Out of scope, and stated as assumptions in \Cref{app:assumptions}: physical execution fidelity (A10/B1), runtime hermeticity (B2), hash second-preimage resistance (A11/B7), author-identity strings (B11), operator governance (B13), authenticated-publication key and registry integrity (B14), and post-seal byte availability (B12). Coherent history replacement or deletion is detected only relative to a previously trusted authenticated publication; \Cref{sec:composed} states that residue precisely, and \Cref{sec:findings} widens it by one event class as the price of a repair.
 
@@ -103,7 +116,14 @@ $\mathcal{A}$ reads $\mathcal{F}$'s state and writes none of it (R11); $\mathcal
 \subsection{Identity}
 \label{sec:identity}
 
-A work item carries a class $c$ and a frozen body. Policy gives each class an allow set $\pi(c)$ and a deny set $\delta(c)$, disjoint, and binds each specialist $a$ to one API model identity $\phi(a)$; display strings are compared after normalisation. On a check stage the effective allow set excludes the item's authors. The machine's rows are Open, Admit, Bind, Observe, Pass/PassRefuse, Close, Retry and Accept, with the load-bearing split that \textbf{Bind writes only the declared identity and Observe alone writes the executed one}, so the Pass guard $\norm(m_{\mathrm{exec}}) = \norm(m_{\mathrm{decl}})$ compares two independently sourced witnesses and can genuinely fail. Retry, where a class has one, is the same item on a specialist not yet tried; it does not search a leftover fallback list.
+A work item carries a class $c$ and a frozen body. Policy gives each class an allow set $\pi(c)$ and a deny set $\delta(c)$, disjoint, and binds each specialist $a$ to one API model identity $\phi(a)$; display strings are compared after normalisation. On a check stage the effective allow set excludes the item's authors. The machine's rows are Open, Admit, Bind, Observe, Pass/PassRefuse, Close, Retry and Accept, with the load-bearing split that \textbf{Bind writes only the declared identity and Observe alone writes the executed one}, so the Pass guard $\norm(m_{\mathrm{exec}}) = \norm(m_{\mathrm{decl}})$ compares two independently sourced witnesses and can genuinely fail (\Cref{fig:writers}). Retry, where a class has one, is the same item on a specialist not yet tried; it does not search a leftover fallback list.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.66\textwidth]{fig2-writers.png}
+  \caption{Why I1 is not vacuous. A table in which one transition writes both identities makes the Pass guard a tautology; separating the writers is what gives the guard two independently sourced witnesses to compare, and it is the single most important structural decision in this layer.}
+  \label{fig:writers}
+\end{figure}
 
 \begin{theorem}[Identity, selected clauses]
 \label{thm:identity}
@@ -145,7 +165,14 @@ Under B0--B11, R1--R13 are inductive on the combined machine. In particular:
 Statements R7, R9, R10, R12 and R13 and all proofs are in \Cref{app:scrutiny}.
 \end{theorem}
 
-The seal carries the artifact hash; per claim, each refuter's mode, power, $D$ or $(\varepsilon,N)$, kills and $|D|$; the composite with its label; the two sorts' own coordinates with the floor basis and the contributor that realised it; $(\mathit{agreeing},k)$; the sampling configuration; the identity-layer identity; and an explicit list of what was \emph{not} attacked, with its disposition.
+The seal carries the artifact hash; per claim, each refuter's mode, power, $D$ or $(\varepsilon,N)$, kills and $|D|$; the composite with its label; the two sorts' own coordinates with the floor basis and the contributor that realised it; $(\mathit{agreeing},k)$; the sampling configuration; the identity-layer identity; the identity-journal position it read; and an explicit list of what was \emph{not} attacked, with its disposition. \Cref{fig:seal} is the whole record.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.80\textwidth]{fig3-seal.png}
+  \caption{Anatomy of a seal. Every field is write-once, and nothing on it can be raised afterwards. The residual line is the class's declared list of what was not attacked, which is on the record precisely so that a reader is not left to infer coverage from silence.}
+  \label{fig:seal}
+\end{figure}
 
 \subsubsection{Why the floor reads the weaker sort}
 \label{sec:floor}
@@ -233,12 +260,14 @@ Downward is immediate: the query is a read over the filed runs and the validity 
 A contested but unresolved escape keeps impeaching. That is the fail-closed direction for the artifact and the aggressive direction for the instrument, and both are deliberate: a suspect checker's demonstrated kill is not cleared by a report about the checker itself. The cost is stated in \Cref{sec:findings}.
 \end{remark}
 
-\section{Verification methodology}
+\section{Verification discipline}
 \label{sec:method}
 
-The discipline is a contribution independent of the theorems it checks, because it is what located the defects in \Cref{sec:findings}.
+This is engineering discipline rather than a verification technique, and it is worth a section because it is what located the defects in \Cref{sec:findings}. We say what it is not first: the guards are Python, the proofs are prose, and the citation binder is a text search. Machine-checked refinement of a kernel against its specification~\cite{sel4} is a strictly stronger form of the same goal, and a reader entitled to ask ``why not verify it?'' should have the comparison from us rather than have to make it.
 
-\paragraph{Delete the guard.} Every guard of the scrutiny and standing kernels is a named method. For each, the suite runs a scenario twice: with the guard intact, in which the forbidden state must be unreachable, and with the guard replaced by a no-op, in which it must be reached. A guard that no deletion turns red fails the suite as dead code, and the discipline is applied to itself --- clauses proved unreachable by construction are removed and derived instead, with the removal recorded. There are $45$ such per-guard proofs and $2$ joint cuts for theorems that two guards enforce together. The identity kernel predates this discipline: its guards are driven to refusal by transition tests over the same fault table, without per-guard deletion, a difference we state rather than paper over.
+\paragraph{Delete the guard.} Every guard of the scrutiny and standing kernels is a named method. For each, the suite runs a scenario twice: with the guard intact, in which the forbidden state must be unreachable, and with the guard replaced by a no-op, in which it must be reached. A guard that no deletion turns red fails the suite as dead code, and the discipline is applied to itself --- clauses proved unreachable by construction are removed and derived instead, with the removal recorded. There are $47$ such per-guard proofs and $2$ joint cuts for theorems that two guards enforce together. The identity kernel predates this discipline: its guards are driven to refusal by transition tests over the same fault table, without per-guard deletion.
+
+The argument is \emph{first-order}, and the distinction matters because the section could otherwise be read as an adequacy claim. Deleting each guard singly proves each individually necessary. It does not prove the registered scenarios minimal, nor that every violation class whose minimal cut lies inside the guard basis is registered: two size-two cuts of the scrutiny kernel --- a sealed line with more than $k$ samples, and a sealed line whose pinned refuter was refused before Open and so escapes the taint query --- are reachable only by deleting a pair, and are absent from the joint registry. Higher-order adequacy in the sense of~\cite{higherorder} is not claimed.
 
 \paragraph{Bind the citations.} Every scrutiny and standing proof step cites a \code{file:line:symbol} triple, and two tests open the file and fail if the line no longer contains the symbol. This is a move-detector, not a semantic check: the sentence claims enforcement, and the test keeps the sentence pointed at live code. It fired during the work reported here, which is the point --- and it is worth recording that the naive repair is wrong. When lines shift, re-pointing each citation at the nearest line containing its symbol lands on docstrings, decorators and call sites rather than enforcing lines. Carrying the citations along an exact old-to-new line map, computed by diffing against the previous revision, moved $195$ of them correctly and left exactly the ones on genuinely edited lines for a human.
 
@@ -266,11 +295,25 @@ This is also where we learned not to trust a control total. Deleting an open eve
 
 Rates are computed only on a named cut with a class-derived window, from a write-ahead journal, with policy evaluated as-of each event; otherwise zeros are estimates biased clean rather than results. Under that rule the repository carries three studies of decreasing internal validity and increasing external relevance. \textbf{None of them is a claim about any model, and none is part of the gate.}
 
-\paragraph{A kernel bench.} All three layers are driven over reference implementations of four library-specified functions, with the standard library as the strong refuter's differential oracle and a seeded syntax-tree mutator building the defect models. Its numbers are kernel queries on the named cut, reproduced byte-identically by a test. Two of its three generator conditions are close to definitional, and the record says so: the honest sample \emph{is} the reference implementation that serves as the oracle, so its sealing rate is true by construction, and the sloppy mutant is drawn from the very defect model that power is measured against, so its refutation is a within-model result. What the bench does establish is that the machinery is internally consistent under adversarial conditions, plus one thing that is not definitional: every latent-defect seal was impeached afterwards, $7$ of $7$, while three unstable seals were not and stand as misses. That is the standing layer working, and its residue, on the same figure.
+\paragraph{A kernel bench.} All three layers are driven over reference implementations of four library-specified functions, with the standard library as the strong refuter's differential oracle and a seeded syntax-tree mutator building the defect models. Its numbers are kernel queries on the named cut, reproduced byte-identically by a test. Two of its three generator conditions are close to definitional, and the record says so: the honest sample \emph{is} the reference implementation that serves as the oracle, so its sealing rate is true by construction, and the sloppy mutant is drawn from the very defect model that power is measured against, so its refutation is a within-model result. What the bench does establish is that the machinery is internally consistent under adversarial conditions, plus one thing that is not definitional: every latent-defect seal was impeached afterwards, $7$ of $7$, while three unstable seals were not and stand as misses. That is the standing layer working, and its residue, on the same figure (\Cref{fig:bench}).
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.86\textwidth]{fig4-bench.png}
+  \caption{Where each generator condition lands. The figure labels which cells are true by construction rather than leaving the reader to discover it: the honest sample \emph{is} the differential oracle, and the sloppy mutant is drawn from the very defect model power is measured against. Only the impeachment column is a result.}
+  \label{fig:bench}
+\end{figure}
 
 \paragraph{A real generator.} A language model replaced the simulated generator for $48$ samples across those four targets, recorded into content-addressed corpora and replayed through the same seam so determinism survives. \emph{Not one sample was defective}: across $12$ textually distinct implementations of one target, all $48$ matched their oracle on $3{,}000$ generated inputs. The gate refused none of them --- $16$ of $16$ lines sealed, zero false refusals --- which is the first measurement of the false-positive half against code a generator actually wrote. It must be read with the corpus's own limitation: nothing recorded establishes that the $k$ samples within a line were independent draws, so concordance is untested there and the discord path is not exercised. The detection half could not be measured, and the reason is structural rather than a matter of adding targets: a target whose oracle is a well-known library function is one whose answer a modern generator recalls rather than derives, so the differential refuter ends up comparing the oracle to itself.
 
-\paragraph{Real historical defects.} The study that bears on the coupling hypothesis directly draws $63$ module-level functions from a curated real-bug corpus, of which $42$ could be run as a differential between their buggy and fixed commits under one interpreter, with inputs found by search rather than sampling and with no knowledge of the bug. It yields \emph{eight defects separated and then hand-verified against the patch that closed them}, each with a re-runnable witness. It does \emph{not} yield a detection rate, and the figure is drawn to refuse one. Five successive runs each carried an instrument fault invisible in its own summary statistic --- a stubbed parent package that cost two thirds of the corpus, a filter too narrow, an argument mutated between the two sides, a filter too broad, and an artifact rule that later measurement showed never fires. Of the last run's $42$ testable candidates, three are excluded by a guard bug rather than by the corpus, two of ten separations are not the documented defect, and of six negatives adjudicated by hand three were overturned by an input written after reading the patch: ``not separated'' mostly means ``not reached''. The honest deliverable is the verified cases and a characterised instrument.
+\paragraph{Real historical defects.} The study that bears on the coupling hypothesis directly draws $63$ module-level functions from a curated real-bug corpus, of which $42$ could be run as a differential between their buggy and fixed commits under one interpreter, with inputs found by search rather than sampling and with no knowledge of the bug. It yields \emph{eight defects separated and then hand-verified against the patch that closed them}, each with a re-runnable witness. It does \emph{not} yield a detection rate, and the figure is drawn to refuse one. Five successive runs each carried an instrument fault invisible in its own summary statistic --- a stubbed parent package that cost two thirds of the corpus, a filter too narrow, an argument mutated between the two sides, a filter too broad, and an artifact rule that later measurement showed never fires. Of the last run's $42$ testable candidates, three are excluded by a guard bug rather than by the corpus, two of ten separations are not the documented defect, and of six negatives adjudicated by hand three were overturned by an input written after reading the patch: ``not separated'' mostly means ``not reached''. The honest deliverable is the verified cases and a characterised instrument, and \Cref{fig:realdefects} is drawn to show where the corpus went rather than to invite a ratio out of it.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.86\textwidth]{fig5-realdefects.png}
+  \caption{Where the real defects went. The ratio this shape invites --- separations over testable --- is the one the study's own log says not to quote, because the run's artifact rule was measured afterwards and never fires. What the figure reports is the disposition of every candidate and the eight hand-verified separations.}
+  \label{fig:realdefects}
+\end{figure}
 
 \paragraph{Deployment-facing metrics.} The defined surface remains empty until a named cut: misbind, silent-fail, bleed and time-to-stage for identity; refutation, discord, miss-observed, replay-divergence and escape-replay rates for scrutiny and standing --- each with its selection biases stated beside it. A deployment still owes the two empirical studies the theorems cannot supply: coupling of its defect models to its generators' real faults, and the escape corpus's coverage of what its finders actually find.
 
@@ -283,7 +326,9 @@ Rates are computed only on a named cut with a class-derived window, from a write
 
 \paragraph{Standing.} Eliminative argumentation and the Assurance 2.0 defeater discipline~\cite{goodenough,bloomfield} are the nearest neighbours: our escapes are their defeaters, mechanised, with a kernel-refused rather than assessor-flagged successor policy. Regression-from-escapes and mined-fault mutation are the corpus practice~\cite{tufano,beller}. The standing query's shape, and the fact that deleting a revocation raises standing, is certificate revocation~\cite{rfc5280,kocher,naor}; transparency logs and tamper-evident logging supply the length witness~\cite{laurie,crosby}; flaky-test quarantine and error budgets are demotion's fail-open ancestors. Adaptive conformal inference~\cite{gibbs} is the shape a statistical calibration theorem would have, and \Cref{sec:limits} says why it does not fit an adversarially censored escape channel.
 
-\paragraph{Deltas we do claim.} Three, stated narrowly. First, carried power as a \emph{primary} that composes only by union over a shared defect model or a labelled maximum, never a product, and whose two sorts are never collapsed --- mutation-testing practice reports a rate and composes across artifacts nowhere. Second, escapes as counterfactual re-runs of the instrument the seal already trusted, which is what makes the impeachment channel add no trust assumption; revocation infrastructures accept an authority's assertion instead. Third, \Cref{thm:asym}: the two directions of a standing query carry different evidential burdens, and we know of no prior mechanisation in which un-revocation of a demonstrated defeater requires a demonstration on that defeater plus an attributed act. We do \emph{not} claim novelty for impeachment, for measured scrutiny, or for the access-control skeleton.
+\paragraph{The validity calculus is not ours.} \Cref{thm:asym} deserves its ancestry stated rather than left for a referee to supply. A standing predicate whose negative conjuncts are retracted when their support disappears is Doyle's out-list~\cite{doyle}; that a claim's status is a fixpoint of the record rather than an authority's act is Dung's grounded semantics~\cite{dung}; and reinstating a claim by attacking its defeater --- which is precisely the channel the first version of this kernel left open --- is Pollock's undercutting defeat~\cite{pollock}. Those three formalise the calculus. What we add is its mechanisation inside an admission kernel: the defeater is a re-run of the certifying instrument rather than an assertion, and the undercut is admitted only past a demonstration on the defeated run together with an attributed decision.
+
+\paragraph{Deltas we do claim.} Three, stated narrowly. First, carried power as a \emph{primary} that composes only by union over a shared defect model or a labelled maximum, never a product, and whose two sorts are never collapsed --- mutation-testing practice reports a rate and composes across artifacts nowhere. Second, escapes as counterfactual re-runs of the instrument the seal already trusted, which is what makes the impeachment channel add no trust assumption; revocation infrastructures accept an authority's assertion instead, and the succession ratchet then makes forgetting a filed defect a \emph{refused transition} rather than a flagged omission. Third, \Cref{thm:asym}'s mechanisation: the two directions of a standing query carry different evidential burdens, and while the calculus is Pollock's and Dung's, we know of no prior kernel in which un-revocation of a demonstrated defeater is gated on a demonstration against that defeater plus a named act. We do \emph{not} claim novelty for impeachment, for measured scrutiny, for the validity calculus, or for the access-control skeleton.
 
 \section{Limitations, and what is not proved}
 \label{sec:limits}
@@ -310,7 +355,7 @@ Rates are computed only on a named cut with a class-derived window, from a write
 
 Certifying the output of a non-replayable generator by naming its author is not available. What is available is a record that cannot lie about procedure: who ran, what the artifact survived at what measured strength, and what has been found against it since. Admissible is that record with a kernel around it, and the discipline that keeps the two from drifting apart is what found five soundness defects in the kernel's own released version --- including one that let a single party un-impeach every artifact a checker had impeached. The repair produced a theorem worth stating on its own: a standing query's two directions carry different evidential burdens, and a kernel that cannot adjudicate between conflicting reports should at least refuse to let the later one win in silence.
 
-\paragraph{Artifact availability.} The kernels, the journal event contract, every proof cited in this paper, and the three evaluation studies with their append-only run log are at \url{https://github.com/prive-hn/admissible}. The three kernels are pure Python with no I/O and injectable clocks and nonce sources.
+\paragraph{Artifact availability.} The kernels, the journal event contract, every proof cited in this paper, and the three evaluation studies with their append-only run log are in the source repository~\cite{repo}. The three kernels are pure Python with no I/O and injectable clocks and nonce sources. Counts stated in \Cref{sec:method} are derived by the repository's own collection test rather than typed, because a remembered count is exactly the claim this discipline exists to catch.
 
 \paragraph{Use of generative tools.} Portions of the manuscript and of the exploratory theory that produced the polarity computation of \Cref{sec:findings} were drafted with the assistance of large language models, and the resulting findings were then re-derived against the unmodified kernel by adversarial review before being accepted. The author takes full responsibility for all content, including every citation and every theorem statement.
 
@@ -504,57 +549,7 @@ The successor relation quantifies over journaled installs of this authority, not
 
 \paragraph{C7 (non-interference).} By inspection, every assignment in the standing module targets standing-owned state, and its only effects on the lower machines are calls to their own guarded transitions. One qualification, which we state because a review found it and the published proof sentence had been too strong: the atomicity wrapper that restores state when a standing attempt fails \emph{after} the scrutiny seal has committed does restore the scrutiny layer's line and store entries and truncate its regenerated events. C7 therefore holds at attempt granularity rather than step granularity, which is the granularity the composition results actually need. $\square$
 
-\begin{thebibliography}{99}
-\small
-
-\bibitem{anderson} J.~P. Anderson. \emph{Computer Security Technology Planning Study}. ESD-TR-73-51, U.S. Air Force Electronic Systems Division, 1972.
-
-\bibitem{beller} M.~Beller, C.~Wong, J.~Bader, A.~Scott, M.~Machalica, S.~Chandra, and E.~Meijer. What it would take to use mutation testing in industry --- a study at Facebook. In \emph{ICSE-SEIP}, 2021.
-
-\bibitem{bloomfield} R.~Bloomfield, K.~Netkachova, and J.~Rushby. Defeaters and eliminative argumentation in Assurance 2.0. arXiv:2405.15800, 2024.
-
-\bibitem{chen2023} X.~Chen, R.~Aksitov, U.~Alon, J.~Ren, K.~Xiao, P.~Yin, S.~Prakash, C.~Sutton, X.~Wang, and D.~Zhou. Universal self-consistency for large language model generation. arXiv:2311.17311, 2023.
-
-\bibitem{clarkwilson} D.~D. Clark and D.~R. Wilson. A comparison of commercial and military computer security policies. In \emph{IEEE Symposium on Security and Privacy}, 1987.
-
-\bibitem{crosby} S.~A. Crosby and D.~S. Wallach. Efficient data structures for tamper-evident logging. In \emph{USENIX Security Symposium}, 2009.
-
-\bibitem{daubert} \emph{Daubert v.\ Merrell Dow Pharmaceuticals, Inc.}, 509 U.S. 579, 1993.
-
-\bibitem{demillo} R.~A. DeMillo, R.~J. Lipton, and F.~G. Sayward. Hints on test data selection: help for the practicing programmer. \emph{IEEE Computer}, 11(4):34--41, 1978.
-
-\bibitem{farquhar} S.~Farquhar, J.~Kossen, L.~Kuhn, and Y.~Gal. Detecting hallucinations in large language models using semantic entropy. \emph{Nature}, 630:625--630, 2024.
-
-\bibitem{freivalds} R.~Freivalds. Probabilistic machines can use less running time. In \emph{IFIP Congress}, 1977.
-
-\bibitem{gibbs} I.~Gibbs and E.~Cand\`es. Adaptive conformal inference under distribution shift. In \emph{NeurIPS}, 2021.
-
-\bibitem{ggr} O.~Goldreich, S.~Goldwasser, and D.~Ron. Property testing and its connection to learning and approximation. \emph{Journal of the ACM}, 45(4):653--750, 1998.
-
-\bibitem{goodenough} J.~Goodenough, C.~Weinstock, and A.~Klein. Eliminative argumentation: a basis for arguing confidence in system properties. Technical Report CMU/SEI-2015-TR-005, Software Engineering Institute, 2015.
-
-\bibitem{jiaharman} Y.~Jia and M.~Harman. An analysis and survey of the development of mutation testing. \emph{IEEE Transactions on Software Engineering}, 37(5):649--678, 2011.
-
-\bibitem{just} R.~Just, D.~Jalali, L.~Inozemtseva, M.~D. Ernst, R.~Holmes, and G.~Fraser. Are mutants a valid substitute for real faults in software testing? In \emph{FSE}, 2014.
-
-\bibitem{knightleveson} J.~C. Knight and N.~G. Leveson. An experimental evaluation of the assumption of independence in multiversion programming. \emph{IEEE Transactions on Software Engineering}, 12(1):96--109, 1986.
-
-\bibitem{kocher} P.~C. Kocher. On certificate revocation and validation. In \emph{Financial Cryptography}, 1998.
-
-\bibitem{kuhn} L.~Kuhn, Y.~Gal, and S.~Farquhar. Semantic uncertainty: linguistic invariances for uncertainty estimation in natural language generation. In \emph{ICLR}, 2023.
-
-\bibitem{laurie} B.~Laurie, A.~Langley, and E.~Kasper. Certificate Transparency. RFC 6962, IETF, 2013.
-
-\bibitem{naor} M.~Naor and K.~Nissim. Certificate revocation and certificate update. In \emph{USENIX Security Symposium}, 1998.
-
-\bibitem{necula} G.~C. Necula and P.~Lee. Safe kernel extensions without run-time checking. In \emph{OSDI}, 1996.
-
-\bibitem{rfc5280} D.~Cooper, S.~Santesson, S.~Farrell, S.~Boeyen, R.~Housley, and W.~Polk. Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile. RFC 5280, IETF, 2008.
-
-\bibitem{saltzer} J.~H. Saltzer and M.~D. Schroeder. The protection of information in computer systems. \emph{Proceedings of the IEEE}, 63(9):1278--1308, 1975.
-
-\bibitem{tufano} M.~Tufano, C.~Watson, G.~Bavota, M.~Di~Penta, M.~White, and D.~Poshyvanyk. Learning how to mutate source code from bug-fixes. arXiv:1812.10772, 2018.
-
-\end{thebibliography}
+\bibliographystyle{plain}
+\bibliography{references}
 
 \end{document}
