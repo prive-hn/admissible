@@ -21,6 +21,13 @@ cd paper/arxiv && make          # admissible.pdf
 make check                      # page count, unresolved refs, overfull boxes
 ```
 
+LaTeX runs in a scratch directory and only the PDF is copied back. Leaving
+`.aux`, `.log` and `.out` beside the source would put files in the working tree
+that Git ignores but a directory walk still sees, and
+`tests/architecture/test_separation_sabotage.py` asserts those two answers
+agree — "the clone is complete" means nothing once they diverge. That check
+caught exactly this when the preprint was first added.
+
 Requires `pdflatex` with `amsmath`, `booktabs`, `longtable`, `microtype`,
 `hyperref` and `cleveref` — on Debian and Ubuntu, `texlive-latex-base`,
 `texlive-latex-recommended`, `texlive-latex-extra` and

@@ -15,13 +15,6 @@ packages/*/_staged.lock
 apps/cockpit/dist/
 apps/cockpit/coverage/
 paper/_pdf_spec.json
-# LaTeX build products of the arXiv preprint. The .tex is the submission --
-# arXiv processes the source itself -- so the compiled PDF is committed as a
-# convenience artifact while the intermediates are not.
-paper/arxiv/*.aux
-paper/arxiv/*.log
-paper/arxiv/*.out
-paper/arxiv/*.toc
 data/raw/
 data/*.jsonl
 data/*.sqlite
