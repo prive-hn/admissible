@@ -101,11 +101,13 @@ class PolarityCompletenessI(unittest.TestCase):
                             f"{t}: observed {sorted(signs)} outside declared "
                             f"{custody.polarity_of(t)} {sorted(allowed)} (moves: {hist.moves})")
 
-    def test_rga_refuse_exhibits_both_signs_so_pm_is_neither_over_nor_understated(self):
-        """rga_refuse is labelled '±' (§9's other mislabel).  A targeted probe
-        that it genuinely both lowers standing (taint) and raises it (CF1's
-        second path), so neither a '-' nor a '+' would be correct.  The raise
-        path mirrors tests/test_custody.py::FindingCF1RefusalPath."""
+    def test_rga_refuse_lowers_standing_and_no_longer_raises_it(self):
+        """rga_refuse was labelled '±' because it both lowered standing (taint)
+        and raised it (CF1's second path: refusing a checker voided its
+        established escapes). With that path closed the label is '-', and the
+        probe checks both halves — the taint still fires, and a refusal of a
+        checker whose escape impeaches another line leaves that line
+        impeached."""
         from test_rga_calibration import CalHarness
         from rga.core import AdmissionPolicy, ClassAdmission, ClaimSpec, DefectModel, LedgerEntry, Refuter
         # -- lower path: refusing a pinned checker taints a seal that pinned it --
@@ -115,7 +117,7 @@ class PolarityCompletenessI(unittest.TestCase):
         h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
         h.a.replay("z", 0, "refuted", "w-same")            # rga_refuse: taints -> lowers
         self.assertFalse(h.cal.admissible("w"))
-        # -- raise path: a tier-B checker impeaches w, then is refused elsewhere --
+        # -- the former raise path, now inert --
         g = CalHarness(e_max=0); g.declare_tests(); g.seal_line()
         g.a.declare(Refuter("hawk", "v1", "hawk-author", "ledger"))
         run = g.cal.file_escape("w", "tests_pass", "hawk", "v1", "n1", b"w-body-0", "any-seed", "hk", "aud")
@@ -130,32 +132,41 @@ class PolarityCompletenessI(unittest.TestCase):
         g.a.install(pol)
         g.fcd_open("z"); g.a.open("z", "gen", "temp=0.7")
         g.fcd_write("z"); g.sample("z", b"z0"); g.trial("z", 0, refuter=("hawk", "v1"))
-        g.a.replay("z", 0, "refuted", "w-same")            # rga_refuse of hawk: raises w
+        g.a.replay("z", 0, "refuted", "w-same")            # rga_refuse of hawk: reaches w no more
         self.assertIn(("hawk", "v1"), g.a.refused)
-        self.assertTrue(g.cal.admissible("w"))
+        self.assertTrue(g.cal.impeached("w"))
+        self.assertFalse(g.cal.admissible("w"))
+        self.assertEqual(custody.polarity_of("rga_refuse"), "-")
 
-    def test_cal_discredit_raise_matches_its_declared_polarity(self):
-        """cal_discredit is declared '+' — the event §9(i) records as caught
-        mislabelled ('wrong twice'). The generator-driven sign sweep never records
-        its delta: a cal_discredit is always emitted right after a diverged replay,
-        and from_events refuses the prefix ending at that replay, so prev_ok is
-        always False there. Drive it directly: an established escape impeaches w
-        (lowering admissible), then discrediting its checker via a divergent replay
-        lifts the impeachment — a +1 raise that must lie inside the declared
-        polarity (a '-' or '0' label would exclude +1 and fail here)."""
+    def test_only_an_attributed_resolution_raises_a_lines_standing(self):
+        """cal_discredit was declared '+' — the label §9(i) records as caught
+        mislabelled twice. Since the CF1 repair a discredit reaches no
+        established escape, so it is standing-neutral, and the single raising
+        event is the attributed `cal_resolve` that voids a contested run. Both
+        signs are driven directly, because the generator-driven sweep cannot
+        see them: a discredit always follows a diverged replay, whose prefix
+        `from_events` refuses."""
         from test_rga_calibration import CalHarness
         h = CalHarness(); h.declare_tests(); h.seal_line()
-        h.tier_a_escape(nonce="e1")                        # established+refuted -> impeaches
-        mid = int(h.cal.admissible("w"))                   # 0 (lowered)
+        run = h.tier_a_escape(nonce="e1")                  # established+refuted -> impeaches
+        mid = int(h.cal.admissible("w"))
         self.assertEqual(mid, 0)
         second = h.tier_a_escape(nonce="e2", replay=False)
         h.cal.replay_run(second.index, "refuted", "other-witness")   # diverges -> cal_discredit
         self.assertIn(TESTS, h.cal.discredited)
         self.assertTrue(any(e.get("type") == "cal_discredit" for e in h.cal.events))
-        after = int(h.cal.admissible("w"))                 # 1 (impeachment lifted)
-        sign = max(-1, min(1, after - mid))                # +1
+        self.assertEqual(int(h.cal.admissible("w")), mid)  # neutral: no delta at all
+        self.assertIn(0, _SIGN[custody.polarity_of("cal_discredit")])
+        # the one raise: a contest on the run itself, resolved by a named actor
+        g = CalHarness(); g.declare_tests(); g.seal_line()
+        first = g.tier_a_escape(nonce="e1")
+        before = int(g.cal.admissible("w"))
+        g.cal.replay_run(first.index, "survived", "not-a-kill")
+        self.assertEqual(int(g.cal.admissible("w")), before)         # contested: still lowered
+        g.cal.resolve(first.index, "owner", "void", "flaked on these bytes")
+        sign = max(-1, min(1, int(g.cal.admissible("w")) - before))
         self.assertEqual(sign, 1)
-        self.assertIn(sign, _SIGN[custody.polarity_of("cal_discredit")])
+        self.assertIn(sign, _SIGN[custody.polarity_of("cal_resolve")])
 
 
 # -- Conjecture (iv): the anchoring relation T4.1 is complete ------------------

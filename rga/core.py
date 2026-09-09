@@ -232,6 +232,16 @@ class ClaimSeal:
     composition: str                # single | union | max
     agreeing: int
     k: int
+    # The two sorts, never collapsed into one another: `ledger_composite` is
+    # kernel-counted over a named defect model, `bounded_composite` is computed
+    # from a declaration. `floor_basis` is the figure the V5 gate compared —
+    # the weakest sort present, so a declaration can never be the sole
+    # realizer of a floor a measurement failed (finding CF6) — and
+    # `floor_witness` names the contributor that realized it.
+    ledger_composite: Optional[float] = None
+    bounded_composite: Optional[float] = None
+    floor_basis: float = 0.0
+    floor_witness: str = ""
 
 
 @dataclass(frozen=True)
@@ -589,7 +599,7 @@ class Admission:
         claims = tuple(self._claim_seal(line, c) for c in line.claims)
         if not self._check_concordance(line, claims):                         # V2
             return self._closed_seal_attempt(line)
-        power_min = min(c.composite for c in claims)
+        power_min = min(c.floor_basis for c in claims)
         if not self._check_power_floor(line, power_min):                      # V5
             return self._closed_seal_attempt(line)
         designated = line.samples[0]
@@ -612,6 +622,9 @@ class Admission:
                    claims=[{"claim_id": c.claim_id, "spec_hash": c.spec_hash,
                             "composite": c.composite, "composition": c.composition,
                             "agreeing": c.agreeing, "k": c.k,
+                            "ledger_composite": c.ledger_composite,
+                            "bounded_composite": c.bounded_composite,
+                            "floor_basis": c.floor_basis, "floor_witness": c.floor_witness,
                             "refuters": [{"id": r.id, "version": r.version, "mode": r.mode,
                                           "power": r.power, "defect_model_hash": r.defect_model_hash,
                                           "kills": r.kills, "size": r.size,
@@ -933,7 +946,48 @@ class Admission:
             composition = "union"
         else:
             composition = "max"
-        return ClaimSeal(claim.id, claim.spec_hash, tuple(refs), composite, composition, agreeing, line.k)
+        ledger_composite = union_power if ledger_records else None
+        bounded_composite = max(bounded_powers) if bounded_powers else None
+        floor_basis, floor_witness = self._floor_basis(claim, ledger_records,
+                                                       ledger_composite, bounded_composite)
+        return ClaimSeal(claim.id, claim.spec_hash, tuple(refs), composite, composition,
+                         agreeing, line.k, ledger_composite=ledger_composite,
+                         bounded_composite=bounded_composite,
+                         floor_basis=floor_basis, floor_witness=floor_witness)
+
+    def _floor_basis(self, claim: ClaimSpec, ledger_records: list[PowerRecord],
+                     ledger_composite: Optional[float],
+                     bounded_composite: Optional[float]) -> tuple[float, str]:
+        """V5's basis: the weakest sort present, with the contributor that
+        realized it named on the seal.
+
+        A ledger figure is counted by the kernel over a named finite defect
+        model; a bounded figure is computed from a declared `(epsilon, N)`.
+        They speak about different alternatives, so `max` across them is not a
+        lower bound on anything joint — and taking it let a declared `1.0`
+        clear any floor over a `0/|D|` ledger, which is a declaration
+        outranking a measurement (finding CF6). Gating on the minimum over the
+        sorts actually present refuses that at the cause: where both sorts
+        attack a claim, each must clear the floor on its own base. A claim
+        attacked only by declarations still clears its floor by declaration —
+        the kernel cannot measure what nobody measured — and says so in the
+        witness, which is the label a reader needs to discount it."""
+        parts: list[tuple[float, str]] = []
+        if ledger_composite is not None:
+            if len(ledger_records) >= 2:
+                base = f"union({len(ledger_records)})@{claim.defect_model_hash}"
+            else:
+                rec = ledger_records[0]
+                base = f"{rec.refuter_id}@{rec.refuter_version}:{rec.kills}/{rec.size}"
+            parts.append((ledger_composite, f"ledger:{base}"))
+        if bounded_composite is not None:
+            parts.append((bounded_composite, "bounded:declared"))
+        if not parts:
+            return 0.0, "none"
+        value, witness = min(parts, key=lambda p: p[0])
+        if len(parts) == 1:
+            witness = f"{witness} (only sort present)"
+        return value, witness
 
     # -- replay ----------------------------------------------------------------------
 

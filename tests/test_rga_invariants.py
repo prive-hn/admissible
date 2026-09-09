@@ -280,6 +280,62 @@ class R2PowerCarriedNeverInferred(unittest.TestCase):
         self.assertEqual(len(s.claims), 2)
         self.assertAlmostEqual(s.power_min, 0.6)
 
+    def test_a_declaration_cannot_clear_a_floor_a_measurement_failed(self):
+        """The repair of finding CF6. A bounded refuter declared at
+        (epsilon=1, N=1) carries power 1.0; while the floor read the
+        cross-sort max, that declaration cleared any p_min on a claim whose
+        kernel-counted power was 0/|D|. The floor now reads the weakest sort
+        present, so the measurement it contradicts closes the line."""
+        BND = ("bnd", "v1")
+        h = Harness(refuters=frozenset({TESTS, BND}), p_min=0.9)
+        h.declare_tests(kills=0, size=10)
+        h.a.declare(Refuter("bnd", "v1", "bnd-author", "bounded"))
+        h.a.bound("bnd", "v1", 1.0, 1)
+        h.fcd_open(); h.rga_open()
+        for i in range(K):
+            h.fcd_write(); h.sample(body=f"b{i}".encode())
+            h.trial(i=i, refuter=TESTS); h.trial(i=i, refuter=BND, witness="b-same")
+        h.replay_all(); h.fcd_check()
+        with self.assertRaises(ValueError):
+            h.a.seal("w")
+        line = h.a.lines["w"]
+        self.assertEqual((line.pc, line.fault), ("Closed", "V5"))
+        self.assertNotIn("w", h.a.sealed)
+
+    def test_the_seal_carries_both_sorts_and_names_the_floors_realizer(self):
+        BND = ("bnd", "v1")
+        h = Harness(refuters=frozenset({TESTS, BND}), p_min=0.5)
+        h.declare_tests(kills=6, size=10)
+        h.a.declare(Refuter("bnd", "v1", "bnd-author", "bounded"))
+        h.a.bound("bnd", "v1", 0.2, 10)                  # 1-(0.8)^10 = 0.8926
+        h.fcd_open(); h.rga_open()
+        for i in range(K):
+            h.fcd_write(); h.sample(body=f"b{i}".encode())
+            h.trial(i=i, refuter=TESTS); h.trial(i=i, refuter=BND, witness="b-same")
+        h.replay_all(); h.fcd_check()
+        c = h.a.seal("w").claims[0]
+        self.assertAlmostEqual(c.ledger_composite, 0.6)
+        self.assertAlmostEqual(c.bounded_composite, 1.0 - 0.8 ** 10)
+        self.assertAlmostEqual(c.composite, 1.0 - 0.8 ** 10)   # strongest applied
+        self.assertAlmostEqual(c.floor_basis, 0.6)             # weakest sort: what V5 read
+        self.assertEqual(c.floor_witness, "ledger:tests@v1:6/10")
+
+    def test_a_bounded_only_claim_says_so_on_the_seal(self):
+        BND = ("bnd", "v1")
+        claims = (ClaimSpec("tests_pass", "spec-1", frozenset({BND}), D1),)
+        h = Harness(claims=claims, refuters=frozenset({BND}), p_min=0.5)
+        h.a.declare(Refuter("bnd", "v1", "bnd-author", "bounded"))
+        h.a.bound("bnd", "v1", 0.2, 10)
+        h.fcd_open(); h.rga_open()
+        for i in range(K):
+            h.fcd_write(); h.sample(body=f"b{i}".encode())
+            h.trial(i=i, refuter=BND, witness="b-same")
+        h.replay_all(); h.fcd_check()
+        c = h.a.seal("w").claims[0]
+        self.assertIsNone(c.ledger_composite)
+        self.assertIn("only sort present", c.floor_witness)
+        self.assertIn("bounded", c.floor_witness)
+
 
 class R3SeparationOfDuty(unittest.TestCase):
     def test_refuter_authored_by_generator_cannot_be_pinned(self):

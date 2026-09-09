@@ -42,19 +42,25 @@ POLARITY: dict[str, str] = {
     "rga_declare": "0", "rga_measure": "0", "rga_bound": "0", "rga_open": "0",
     "rga_sample": "0", "rga_trial": "0",
     "rga_replay": "0",          # agreement is neutral; divergence is carried by rga_refuse
-    "rga_refuse": "±",          # NEGATIVE for every seal that pinned the refuter after sealing
-                                # (tainted); POSITIVE for every line impeached only by that
-                                # checker's escapes, which _check_valid voids on refusal — CF1's
-                                # second path, with no taint when the checker was tier B there
+    "rga_refuse": "-",          # NEGATIVE only: it taints every seal that pinned the refuter
+                                # after sealing. Its former positive route — voiding the
+                                # checker's established escapes, and so un-impeaching lines it
+                                # had impeached — was CF1's second path and is closed:
+                                # `_check_valid` no longer reads the refusal registry
     "rga_seal": "e",            # enabling: never lowers; the flip is at cal_stamp
     "rga_close": "0",
     # standing journal
     "cal_run": "0",             # filed is not established (C1); see cal_replay
-    "cal_replay": "-",          # an establishing replay of a refuted run impeaches
-    "cal_discredit": "+",       # strictly positive, second-order: never lowers; raises a line impeached only by its escapes
-                                # admissible of any line, raises it for every line the checker's
-                                # escapes impeached (discredited enters only via _check_valid) — T3
+    "cal_replay": "-",          # an establishing replay of a refuted run impeaches; a divergent
+                                # one contests the run it replayed and lowers nothing by itself
+    "cal_discredit": "0",       # neutral on artifact standing. It was strictly positive by a
+                                # second-order route while a discredit voided what the checker
+                                # had demonstrated (CF1); now it bars the checker's FUTURE
+                                # filings and reaches no established escape, so no line's
+                                # `admissible` rises at it
     "cal_adjudicate": "-",      # decision=accept impeaches a tier-B run; reject is neutral
+    "cal_resolve": "+",         # decision=void is the one event that raises a line's standing,
+                                # and only for a contested run, with a named actor (C3)
     "cal_exclude": "0", "cal_install": "0", "cal_close": "0",
     "cal_stamp": "+",           # mediated
 }
@@ -80,25 +86,25 @@ def _establishing_replay_indices(cal: CalibrationAuthority, run: Run) -> list[in
             and not ev.get("diverged")]
 
 
-def _valid_at(cal: CalibrationAuthority, run: Run, j: int, rga_cut: Optional[int], *,
-              ignore_refusal: bool = False, without: Optional[int] = None) -> bool:
+def _valid_at(cal: CalibrationAuthority, run: Run, j: int, *,
+              without: Optional[int] = None) -> bool:
     """`run` as `from_events` sees it when it recomputes the reader at cal
     index `j`: established by a non-diverged replay before `j` (the replay at
-    index `without`, if given, deleted), its checker not discredited before
-    `j`, tier B adjudicated `accept` before `j`, and — unless `ignore_refusal`
-    — not refused at rga position `rga_cut` or earlier (`None`: the final
-    registry, as `_guard_audit_checker` reads it, CF2). Mirrors
-    `rga/calibration.py:_check_valid(as_of)` at the reader's own point."""
-    adm = cal.adm
+    index `without`, if given, deleted), not voided by a `cal_resolve` before
+    `j`, and tier B adjudicated `accept` before `j`. Mirrors
+    `rga/calibration.py:_check_valid`.
+
+    Neither the discredited set nor the Admission refusal registry appears,
+    because neither reaches an established run any more (C3, the CF1 repair).
+    That also removes the position argument this predicate used to need: a
+    refusal recorded after the record being recomputed can no longer change
+    it, so there is nothing for a cut to bound."""
     before = cal.events[:j]
     if not any(k < j and k != without for k in _establishing_replay_indices(cal, run)):
         return False
-    if any(ev.get("type") == "cal_discredit"
-           and (ev.get("checker_id"), ev.get("checker_version")) == run.checker for ev in before):
+    if any(ev.get("type") == "cal_resolve" and ev.get("run_index") == run.index
+           and ev.get("decision") == "void" for ev in before):
         return False
-    if not ignore_refusal and run.checker in adm.refused:
-        if rga_cut is None or adm.refused_at.get(run.checker, -1) <= rga_cut:
-            return False
     if run.verdict == "refuted" and run.tier == "B":
         if not any(ev.get("type") == "cal_adjudicate" and ev.get("run_index") == run.index
                    and ev.get("decision") == "accept" for ev in before):
@@ -122,14 +128,14 @@ def _e_max_at(cal: CalibrationAuthority, cls: str, j: int,
 
 
 def _charges_without(cal: CalibrationAuthority, run: Run, refuter: tuple[str, str],
-                     cls: str, j: int, rga_cut: Optional[int]) -> int:
+                     cls: str, j: int) -> int:
     """The refuter's charge count as the reader at `j` recomputes it with
     `run` deleted: one charge per (line, claim) cell however many witnesses
     (C2), over the escapes valid at `j`."""
     adm = cal.adm
     cells = set()
     for r in cal.runs:
-        if r is run or r.verdict != "refuted" or r.cls != cls or not _valid_at(cal, r, j, rga_cut):
+        if r is run or r.verdict != "refuted" or r.cls != cls or not _valid_at(cal, r, j):
             continue
         seal = adm.sealed.get(r.line_id)
         if seal is not None and refuter in cal._pinned_on_claim(seal, r.claim_id):
@@ -509,20 +515,21 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
       A `cal_exclude` naming the run is a tie, not an anchor (`_group_of`,
       `_rewrites_of`), and a `cal_install` reads no escape: the ratchet only
       eases when one vanishes (CF5);
-    for a refusal group —
-      * a later `cal_stamp` of a class in which the refused checker had a run
-        valid at the stamp but for the refusal, and whose cut the refusal
-        precedes (`refused_at <= sealed_at`): the refusal voids that run, so
-        the stamp's corpus and charges differ. A refusal after the stamp's
-        cut is invisible to it (`_check_valid(as_of)`), and the group is
-        exposed;
-      * a later `cal_install` whose cut the refusal precedes
-        (`refused_at <= as_of`), when the refused checker had a run valid at
-        the install but for the refusal, not excluded before it, that the
-        installed policy does not cover (`_install_reads`: its class dropped,
-        a bounded-only claim, or a ledger id-set omitting the run's derived
-        id): the refusal is what emptied the obligation (D16), and with the
-        group deleted the ratchet, recomputed on rebuild, refuses the install.
+    for a refusal group — nothing in the standing journal. This is a cost of
+      the CF1 repair, and it is stated rather than hidden. While a refusal
+      voided the refused checker's established escapes, later stamps and
+      installs recomputed against it and so anchored it. Now that validity
+      never reads the refusal registry (`_check_valid`), no standing reader
+      depends on a refusal, and a refusal group's only remaining effect is
+      the taint it puts on seals that pinned the refuter after sealing —
+      which deleting it removes. An honest journal contains no `cal_run` by
+      the checker after its refusal (the live guard refuses one, and
+      `_guard_run_checker` re-checks it at the filing's recorded cut on
+      rebuild), so not even a filing anchors the group. Refusal groups are
+      therefore freely deletable by whoever holds the record, and the
+      deletion is invisible to replay alone: it is exactly the
+      unauthenticated-history residue, one event class wider than before.
+      Closing it takes the authenticated publication path, not replay.
 
     An anchored witness is still deletable together with its anchors, at the
     cost of the anchors' own lines (T10(b)); `deletion_closure` lists them."""
@@ -541,14 +548,14 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
             ev = cal.events[j]; t = ev.get("type")
             if t == "cal_stamp":
                 seal = adm.sealed.get(ev.get("line_id"))
-                if seal is not None and seal.cls == cls and _valid_at(cal, run, j, seal.sealed_at):
+                if seal is not None and seal.cls == cls and _valid_at(cal, run, j):
                     anchors.append(("cal", j))
             elif t == "cal_close" and ev.get("fault") == "E5":
                 line = adm.lines.get(ev.get("line_id"))
                 refuter = (ev.get("refuter_id"), ev.get("refuter_version"))
                 if (line is not None and line.cls == cls and refuter in charged
-                        and _valid_at(cal, run, j, ev.get("as_of"))
-                        and _charges_without(cal, run, refuter, cls, j, ev.get("as_of"))
+                        and _valid_at(cal, run, j)
+                        and _charges_without(cal, run, refuter, cls, j)
                         <= _e_max_at(cal, cls, j, initial_policy)):
                     anchors.append(("cal", j))
             elif (t == "cal_run" and ev.get("verdict") == "survived"
@@ -559,52 +566,10 @@ def _anchors_of(cal: CalibrationAuthority, s: SurfaceEvent,
                 seal = adm.sealed.get(ev.get("line_id"))
                 if (seal is not None and seal.cls == cls
                         and run.checker not in cal._pinned_on_claim(seal, ev.get("claim_id"))
-                        and _valid_at(cal, run, j, None)
+                        and _valid_at(cal, run, j)
                         and not any(r is not run and r.checker == run.checker and r.verdict == "refuted"
-                                    and r.cls == cls and _valid_at(cal, r, j, None) for r in cal.runs)):
+                                    and r.cls == cls and _valid_at(cal, r, j) for r in cal.runs)):
                     anchors.append(("cal", j))
-    else:
-        key = next((k for k, at in adm.refused_at.items() if at == s.refusal_at), None)
-        refused_at = adm.refused_at.get(key, None)
-        if key is None or refused_at is None:
-            return ()
-
-        def revived(j: int, rga_cut: Optional[int], cls: Optional[str] = None) -> list[Run]:
-            # the refused checker's runs valid at the reader `j` but for the refusal
-            return [r for r in cal.runs
-                    if r.checker == key and r.verdict == "refuted" and (cls is None or r.cls == cls)
-                    and _valid_at(cal, r, j, rga_cut, ignore_refusal=True)]
-
-        for j, ev in enumerate(cal.events):
-            t = ev.get("type")
-            if t == "cal_stamp":
-                seal = adm.sealed.get(ev.get("line_id"))
-                if seal is None or refused_at > seal.sealed_at:
-                    continue                   # the stamp's cut does not see the refusal
-                if revived(j, seal.sealed_at, seal.cls):
-                    anchors.append(("cal", j))
-            elif t == "cal_install":
-                pol = adm._policies.get(ev.get("policy_version"))
-                as_of = ev.get("as_of")
-                if pol is None or (as_of is not None and refused_at > as_of):
-                    continue                   # the install's cut does not see the refusal
-                excluded = _excluded_before(cal, j)
-                if any(r.index not in excluded.get(r.cls, ()) and _install_reads(cal, pol, r)
-                       for r in revived(j, as_of)):
-                    anchors.append(("cal", j))
-        # the CF1 second path (T13(b)): the refusal also props up any OTHER
-        # sealed line whose only impeaching escape by the refused checker it
-        # voids. Deleting the refusal revives that escape and impeaches the
-        # line — a real cost to another line that from_events does not refuse
-        # and the stamp/install readers above do not see, so `exposed` would
-        # wrongly call the group "deletable at no cost to any other line". The
-        # revived escape's `cal_run` anchors the group: to delete the refusal
-        # at no cost to that line one must also delete its escape. (`support`
-        # already records this refusal as a positive degrader of that line.)
-        for r in revived(len(cal.events), None):
-            if (r.line_id != s.line_id and adm.sealed.get(r.line_id) is not None
-                    and cal.admissible(r.line_id)):
-                anchors.append(("cal", r.position))
     return tuple(sorted(set(anchors)))
 
 
@@ -849,27 +814,25 @@ class Support:
 
 
 def _degraders(cal: CalibrationAuthority, line_id: str) -> list[tuple[str, int, str]]:
-    """The events that void a refuted run against line_id — the diverged
-    replay and discredit of its checker, the refusal group of its checker —
-    which are POSITIVE atoms of admissible(line_id): deleting one revives the
-    witness and lowers standing (T17(i)). A rejecting adjudication is not one:
-    deleting it leaves a tier-B run unadjudicated and still invalid."""
-    adm = cal.adm
+    """The events that void a refuted run against line_id, which are POSITIVE
+    atoms of admissible(line_id): deleting one revives the witness and lowers
+    standing (T17(i)).
+
+    Since the CF1 repair there is exactly one such event — the `cal_resolve`
+    that voids a contested run. A discredit and a refusal are no longer
+    degraders: neither reaches a run its checker demonstrated, so deleting
+    either revives nothing. A rejecting adjudication is not one either:
+    deleting it leaves a tier-B run unadjudicated and still invalid. That the
+    positive side collapses to a single, attributed event class is the point
+    of the repair — un-revocation has one door and it is signed."""
     out: list[tuple[str, int, str]] = []
     for run in cal.runs:
         if run.line_id != line_id or run.verdict != "refuted":
             continue
         for j, ev in enumerate(cal.events):
-            t = ev.get("type")
-            if t == "cal_discredit" and (ev.get("checker_id"), ev.get("checker_version")) == run.checker:
-                out.append(("cal", j, t))
-                if j >= 1 and cal.events[j - 1].get("type") == "cal_replay" and cal.events[j - 1].get("diverged"):
-                    out.append(("cal", j - 1, "cal_replay"))
-        at = adm.refused_at.get(run.checker)
-        if at is not None:
-            out.append(("rga", at, "rga_refuse"))
-            if at >= 1 and adm.events[at - 1].get("type") == "rga_replay":
-                out.append(("rga", at - 1, "rga_replay"))
+            if (ev.get("type") == "cal_resolve" and ev.get("run_index") == run.index
+                    and ev.get("decision") == "void"):
+                out.append(("cal", j, "cal_resolve"))
     return sorted(set(out))
 
 
