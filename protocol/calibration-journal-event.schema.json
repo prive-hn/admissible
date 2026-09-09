@@ -96,12 +96,19 @@
     {
       "if": {"properties": {"type": {"const": "cal_resolve"}}},
       "then": {
-        "required": ["run_index", "actor", "decision", "reason"],
+        "required": ["run_index", "actor", "decision", "reason", "line_id", "class",
+                     "defect_id", "charged_cells", "corpus_size", "obligation_size"],
         "properties": {
           "run_index": {"type": "integer", "minimum": 0},
           "actor": {"type": "string", "minLength": 1},
           "decision": {"type": "string", "enum": ["uphold", "void"]},
-          "reason": {"type": "string", "minLength": 1}
+          "reason": {"type": "string", "minLength": 1},
+          "line_id": {"type": "string"},
+          "class": {"type": "string"},
+          "defect_id": {"type": "string"},
+          "charged_cells": {"type": "integer", "minimum": 0},
+          "corpus_size": {"type": "integer", "minimum": 0},
+          "obligation_size": {"type": "integer", "minimum": 0}
         }
       }
     },

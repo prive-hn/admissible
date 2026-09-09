@@ -1407,6 +1407,61 @@ class FindingCF11UnmediatedSealIsUnanchored(unittest.TestCase):
         self.assertEqual(custody.verify_certificate(cal2, cert_w), ["demonstrations", "lengths", "standing"])
 
 
+class RecomputationIsAControlTotalNotAnAnchor(unittest.TestCase):
+    """The residue behind a sentence three documents used to state as a
+    positive result: "removals that later events recompute against are
+    refused".
+
+    It is false, and the reason generalises. A recomputed field is a control
+    total in the audit sense: it catches a deleter who fails to update it, and
+    every input to it lies inside the journal the deleter holds. An adversary
+    who prunes and then rebuilds their own prefix reads off exactly the values
+    the verifier will recompute, writes them into the surviving events, and
+    replays clean. Anchoring by recomputation therefore prices a deletion at
+    the cost of recomputing, not at the cost of another line's standing.
+
+    What does close it is a value the holder cannot recompute -- a signature
+    under a key they do not have, which is the authenticated-publication path,
+    or an externally published digest. This test exists so the sentence cannot
+    come back."""
+
+    def test_a_deletion_replays_clean_once_the_surviving_stamps_are_refitted(self):
+        h = CalHarness(e_max=5, gate="carry"); h.declare_tests()
+        h.seal_line("w")
+        run = h.tier_a_escape("w")        # impeaches w
+        h.seal_line("z")                  # a later stamp whose primaries count it
+        self.assertTrue(h.cal.impeached("w"))
+        self.assertTrue(h.cal.admissible("z"))
+
+        events = [dict(e) for e in h.cal.events]
+        drop = {i for i, e in enumerate(events)
+                if e.get("run_index") == run.index
+                and e["type"] in ("cal_run", "cal_replay")}
+        pruned = [e for i, e in enumerate(events) if i not in drop]
+
+        # naive deletion: the control total catches it
+        with self.assertRaises(ValueError) as caught:
+            CalibrationAuthority.from_events(pruned, h.a, h.cal.policy)
+        self.assertIn("recompute", str(caught.exception))
+
+        # deletion by an adversary who recomputes: accepted
+        for idx, ev in enumerate(pruned):
+            if ev["type"] != "cal_stamp":
+                continue
+            prefix = CalibrationAuthority.from_events(pruned[:idx], h.a, h.cal.policy)
+            seal = h.a.sealed[ev["line_id"]]
+            ev["track_records"] = {
+                f"{r.id}@{r.version}": prefix.track_record(
+                    r.id, r.version, seal.cls, as_of_seal=seal.sealed_at)
+                for c in seal.claims for r in c.refuters}
+            ev["corpus_provenance"] = prefix._corpus_provenance(seal.cls, seal.generator)
+
+        rebuilt = CalibrationAuthority.from_events(pruned, h.a, h.cal.policy)
+        self.assertFalse(rebuilt.impeached("w"))       # standing raised ...
+        self.assertTrue(rebuilt.admissible("w"))
+        self.assertTrue(rebuilt.admissible("z"))       # ... at no cost to the anchor's line
+
+
 class RepairedCF6SortedFloor(unittest.TestCase):
     """Finding CF6, closed. `bound()` accepts (epsilon=1, N=1), so a declared
     figure of 1.0 entered the cross-sort max and satisfied any p_min on a

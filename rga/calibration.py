@@ -357,8 +357,17 @@ class CalibrationAuthority:
         run = self.runs[run_index]
         self._guard_resolution(run, actor, decision, reason)              # E7
         run.resolution = decision
+        # Primaries, as every other governance act in this layer carries them
+        # (C5a): what the decision moved, and what it deliberately did not.
+        # `obligation` is unchanged by a void and the event says so, so a
+        # reader cannot mistake a standing decision for a coverage release.
         self._emit(type="cal_resolve", run_index=run_index, actor=actor,
-                   decision=decision, reason=reason)
+                   decision=decision, reason=reason,
+                   line_id=run.line_id, **{"class": run.cls},
+                   defect_id=self.derived_defect_id(run),
+                   charged_cells=len(self.charge_cells(run.cls)),
+                   corpus_size=len(self.corpus(run.cls)),
+                   obligation_size=len(self._obligation_all(run.cls)))
 
     def _guard_replay_verdict(self, verdict: str) -> None:
         """A replay may only speak the run vocabulary: an out-of-enum verdict
@@ -386,7 +395,7 @@ class CalibrationAuthority:
         self._emit(type="cal_exclude", **{"class": cls}, as_of=self.adm._position(),
                    run_indices=list(indices),
                    actor=actor, reason=reason,
-                   corpus_size=len(self._corpus_all(cls)),
+                   corpus_size=len(self._obligation_all(cls)),
                    excluded_total=len(self.exclusions[cls]))
 
     # -- validity and derived state (pure) ------------------------------------
@@ -430,9 +439,41 @@ class CalibrationAuthority:
         return tuple(r for r in self.escapes(cls))
 
     def corpus(self, cls: str) -> tuple[Run, ...]:
-        """Valid escapes of the class minus journaled exclusions."""
+        """Valid escapes of the class minus journaled exclusions. This is the
+        STANDING corpus: what impeaches, what charges, what demotes."""
         excluded = self.exclusions.get(cls, set())
         return tuple(r for r in self._corpus_all(cls) if r.index not in excluded)
+
+    def _demonstrated(self, run: Run) -> bool:
+        """Was this run ever a valid escape? `_check_valid` without the
+        resolution clause: established, refuted, and — for tier B — accepted
+        by a named adjudication. A contest resolved `void` settles whether the
+        escape still *stands*; it does not unsay that the defect was once
+        demonstrated against these bytes."""
+        return (run.verdict == "refuted" and run.established
+                and not (run.tier == "B" and run.adjudication != "accept"))
+
+    def _obligation_all(self, cls: str) -> tuple[Run, ...]:
+        """Every escape of the class ever demonstrated, before exclusions —
+        the gross figure the primaries report, paired with `excluded_total`
+        exactly as `_corpus_all` is paired for the standing corpus."""
+        return tuple(r for r in self.runs if r.cls == cls and self._demonstrated(r))
+
+    def obligation(self, cls: str) -> tuple[Run, ...]:
+        """C4's corpus: every escape of the class ever demonstrated, minus
+        journaled exclusions — regardless of whether a later contest voided
+        its standing.
+
+        Coverage and standing are deliberately different sets. A resolution
+        decides whether an escape still impeaches and still charges; if it also
+        decided coverage, `resolve(void)` would achieve everything `exclude`
+        achieves while naming nothing, and C4's "forgetting is loud" would have
+        a silent exit. A seeded defect a checker once demonstrated on these
+        bytes remains a legitimate regression obligation whoever won the
+        argument about the checker, so releasing it keeps requiring the named,
+        attributed decision `exclude` already is."""
+        excluded = self.exclusions.get(cls, set())
+        return tuple(r for r in self._obligation_all(cls) if r.index not in excluded)
 
     def charge_cells(self, cls: Optional[str] = None) -> frozenset[tuple[str, str, str, str]]:
         """C2: the valid wrong-verdict cells (line, claim, refuter id, version),
@@ -561,7 +602,7 @@ class CalibrationAuthority:
         self.adm.install(policy)
         self.policy = successor_cal
         coverage = {
-            cls: {"corpus_size": len(self._corpus_all(cls)),
+            cls: {"corpus_size": len(self._obligation_all(cls)),
                   "excluded": len(self.exclusions.get(cls, set())),
                   "models": {claim.id: claim.defect_model_hash for claim in spec.claims}}
             for cls, spec in policy.classes.items()
@@ -761,15 +802,19 @@ class CalibrationAuthority:
             raise ValueError("resolution requires a named actor and a reason")
 
     def _guard_exclusion(self, cls: str, indices: tuple[int, ...], actor: str, reason: str) -> None:
-        """E7. Named actor, a reason, and only valid escapes of this class."""
+        """E7. Named actor, a reason, and only escapes this class actually owes
+        coverage for. Read against the obligation rather than the standing
+        corpus, so an escape whose contest went against it can still be
+        released the loud way; gating on validity would leave a voided run
+        permanently owed and unreleasable."""
         if not actor or not reason:
             raise ValueError("exclusion requires a named actor and a reason")
         if not indices:
             raise ValueError("exclusion names at least one escape")
-        valid = {r.index for r in self._corpus_all(cls)}
-        unknown = [i for i in indices if i not in valid]
+        owed = {r.index for r in self.obligation(cls)}
+        unknown = [i for i in indices if i not in owed]
         if unknown:
-            raise ValueError(f"not valid escapes of class {cls!r}: {unknown}")
+            raise ValueError(f"not owed escapes of class {cls!r}: {unknown}")
 
     def _guard_install_measured(self, policy: AdmissionPolicy) -> None:
         """E4. Measure before Install: every referenced ledger defect model has
@@ -790,10 +835,10 @@ class CalibrationAuthority:
         # drop would release its whole corpus with no journal trace
         # (calibration round-1, attacker gap).
         for cls in {r.cls for r in self.runs if r.verdict == "refuted"}:
-            if self.corpus(cls) and cls not in policy.classes:
+            if self.obligation(cls) and cls not in policy.classes:
                 raise ValueError(f"class {cls!r} owes coverage for its escape corpus and cannot be dropped")
         for cls, spec in policy.classes.items():
-            required = {self.derived_defect_id(r) for r in self.corpus(cls)}
+            required = {self.derived_defect_id(r) for r in self.obligation(cls)}
             if not required:
                 continue
             for claim in spec.claims:
@@ -807,9 +852,9 @@ class CalibrationAuthority:
 
     def _guard_install_bounded(self, policy: AdmissionPolicy) -> None:
         """E4. A bounded-only claim has no D to cover with; against a nonempty
-        net corpus that is a silent forget, refused."""
+        net obligation that is a silent forget, refused."""
         for cls, spec in policy.classes.items():
-            if not self.corpus(cls):
+            if not self.obligation(cls):
                 continue
             for claim in spec.claims:
                 if not self._claim_is_ledger(claim):
@@ -1005,16 +1050,20 @@ class CalibrationAuthority:
                 if seal is None:
                     raise ValueError(f"replay diverged: stamp for unsealed line {ev['line_id']!r}")
                 # A stamp is bound to one seal and there is exactly one of it.
-                # Adding or re-pointing a stamp is refused here. DELETING one
-                # is refused as far as a LATER stamp reaches, because that
-                # stamp's track_records carry the calibration journal's own
-                # length at stamping and so recompute differently once an
-                # earlier event is gone — a control total. Past the last stamp
-                # the control total runs out: deleting the final stamp is
-                # undetectable, since an unstamped line is indistinguishable
-                # from one this authority never mediated. That direction only
-                # lowers standing to IR (mediated(), C5), which is the way a
-                # missing mediation record has to fail.
+                # Duplicating a stamp, re-pointing one at another seal, or
+                # placing one out of seal order is refused here.
+                #
+                # The recomputation below is a CONTROL TOTAL, not an anchor.
+                # It catches a deleter who drops an earlier event and fails to
+                # update it; every input to it is inside the journal the
+                # deleter holds, so one who refits the surviving stamps
+                # replays clean (tests/test_custody.py,
+                # RecomputationIsAControlTotalNotAnAnchor). Insertion is the
+                # same shape: a stamp forged for an unmediated seal is
+                # accepted at that seal's own position in stamp order. What a
+                # missing stamp does buy is the fail-closed direction — an
+                # unstamped line is indistinguishable from one this authority
+                # never mediated, and reads as IR (mediated(), C5).
                 if ev.get("sealed_at") != seal.sealed_at:
                     raise ValueError("replay diverged: stamp is not bound to its seal")
                 if a.sealed_stamp(ev["line_id"]) is not None:

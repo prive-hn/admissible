@@ -178,6 +178,52 @@ class C3UnRevocationIsDemonstratedNeverReported(unittest.TestCase):
         with self.assertRaises(ValueError):
             h.cal.resolve(first.index, "owner", "uphold", "second thoughts")
 
+    def test_voiding_an_escape_does_not_release_its_coverage_obligation(self):
+        """C3 and C4 must not overlap. A resolution decides *standing* — whether
+        this escape still impeaches and still charges. It must not decide
+        *coverage*, because that is C4's business and C4 has its own named exit
+        with its own actor, reason and primaries. Otherwise `resolve(void)`
+        achieves everything `exclude` achieves while naming nothing, and
+        forgetting stops being loud."""
+        h = CalHarness(e_max=5, gate="carry"); h.declare_tests(); h.seal_line("w")
+        run = h.tier_a_escape("w")
+        succ = self._forgetful_successor(h)
+        with self.assertRaises(ValueError):
+            h.cal.install(succ)                       # C4 refuses the forgetful successor
+        h.cal.replay_run(run.index, "survived", "not-a-kill")
+        h.cal.resolve(run.index, "owner", "void", "flaked")
+        self.assertFalse(h.cal.impeached("w"))        # standing falls ...
+        self.assertEqual(h.cal.charges("tests", "v1", "impl"), 0)
+        self.assertEqual(h.cal.corpus("impl"), ())
+        self.assertEqual([r.index for r in h.cal.obligation("impl")], [run.index])
+        with self.assertRaises(ValueError):           # ... and coverage does not
+            h.cal.install(succ)
+
+    def test_the_named_exit_still_releases_a_voided_obligation(self):
+        h = CalHarness(e_max=5, gate="carry"); h.declare_tests(); h.seal_line("w")
+        run = h.tier_a_escape("w")
+        h.cal.replay_run(run.index, "survived", "not-a-kill")
+        h.cal.resolve(run.index, "owner", "void", "flaked")
+        h.cal.exclude("impl", [run.index], "owner", "the contest went against it")
+        ev = [e for e in h.cal.events if e["type"] == "cal_exclude"][-1]
+        self.assertEqual((ev["actor"], ev["excluded_total"]), ("owner", 1))
+        self.assertEqual(h.cal.obligation("impl"), ())
+        h.cal.install(self._forgetful_successor(h))   # now the successor may forget it
+        self.assertEqual(h.a.policy.version, "r2")
+
+    @staticmethod
+    def _forgetful_successor(h):
+        from rga.core import AdmissionPolicy, ClassAdmission
+        if ("tests", "v2") not in h.a.refuters:
+            h.a.declare(Refuter("tests", "v2", "tester", "ledger"))
+            h.a.measure("tests", "v2", DefectModel("d-succ", "mutator"),
+                        [LedgerEntry(f"m{i}", "killed") for i in range(10)])
+        return AdmissionPolicy({"impl": ClassAdmission(
+            claims=(ClaimSpec("tests_pass", "spec-hash-1", frozenset({("tests", "v2")}), "d-succ"),),
+            k=K, theta=1.0, p_min=0.5,
+            excluded=frozenset({"refuter_source", "refuter_results"}),
+            residual=(("correct fix", "check_stage"),))}, version="r2")
+
     def test_a_resolution_replays_and_a_forged_one_is_refused(self):
         h = CalHarness(e_max=0); h.declare_tests(); h.seal_line()
         first = h.tier_a_escape(nonce="e1")
@@ -957,13 +1003,17 @@ class ExactHeadReviewRepairs(unittest.TestCase):
     def test_replay_refuses_alteration_but_truncation_is_not_detectable(self):
         """The exact boundary of replay's tamper-evidence, executable.
 
-        Altering, forging, duplicating or removing an event that a later
-        event recomputes against is refused. Removing the TAIL is not: a
-        shorter history is self-consistent, and truncation is the one tamper
-        that RAISES standing — a dropped escape un-impeaches its line. No
-        journal-internal check can catch it; that needs an anchor outside
-        the journal (append-only storage or a signed head), which this
-        kernel does not implement and the papers therefore do not claim."""
+        Altering, forging and duplicating are refused, and so is a removal
+        that leaves a later recomputation disagreeing — but only against a
+        deleter who does not refit it, which is a control total rather than
+        an anchor (`tests/test_custody.py`,
+        `RecomputationIsAControlTotalNotAnAnchor`). Removing the TAIL is not
+        detectable at all: a shorter history is self-consistent, and
+        truncation RAISES standing, since a dropped escape un-impeaches its
+        line. No journal-internal check can catch either, because every input
+        to such a check is inside the journal the deleter holds; that needs an
+        anchor outside the journal (append-only storage or a signed head),
+        which this kernel does not implement and the papers do not claim."""
         h = CalHarness(); h.declare_tests(); h.seal_line("w"); h.seal_line("x")
         h.tier_a_escape("w", nonce="n1", witness="kill-w")
         h.tier_a_escape("x", nonce="n2", witness="kill-x")

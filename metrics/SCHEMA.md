@@ -233,7 +233,8 @@ Emitted by `rga/calibration.py` (`CalibrationAuthority`). They support the C1–
 
 ### `cal_resolve`
 
-- `ts`, `run_index`, `actor`, `decision` uphold | void, `reason`. The named outcome of a contest, once per contest, and the only event that raises a line's standing (C3). A contested escape keeps impeaching until it arrives, which is the fail-closed direction for the artifact.
+- `ts`, `run_index`, `actor`, `decision` uphold | void, `reason`, `line_id`, `class`, `defect_id`, `charged_cells`, `corpus_size`, `obligation_size`. The named outcome of a contest, once per contest, and the only event that raises a line's standing (C3). A contested escape keeps impeaching until it arrives, which is the fail-closed direction for the artifact.
+- The primaries say what the decision moved and what it did not. A `void` lowers `corpus_size` — the standing corpus that impeaches, charges and demotes — and leaves `obligation_size` alone, because coverage is C4's business and C4 has its own named exit. Releasing a defect from successor coverage still takes an `exclude`, with its own actor, reason and diff. Without that separation a resolution would achieve everything an exclusion achieves while naming nothing, and forgetting would stop being loud.
 
 ### `cal_exclude`
 
