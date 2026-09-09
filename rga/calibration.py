@@ -1005,10 +1005,16 @@ class CalibrationAuthority:
                 if seal is None:
                     raise ValueError(f"replay diverged: stamp for unsealed line {ev['line_id']!r}")
                 # A stamp is bound to one seal and there is exactly one of it.
-                # Adding or re-pointing a stamp is refused here; DELETING one
-                # is not detectable — an unstamped seal is indistinguishable
-                # from a line this authority never mediated — but it can only
-                # lower standing to IR, never raise it (mediated(), C5).
+                # Adding or re-pointing a stamp is refused here. DELETING one
+                # is refused as far as a LATER stamp reaches, because that
+                # stamp's track_records carry the calibration journal's own
+                # length at stamping and so recompute differently once an
+                # earlier event is gone — a control total. Past the last stamp
+                # the control total runs out: deleting the final stamp is
+                # undetectable, since an unstamped line is indistinguishable
+                # from one this authority never mediated. That direction only
+                # lowers standing to IR (mediated(), C5), which is the way a
+                # missing mediation record has to fail.
                 if ev.get("sealed_at") != seal.sealed_at:
                     raise ValueError("replay diverged: stamp is not bound to its seal")
                 if a.sealed_stamp(ev["line_id"]) is not None:
