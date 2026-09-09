@@ -94,12 +94,11 @@ class C1EstablishedNeverAsserted(unittest.TestCase):
         second = h.tier_a_escape(nonce="e2", replay=False)
         h.cal.replay_run(second.index, "refuted", "other-witness")   # diverges
         self.assertIn(TESTS, h.cal.discredited)
-        self.assertFalse(h.cal.impeached("w"))          # first escape's validity degrades too
-        self.assertFalse(first.established and h.cal._check_valid(first))
+        self.assertFalse(h.cal._check_valid(second))    # the run it diverged on is void
         with self.assertRaises(ValueError):
             h.tier_a_escape(nonce="e3")                 # discredited checker cannot file
 
-    def test_admission_refusal_degrades_escape_validity(self):
+    def test_admission_refusal_taints_the_seal_and_leaves_the_escape_standing(self):
         h = CalHarness(); h.declare_tests(); h.seal_line()
         h.tier_a_escape()
         self.assertTrue(h.cal.impeached("w"))
@@ -108,8 +107,149 @@ class C1EstablishedNeverAsserted(unittest.TestCase):
         h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
         h.a.replay("z", 0, "refuted", "w-same")
         self.assertIn(TESTS, h.a.refused)
-        self.assertFalse(h.cal.impeached("w"))          # its kills are no longer evidence
-        self.assertTrue(h.a.tainted("w"))               # but the seal is tainted instead
+        self.assertTrue(h.cal.impeached("w"))           # a report elsewhere revokes nothing here
+        self.assertTrue(h.a.tainted("w"))               # and the seal is tainted as well
+        self.assertFalse(h.cal.admissible("w"))
+
+
+class C3UnRevocationIsDemonstratedNeverReported(unittest.TestCase):
+    """The repair of finding CF1. Standing falls by a demonstration alone and
+    rises only past a demonstration *on the run whose standing is at stake*
+    plus a named, journaled decision. Before this, one divergent report about
+    any other run of the same checker un-impeached every line that checker had
+    ever impeached — the transition table said only UNESTABLISHED escapes were
+    void and the code voided established ones too, in the standing-raising
+    direction."""
+
+    def test_a_self_discredit_on_another_run_does_not_un_impeach(self):
+        h = CalHarness(e_max=0); h.declare_tests(); h.seal_line()
+        first = h.tier_a_escape(nonce="e1")
+        self.assertTrue(h.cal.impeached("w"))
+        self.assertTrue(h.cal.demoted("tests", "v1", "impl"))
+        second = h.tier_a_escape(nonce="e2", replay=False)
+        h.cal.replay_run(second.index, "refuted", "other-witness")   # one divergent report
+        self.assertIn(TESTS, h.cal.discredited)                      # still monotone
+        self.assertFalse(h.cal._check_valid(second))                 # that run never established
+        self.assertTrue(h.cal._check_valid(first))                   # this one was demonstrated
+        self.assertTrue(h.cal.impeached("w"))
+        self.assertTrue(h.cal.demoted("tests", "v1", "impl"))
+        self.assertFalse(h.cal.admissible("w"))
+
+    def test_voiding_an_established_escape_takes_a_divergence_on_that_run(self):
+        h = CalHarness(e_max=0); h.declare_tests(); h.seal_line()
+        first = h.tier_a_escape(nonce="e1")
+        self.assertTrue(h.cal.impeached("w"))
+        h.cal.replay_run(first.index, "survived", "not-a-kill")   # divergence on THIS run
+        self.assertTrue(h.cal.contested(first.index))
+        self.assertTrue(h.cal.impeached("w"))            # contested still impeaches: fail-closed
+        self.assertFalse(h.cal.admissible("w"))
+
+    def test_a_contested_escape_falls_only_past_an_attributed_decision(self):
+        h = CalHarness(e_max=0); h.declare_tests(); h.seal_line()
+        first = h.tier_a_escape(nonce="e1")
+        h.cal.replay_run(first.index, "survived", "not-a-kill")
+        h.cal.resolve(first.index, "owner", "void", "checker is nondeterministic on these bytes")
+        self.assertFalse(h.cal.impeached("w"))
+        self.assertTrue(h.cal.admissible("w"))
+        ev = [e for e in h.cal.events if e["type"] == "cal_resolve"][-1]
+        self.assertEqual((ev["actor"], ev["decision"]), ("owner", "void"))
+
+    def test_upholding_a_contested_escape_keeps_it_standing(self):
+        h = CalHarness(e_max=0); h.declare_tests(); h.seal_line()
+        first = h.tier_a_escape(nonce="e1")
+        h.cal.replay_run(first.index, "survived", "not-a-kill")
+        h.cal.resolve(first.index, "owner", "uphold", "second runner reproduced the kill")
+        self.assertTrue(h.cal.impeached("w"))
+        self.assertFalse(h.cal.admissible("w"))
+
+    def test_resolution_requires_a_contest_an_actor_a_reason_and_happens_once(self):
+        h = CalHarness(e_max=0); h.declare_tests(); h.seal_line()
+        first = h.tier_a_escape(nonce="e1")
+        with self.assertRaises(ValueError):
+            h.cal.resolve(first.index, "owner", "void", "no contest exists")
+        h.cal.replay_run(first.index, "survived", "not-a-kill")
+        with self.assertRaises(ValueError):
+            h.cal.resolve(first.index, "", "void", "no actor")
+        with self.assertRaises(ValueError):
+            h.cal.resolve(first.index, "owner", "void", "")
+        with self.assertRaises(ValueError):
+            h.cal.resolve(first.index, "owner", "maybe", "unknown decision")
+        h.cal.resolve(first.index, "owner", "void", "reproduced as a flake")
+        with self.assertRaises(ValueError):
+            h.cal.resolve(first.index, "owner", "uphold", "second thoughts")
+
+    def test_a_resolution_replays_and_a_forged_one_is_refused(self):
+        h = CalHarness(e_max=0); h.declare_tests(); h.seal_line()
+        first = h.tier_a_escape(nonce="e1")
+        h.cal.replay_run(first.index, "survived", "not-a-kill")
+        h.cal.resolve(first.index, "owner", "void", "reproduced as a flake")
+        rebuilt = CalibrationAuthority.from_events(list(h.cal.events), h.a, h.cal.policy)
+        self.assertFalse(rebuilt.impeached("w"))
+        self.assertEqual(len(rebuilt.events), len(h.cal.events))
+        # a void resolution for a run nobody contested is refused on rebuild
+        h2 = CalHarness(e_max=0); h2.declare_tests(); h2.seal_line()
+        run = h2.tier_a_escape(nonce="e1")
+        forged = list(h2.cal.events) + [dict(type="cal_resolve", run_index=run.index,
+                                             actor="owner", decision="void",
+                                             reason="forged", ts=0.0)]
+        with self.assertRaises(ValueError):
+            CalibrationAuthority.from_events(forged, h2.a, h2.cal.policy)
+
+
+class ReplaySeamsReadTheLiveCut(unittest.TestCase):
+    """The repair of findings CF14 and CF2: the two halves of one seam. A
+    filing carries the scrutiny-journal cut it was written at, and rebuild
+    evaluates the checker's standing there rather than at the final registry
+    — so a journal the live guard refuses is refused on rebuild (CF14, which
+    omitted the check), and an honest journal whose checker was refused
+    afterwards still replays (CF2, which read the final registry)."""
+
+    def test_a_filing_by_a_refused_checker_is_refused_on_rebuild(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")                  # `tests` refused
+        seal = h.a.sealed["w"]
+        seed = derive_seed("n", seal.artifact_hash, "tests", "v1", "tests_pass")
+        with self.assertRaises(ValueError):
+            h.cal.file_escape("w", "tests_pass", "tests", "v1", "n",
+                              b"w-body-0", seed, "k", "f")       # refused live
+        forged = list(h.cal.events) + [dict(
+            type="cal_run", run_index=len(h.cal.runs), line_id="w", **{"class": "impl"},
+            claim_id="tests_pass", checker_id="tests", checker_version="v1", tier="A",
+            nonce="n", artifact_hash=seal.artifact_hash, seed=seed, verdict="refuted",
+            witness_hash="k", finder="f", as_of=h.a._position(), ts=0.0)]
+        with self.assertRaises(ValueError) as caught:
+            CalibrationAuthority.from_events(forged, h.a, h.cal.policy)
+        self.assertIn("refused", str(caught.exception))
+
+    def test_the_recorded_cut_is_bounded_at_both_ends_and_never_moves_back(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        run = h.tier_a_escape("w")
+        ev = [e for e in h.cal.events if e["type"] == "cal_run"][-1]
+        seal = h.a.sealed["w"]
+        self.assertGreaterEqual(ev["as_of"], seal.sealed_at)
+        self.assertLessEqual(ev["as_of"], h.a._position())
+        for bad in (seal.sealed_at - 1, h.a._position() + 1):
+            forged = [dict(e) for e in h.cal.events]
+            forged[run.position]["as_of"] = bad
+            with self.assertRaises(ValueError):
+                CalibrationAuthority.from_events(forged, h.a, h.cal.policy)
+
+    def test_an_honest_audit_replays_after_its_checker_is_refused(self):
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        seal = h.a.sealed["w"]
+        seed = derive_seed("na", seal.artifact_hash, "tests", "v1", "tests_pass")
+        audit = h.cal.file_audit("w", "tests_pass", "tests", "v1", "na",
+                                 b"w-body-0", seed, "surv", "aud")   # accepted live
+        h.cal.replay_run(audit.index, "survived", "surv")            # and established
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")                  # refused after the audit
+        self.assertIn(TESTS, h.a.refused)
+        rebuilt = CalibrationAuthority.from_events(list(h.cal.events), h.a, h.cal.policy)
+        self.assertEqual(len(rebuilt.events), len(h.cal.events))
+        self.assertEqual(len(rebuilt.audit_exposure("w")), 1)
 
 
 class C2ChargeTotalityAndUnit(unittest.TestCase):
@@ -497,6 +637,35 @@ def s_guard_adjudication():
     return attempt(body)
 
 
+def s_guard_run_cut():
+    def body():
+        h = CalHarness(); h.declare_tests(); h.seal_line("w")
+        h.fcd_open("z"); h.a.open("z", "gen", "temp=0.7")
+        h.fcd_write("z"); h.sample("z", b"z0"); h.trial("z")
+        h.a.replay("z", 0, "refuted", "w-same")          # `tests` refused, after w sealed
+        seal = h.a.sealed["w"]
+        seed = derive_seed("n", seal.artifact_hash, "tests", "v1", "tests_pass")
+        # a cut backdated before the seal makes the later refusal look later
+        # still, so the refused checker's filing passes the standing check
+        forged = list(h.cal.events) + [dict(
+            type="cal_run", run_index=len(h.cal.runs), line_id="w", **{"class": "impl"},
+            claim_id="tests_pass", checker_id="tests", checker_version="v1", tier="A",
+            nonce="n", artifact_hash=seal.artifact_hash, seed=seed, verdict="refuted",
+            witness_hash="k", finder="f", as_of=seal.sealed_at - 1, ts=0.0)]
+        rebuilt = CalibrationAuthority.from_events(forged, h.a, h.cal.policy)
+        return len(rebuilt.runs) == 1
+    return attempt(body)
+
+
+def s_guard_resolution():
+    def body():
+        h = CalHarness(); h.declare_tests(); h.seal_line()
+        r = h.tier_a_escape()                            # established, impeaches
+        h.cal.resolve(r.index, "", "void", "")           # no contest, unnamed, unreasoned
+        return not h.cal.impeached("w")
+    return attempt(body)
+
+
 def s_guard_exclusion():
     def body():
         h = CalHarness(); h.declare_tests(); h.seal_line()
@@ -582,12 +751,14 @@ GUARDS: dict[str, tuple[str, object, object]] = {
     "_guard_run_checker":     ("E1", noop, s_guard_run_checker),
     "_guard_run_bytes":       ("E6", noop, s_guard_run_bytes),
     "_guard_run_seed":        ("E6", noop, s_guard_run_seed),
+    "_guard_run_cut":         ("E6", noop, s_guard_run_cut),
     "_guard_audit_checker":   ("E1", noop, s_guard_audit_checker),
     "_guard_class_configured": ("E9", noop, s_guard_class_configured),
     "_guard_replay_verdict":  ("E1", noop, s_guard_replay_verdict),
     "_check_run_replay":      ("E1", never_diverges, s_check_run_replay),
     "_check_valid":           ("E1", always_true, s_check_valid),
     "_guard_adjudication":    ("E7", noop, s_guard_adjudication),
+    "_guard_resolution":      ("E7", noop, s_guard_resolution),
     "_guard_exclusion":       ("E7", noop, s_guard_exclusion),
     "_guard_install_measured": ("E4", noop, s_guard_install_measured),
     "_guard_install_covers":  ("E4", noop, s_guard_install_covers),

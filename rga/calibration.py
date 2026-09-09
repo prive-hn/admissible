@@ -91,6 +91,8 @@ class Run:
     position: int
     established: bool = False
     adjudication: Optional[str] = None   # tier B: "accept" | "reject"
+    contested: bool = False              # a replay of THIS run diverged after it established
+    resolution: Optional[str] = None     # a contest's named outcome: "uphold" | "void"
 
 
 def _journal_atomic(*state_fields):
@@ -286,26 +288,49 @@ class CalibrationAuthority:
         self._emit(type="cal_run", run_index=run.index, line_id=line_id, **{"class": seal.cls},
                    claim_id=claim_id, checker_id=checker[0], checker_version=checker[1],
                    tier=tier, nonce=nonce, artifact_hash=artifact_hash, seed=seed,
-                   verdict=verdict, witness_hash=witness_hash, finder=finder)
+                   verdict=verdict, witness_hash=witness_hash, finder=finder,
+                   as_of=self.adm._position())
         return run
 
     @_journal_atomic("run", "discredited")
     def replay_run(self, run_index: int, verdict: str, witness_hash: str) -> None:
         """Establishment and its falsifier. Equal outcome establishes;
-        divergence discredits the checker in this ledger, monotonically (E1)."""
+        divergence discredits the checker in this ledger, monotonically (E1),
+        and — when the run had already established — marks THAT run contested
+        (C3). A contest is the only fact that can reach an established
+        escape's standing, and it reaches it only through a named resolution:
+        the discredit alone no longer voids what the checker demonstrated."""
         run = self.runs[run_index]
         if run.checker in self.discredited:
             raise ValueError(f"checker {run.checker!r} is discredited")
         self._guard_replay_verdict(verdict)                               # E1
         diverged = self._check_run_replay(run, verdict, witness_hash)     # E1
         self._emit(type="cal_replay", run_index=run_index, verdict=verdict,
-                   witness_hash=witness_hash, diverged=diverged)
+                   witness_hash=witness_hash, diverged=diverged,
+                   contested=diverged and run.established)
         if diverged:
+            if run.established:
+                run.contested = True
             self.discredited.add(run.checker)
             self._emit(type="cal_discredit", checker_id=run.checker[0],
                        checker_version=run.checker[1], run_index=run_index)
         else:
             run.established = True
+
+    @_journal_atomic("run")
+    def resolve(self, run_index: int, actor: str, decision: str, reason: str) -> None:
+        """C3, the attributed half of un-revocation. A contested escape — one
+        whose own replay diverged after it had established — is upheld or
+        voided by a named, journaled decision. The kernel cannot settle which
+        report is true (both are B1 reports about a component B2 assumes
+        deterministic), so it refuses to let the later one win silently: the
+        conflict is recorded, the resolution is attributed, and until it
+        arrives the escape keeps impeaching."""
+        run = self.runs[run_index]
+        self._guard_resolution(run, actor, decision, reason)              # E7
+        run.resolution = decision
+        self._emit(type="cal_resolve", run_index=run_index, actor=actor,
+                   decision=decision, reason=reason)
 
     def _guard_replay_verdict(self, verdict: str) -> None:
         """A replay may only speak the run vocabulary: an out-of-enum verdict
@@ -338,45 +363,55 @@ class CalibrationAuthority:
 
     # -- validity and derived state (pure) ------------------------------------
 
-    def _check_valid(self, run: Run, as_of: Optional[int] = None) -> bool:
-        """E1/E2 read at query time, the tainted() pattern: established, the
-        checker neither discredited here nor refused in the Admission
-        registry, and tier B adjudicated accepted."""
+    def _check_valid(self, run: Run) -> bool:
+        """E1/E2 read at query time, the tainted() pattern: established, not
+        voided by a named resolution, and tier B adjudicated accepted.
+
+        C3, un-revocation half (the repair of finding CF1). A checker's
+        discredit or refusal voids only what that checker never demonstrated,
+        and an unestablished run is already void by the first clause — so
+        neither set appears here, and a report about one run can no longer
+        revoke the standing of another. What voids an ESTABLISHED escape is a
+        divergence on THAT run (`contested`) resolved `void` by a named,
+        journaled decision. Standing therefore falls by demonstration alone
+        and rises only past an attributed act; a contested-but-unresolved
+        escape keeps impeaching, which is the fail-closed direction for the
+        artifact. Because validity no longer reads the Admission registry, it
+        is position-independent: the `as_of` bound this predicate once needed
+        (a refusal recorded after the record being recomputed) is gone with
+        the clause that needed it."""
         if not run.established:
             return False
-        if run.checker in self.discredited:
+        if run.resolution == "void":
             return False
-        if run.checker in self.adm.refused:
-            # Bounded by position when the caller has one: a refusal that
-            # happened AFTER the record being recomputed did not exist when
-            # that record was written, and treating the final refused set as
-            # timeless made replay refuse journals the live machine produced.
-            if as_of is None or self.adm.refused_at.get(run.checker, -1) <= as_of:
-                return False
         if run.verdict == "refuted" and run.tier == "B" and run.adjudication != "accept":
             return False   # adjudication gates escape EFFECT; audits carry none
         return True
 
-    def escapes(self, cls: Optional[str] = None, as_of: Optional[int] = None) -> tuple[Run, ...]:
+    def contested(self, run_index: int) -> bool:
+        """C3: a replay of this run diverged after it had established. The
+        escape still stands (fail-closed) until a named resolution voids it."""
+        return self.runs[run_index].contested and self.runs[run_index].resolution is None
+
+    def escapes(self, cls: Optional[str] = None) -> tuple[Run, ...]:
         return tuple(r for r in self.runs
-                     if r.verdict == "refuted" and self._check_valid(r, as_of)
+                     if r.verdict == "refuted" and self._check_valid(r)
                      and (cls is None or r.cls == cls))
 
-    def _corpus_all(self, cls: str, as_of: Optional[int] = None) -> tuple[Run, ...]:
-        return tuple(r for r in self.escapes(cls, as_of))
+    def _corpus_all(self, cls: str) -> tuple[Run, ...]:
+        return tuple(r for r in self.escapes(cls))
 
-    def corpus(self, cls: str, as_of: Optional[int] = None) -> tuple[Run, ...]:
+    def corpus(self, cls: str) -> tuple[Run, ...]:
         """Valid escapes of the class minus journaled exclusions."""
         excluded = self.exclusions.get(cls, set())
-        return tuple(r for r in self._corpus_all(cls, as_of) if r.index not in excluded)
+        return tuple(r for r in self._corpus_all(cls) if r.index not in excluded)
 
-    def charge_cells(self, cls: Optional[str] = None,
-                     as_of: Optional[int] = None) -> frozenset[tuple[str, str, str, str]]:
+    def charge_cells(self, cls: Optional[str] = None) -> frozenset[tuple[str, str, str, str]]:
         """C2: the valid wrong-verdict cells (line, claim, refuter id, version),
         one per cell however many witnesses or checkers proved the miss."""
         cells: set[tuple[str, str, str, str]] = set()
         for run in self.runs:
-            if run.verdict != "refuted" or not self._check_valid(run, as_of):
+            if run.verdict != "refuted" or not self._check_valid(run):
                 continue
             if cls is not None and run.cls != cls:
                 continue
@@ -385,12 +420,10 @@ class CalibrationAuthority:
                 cells.add((run.line_id, run.claim_id, key[0], key[1]))
         return frozenset(cells)
 
-    def charges(self, refuter_id: str, version: str, cls: str,
-                as_of: Optional[int] = None) -> int:
-        return sum(1 for c in self.charge_cells(cls, as_of) if (c[2], c[3]) == (refuter_id, version))
+    def charges(self, refuter_id: str, version: str, cls: str) -> int:
+        return sum(1 for c in self.charge_cells(cls) if (c[2], c[3]) == (refuter_id, version))
 
-    def demoted(self, refuter_id: str, version: str, cls: str,
-                as_of: Optional[int] = None) -> bool:
+    def demoted(self, refuter_id: str, version: str, cls: str) -> bool:
         """C6: a pure query — charges past the declared budget. Never an event.
         A class nobody configured has no budget of infinity; the query refuses
         rather than answering "never demoted" (E9)."""
@@ -402,7 +435,7 @@ class CalibrationAuthority:
             # exposes the defect (an unconfigured class that never demotes)
             # instead of crashing on a lookup. The deletion proof reads it.
             return False
-        return self.charges(refuter_id, version, cls, as_of) > spec.e_max
+        return self.charges(refuter_id, version, cls) > spec.e_max
 
     def impeached(self, line_id: str) -> bool:
         """C3: entailed by a valid escape; the seal is never rewritten."""
@@ -452,15 +485,18 @@ class CalibrationAuthority:
         `as_of_seal` bounds the seal count to those sealed at or before that
         Admission position, which is what the live stamp saw. Without it,
         replay recomputes against the fully rebuilt Admission and every
-        stamp but the last disagrees — refusing honest journals."""
+        stamp but the last disagrees — refusing honest journals. It is the
+        one position bound left in this file: the ledger's own primaries are
+        ordered by rebuild order, and validity no longer reads the Admission
+        registry at all (C3, `_check_valid`)."""
         participated = sum(
             1 for s in self.adm.sealed.values()
             if s.cls == cls and (as_of_seal is None or s.sealed_at <= as_of_seal)
             and any((r.id, r.version) == (refuter_id, version)
                     for c in s.claims for r in c.refuters))
-        corpus = self._corpus_all(cls, as_of_seal)
+        corpus = self._corpus_all(cls)
         return {
-            "charged_cells": self.charges(refuter_id, version, cls, as_of_seal),
+            "charged_cells": self.charges(refuter_id, version, cls),
             "seals_participated": participated,
             "corpus_size": len(corpus),
             "corpus_excluded": len(self.exclusions.get(cls, set())),
@@ -542,15 +578,13 @@ class CalibrationAuthority:
                     r.id, r.version, seal.cls, as_of_seal=seal.sealed_at)
         self._emit(type="cal_stamp", line_id=seal.line_id, sealed_at=seal.sealed_at,
                    track_records=records,
-                   corpus_provenance=self._corpus_provenance(seal.cls, seal.generator,
-                                                             as_of=seal.sealed_at))
+                   corpus_provenance=self._corpus_provenance(seal.cls, seal.generator))
 
-    def _corpus_provenance(self, cls: str, generator: str,
-                           as_of: Optional[int] = None) -> dict:
+    def _corpus_provenance(self, cls: str, generator: str) -> dict:
         """C5: the class corpus split by finder provenance — entries found by
         this seal's generator versus independent finders. Primaries; the
         finder string gates nothing (journal-cited metadata only)."""
-        entries = self._corpus_all(cls, as_of)
+        entries = self._corpus_all(cls)
         participant = sum(1 for r in entries if r.finder == generator)
         return {"finder_is_generator": participant, "independent": len(entries) - participant}
 
@@ -576,14 +610,40 @@ class CalibrationAuthority:
         if verdict not in RUN_VERDICTS or verdict != expect:
             raise ValueError(f"filing requires verdict {expect!r}, got {verdict!r}")
 
-    def _guard_run_checker(self, checker: tuple[str, str]) -> None:
-        """E1. The checker is declared and neither discredited nor refused."""
+    def _guard_run_checker(self, checker: tuple[str, str], as_of: Optional[int] = None) -> None:
+        """E1. The checker is declared and neither discredited nor refused.
+
+        `as_of` is the scrutiny-journal cut the filing was written at. Live it
+        is `None` and the current registry *is* the cut. On rebuild the
+        Admission registry is the final one, so the recorded cut decides: a
+        refusal that happened after this filing did not exist when it was
+        written, and reading the final set there would refuse honest journals
+        (the mirror of the seam this parameter closes — finding CF14, whose
+        rebuild branch omitted the refusal check altogether and accepted
+        filings the live guard refuses)."""
         if checker not in self.adm.refuters:
             raise ValueError(f"checker {checker!r} not declared")
         if checker in self.discredited:
             raise ValueError(f"checker {checker!r} is discredited")
         if checker in self.adm.refused:
-            raise ValueError(f"checker {checker!r} is refused")
+            if as_of is None or self.adm.refused_at.get(checker, -1) <= as_of:
+                raise ValueError(f"checker {checker!r} is refused")
+
+    def _guard_run_cut(self, seal, as_of: int, previous: int) -> None:
+        """E6. The recorded filing cut is a root on replay, so it is bounded
+        rather than trusted: at or after the seal it files against, at or
+        before the end of the scrutiny journal, and never earlier than an
+        earlier filing's cut. That converts a forged cut from a free choice
+        into a coherent rewrite of the surrounding record — the residue every
+        recorded position in this stack carries, narrowed, not removed."""
+        if not isinstance(as_of, int) or isinstance(as_of, bool):
+            raise ValueError("filing cut must be an integer journal position")
+        if as_of < seal.sealed_at:
+            raise ValueError("filing cut precedes the seal it files against")
+        if as_of > self.adm._position():
+            raise ValueError("filing cut is beyond the scrutiny journal")
+        if as_of < previous:
+            raise ValueError("filing cuts move backwards")
 
     def _guard_run_bytes(self, seal, artifact_hash: str) -> None:
         """E6, single-holder: the kernel hashed the filed bytes itself and they
@@ -628,14 +688,27 @@ class CalibrationAuthority:
         if not actor or not reason:
             raise ValueError("adjudication requires a named actor and a reason")
 
-    def _guard_exclusion(self, cls: str, indices: tuple[int, ...], actor: str, reason: str,
-                         as_of: Optional[int] = None) -> None:
+    def _guard_resolution(self, run: Run, actor: str, decision: str, reason: str) -> None:
+        """E7/C3. A contest to resolve, a named actor, a reason, one decision.
+        Without a contest there is nothing to resolve: an escape whose own
+        replay never diverged cannot be voided by decision, which is what
+        keeps revocation non-discretionary in the direction that matters."""
+        if not run.contested:
+            raise ValueError("resolution requires a contested run (a divergent replay of it)")
+        if run.resolution is not None:
+            raise ValueError("contest already resolved")
+        if decision not in {"uphold", "void"}:
+            raise ValueError(f"unknown decision {decision!r}")
+        if not actor or not reason:
+            raise ValueError("resolution requires a named actor and a reason")
+
+    def _guard_exclusion(self, cls: str, indices: tuple[int, ...], actor: str, reason: str) -> None:
         """E7. Named actor, a reason, and only valid escapes of this class."""
         if not actor or not reason:
             raise ValueError("exclusion requires a named actor and a reason")
         if not indices:
             raise ValueError("exclusion names at least one escape")
-        valid = {r.index for r in self._corpus_all(cls, as_of)}
+        valid = {r.index for r in self._corpus_all(cls)}
         unknown = [i for i in indices if i not in valid]
         if unknown:
             raise ValueError(f"not valid escapes of class {cls!r}: {unknown}")
@@ -650,18 +723,19 @@ class CalibrationAuthority:
                     raise ValueError(
                         f"class {cls!r} claim {claim.id!r}: defect model {claim.defect_model_hash!r} has no Measure record")
 
-    def _guard_install_covers(self, policy: AdmissionPolicy,
-                              as_of: Optional[int] = None) -> None:
+    def _guard_install_covers(self, policy: AdmissionPolicy) -> None:
         """E4, the ratchet: each ledger claim's id-set covers the class corpus
-        minus journaled exclusions as of this position."""
+        minus journaled exclusions. On rebuild the corpus is the one the
+        install saw, because `from_events` folds the ledger in journal order
+        and validity is position-independent (C3)."""
         # A class that owes coverage cannot be dropped from the policy: the
         # drop would release its whole corpus with no journal trace
         # (calibration round-1, attacker gap).
         for cls in {r.cls for r in self.runs if r.verdict == "refuted"}:
-            if self.corpus(cls, as_of) and cls not in policy.classes:
+            if self.corpus(cls) and cls not in policy.classes:
                 raise ValueError(f"class {cls!r} owes coverage for its escape corpus and cannot be dropped")
         for cls, spec in policy.classes.items():
-            required = {self.derived_defect_id(r) for r in self.corpus(cls, as_of)}
+            required = {self.derived_defect_id(r) for r in self.corpus(cls)}
             if not required:
                 continue
             for claim in spec.claims:
@@ -748,6 +822,7 @@ class CalibrationAuthority:
                            if type(ev.get("type")) is str
                            and ev["type"].startswith("cal_"))
         pending_discredit: Optional[tuple[tuple[str, str], int]] = None
+        last_cut = 0
         for ev in cal_events:
             t = ev["type"]
             if pending_discredit is not None and t != "cal_discredit":
@@ -765,10 +840,9 @@ class CalibrationAuthority:
                     raise ValueError("replay diverged: journaled tier is not the seal's")
                 if ev["verdict"] not in RUN_VERDICTS:
                     raise ValueError(f"replay diverged: unknown verdict {ev['verdict']!r}")
-                if checker not in admission.refuters:
-                    raise ValueError(f"replay diverged: undeclared checker {checker!r}")
-                if checker in a.discredited:
-                    raise ValueError(f"replay diverged: run filed by discredited checker {checker!r}")
+                a._guard_run_cut(seal, ev["as_of"], last_cut)                 # E6
+                last_cut = ev["as_of"]
+                a._guard_run_checker(checker, as_of=ev["as_of"])              # E1, at the live cut
                 if ev["artifact_hash"] != seal.artifact_hash:
                     raise ValueError("replay diverged: run hash differs from the seal")
                 if tier == "A":
@@ -794,13 +868,18 @@ class CalibrationAuthority:
                 diverged = a._check_run_replay(run, ev["verdict"], ev["witness_hash"])
                 if ev["diverged"] != diverged:
                     raise ValueError("replay diverged: journaled divergence flag is wrong")
+                contested = diverged and run.established
+                if ev.get("contested", contested) != contested:
+                    raise ValueError("replay diverged: journaled contest flag is wrong")
                 a._events.append(JournalEvent(dict(ev)))
                 if diverged:
+                    if run.established:
+                        run.contested = True
                     pending_discredit = (run.checker, ev["run_index"])
                 else:
                     run.established = True
-            elif t == "cal_adjudicate" and not 0 <= ev["run_index"] < len(a.runs):
-                raise ValueError("replay diverged: adjudication of a run the journal does not contain")
+            elif t in {"cal_adjudicate", "cal_resolve"} and not 0 <= ev["run_index"] < len(a.runs):
+                raise ValueError(f"replay diverged: {t} of a run the journal does not contain")
             elif t == "cal_discredit":
                 key = (ev["checker_id"], ev["checker_version"])
                 if pending_discredit != (key, ev["run_index"]):
@@ -813,16 +892,21 @@ class CalibrationAuthority:
                 a._guard_adjudication(run, ev["actor"], ev["decision"], ev["reason"])
                 run.adjudication = ev["decision"]
                 a._events.append(JournalEvent(dict(ev)))
+            elif t == "cal_resolve":
+                run = a.runs[ev["run_index"]]
+                a._guard_resolution(run, ev["actor"], ev["decision"], ev["reason"])
+                run.resolution = ev["decision"]
+                a._events.append(JournalEvent(dict(ev)))
             elif t == "cal_exclude":
                 a._guard_exclusion(ev["class"], tuple(ev["run_indices"]), ev["actor"],
-                                   ev["reason"], as_of=ev.get("as_of"))
+                                   ev["reason"])
                 a.exclusions.setdefault(ev["class"], set()).update(ev["run_indices"])
                 a._events.append(JournalEvent(dict(ev)))
             elif t == "cal_install":
                 pol = admission._policies.get(ev["policy_version"])
                 if pol is None:
                     raise ValueError(f"replay diverged: admission never installed {ev['policy_version']!r}")
-                a._guard_install_covers(pol, as_of=ev.get("as_of"))
+                a._guard_install_covers(pol)
                 a._guard_install_bounded(pol)
                 a._guard_install_measured(pol)   # one-sided: final registry, see docstring
                 # The rebuild ADOPTS the budgets the journal installed rather
@@ -863,8 +947,7 @@ class CalibrationAuthority:
                             r.id, r.version, seal.cls, as_of_seal=seal.sealed_at)
                 if recomputed != dict(ev["track_records"]):
                     raise ValueError("replay diverged: stamp does not recompute from the ledger")
-                if a._corpus_provenance(seal.cls, seal.generator,
-                                        as_of=seal.sealed_at) != dict(ev["corpus_provenance"]):
+                if a._corpus_provenance(seal.cls, seal.generator) != dict(ev["corpus_provenance"]):
                     raise ValueError("replay diverged: stamp provenance does not recompute")
                 a._events.append(JournalEvent(dict(ev)))
             elif t == "cal_close":
@@ -872,7 +955,7 @@ class CalibrationAuthority:
                 if line is None:
                     raise ValueError(f"replay diverged: close of an unknown line {ev['line_id']!r}")
                 if ev.get("fault") == "E5" and not a.demoted(
-                        ev["refuter_id"], ev["refuter_version"], line.cls, as_of=ev.get("as_of")):
+                        ev["refuter_id"], ev["refuter_version"], line.cls):
                     raise ValueError("replay diverged: E5 close without a demotion at that point")
                 a._events.append(JournalEvent(dict(ev)))
         if pending_discredit is not None:
