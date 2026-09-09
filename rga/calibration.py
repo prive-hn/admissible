@@ -301,7 +301,16 @@ class CalibrationAuthority:
         escape's standing, and it reaches it only through a named resolution:
         the discredit alone no longer voids what the checker demonstrated."""
         run = self.runs[run_index]
-        if run.checker in self.discredited:
+        if run.checker in self.discredited and not run.established:
+            # A discredited checker may not ESTABLISH anything further, which
+            # is what this precondition has always been for. Replaying a run
+            # it already demonstrated stays open, because that replay is the
+            # only route to that run's standing (C3): closing it would leave
+            # the contest mechanism unreachable in exactly the case it exists
+            # for — a checker suspected of nondeterminism — and a mechanism no
+            # trace can reach is dead. Such a replay can only agree, changing
+            # nothing, or diverge, which contests the run and still leaves it
+            # impeaching until a named resolution.
             raise ValueError(f"checker {run.checker!r} is discredited")
         self._guard_replay_verdict(verdict)                               # E1
         diverged = self._check_run_replay(run, verdict, witness_hash)     # E1
@@ -863,7 +872,7 @@ class CalibrationAuthority:
                 if not 0 <= ev["run_index"] < len(a.runs):
                     raise ValueError("replay diverged: replay of a run the journal does not contain")
                 run = a.runs[ev["run_index"]]
-                if run.checker in a.discredited:
+                if run.checker in a.discredited and not run.established:
                     raise ValueError("replay diverged: replay of a discredited checker")
                 diverged = a._check_run_replay(run, ev["verdict"], ev["witness_hash"])
                 if ev["diverged"] != diverged:

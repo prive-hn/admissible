@@ -213,18 +213,23 @@ Emitted by `rga/calibration.py` (`CalibrationAuthority`). They support the C1–
 - `tier` A (checker pinned to the claim in the seal; seed is the kernel's derivation over the sealed hash) | B (any other declared checker; consequences require adjudication)
 - `nonce` finder-chosen; `artifact_hash` sha256 computed by the kernel over the filed bytes, equal to the seal's; `seed`
 - `verdict` refuted (escape) | survived (audit), `witness_hash`, `finder` (journal-cited provenance; gates nothing)
+- `as_of` the scrutiny-journal position the filing was written at. The checker's standing is evaluated there rather than at the final registry, so a refusal recorded after this filing does not retroactively refuse it and a filing by an already-refused checker is refused on both the live path and rebuild. A recorded position is a root on replay, so it is bounded rather than trusted: at or after the seal it files against, at or before the end of the scrutiny journal, and never earlier than an earlier filing's (E6).
 
 ### `cal_replay`
 
-- `ts`, `run_index`, `verdict`, `witness_hash`, `diverged`. Equal outcome establishes the run; divergence discredits the checker.
+- `ts`, `run_index`, `verdict`, `witness_hash`, `diverged`, `contested`. Equal outcome establishes the run; divergence discredits the checker and, when the run had already established, marks that run contested. `contested` is derived and recomputed on rebuild.
 
 ### `cal_discredit`
 
-- `ts`, `checker_id`, `checker_version`, `run_index`. Monotone: there is no un-discredit event; validity of every run by that checker degrades at query time.
+- `ts`, `checker_id`, `checker_version`, `run_index`. Monotone: there is no un-discredit event. It bars the checker's later filings and voids its **unestablished** runs; it does not reach a run the checker demonstrated (C3).
 
 ### `cal_adjudicate`
 
 - `ts`, `run_index`, `actor`, `decision` accept | reject, `reason`. Tier B escapes only; once.
+
+### `cal_resolve`
+
+- `ts`, `run_index`, `actor`, `decision` uphold | void, `reason`. The named outcome of a contest, once per contest, and the only event that raises a line's standing (C3). A contested escape keeps impeaching until it arrives, which is the fail-closed direction for the artifact.
 
 ### `cal_exclude`
 

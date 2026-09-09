@@ -169,7 +169,8 @@
             "type": "array", "minItems": 1,
             "items": {
               "type": "object",
-              "required": ["claim_id", "spec_hash", "composite", "composition", "agreeing", "k", "refuters"],
+              "required": ["claim_id", "spec_hash", "composite", "composition", "agreeing", "k",
+                           "ledger_composite", "bounded_composite", "floor_basis", "floor_witness", "refuters"],
               "properties": {
                 "claim_id": {"type": "string"},
                 "spec_hash": {"type": "string"},
@@ -177,6 +178,10 @@
                 "composition": {"type": "string", "enum": ["single", "union", "max"]},
                 "agreeing": {"type": "integer", "minimum": 0},
                 "k": {"type": "integer", "minimum": 1},
+                "ledger_composite": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+                "bounded_composite": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+                "floor_basis": {"type": "number", "minimum": 0, "maximum": 1},
+                "floor_witness": {"type": "string"},
                 "refuters": {
                   "type": "array", "minItems": 1,
                   "items": {
