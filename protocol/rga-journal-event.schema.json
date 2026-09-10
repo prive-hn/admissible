@@ -150,7 +150,7 @@
     {
       "if": {"properties": {"type": {"const": "rga_seal"}}},
       "then": {
-        "required": ["work_item_id", "class", "body_hash", "artifact_hash", "k", "theta", "p_min", "power_min", "sampling_hash", "policy_version", "fcd_policy_version", "generator", "executed_model", "claims", "residual"],
+        "required": ["work_item_id", "class", "body_hash", "artifact_hash", "k", "theta", "p_min", "power_min", "sampling_hash", "policy_version", "fcd_policy_version", "generator", "executed_model", "claims", "residual", "fcd_position"],
         "properties": {
           "work_item_id": {"type": "string"},
           "class": {"type": "string"},
@@ -160,6 +160,7 @@
           "theta": {"type": "number"},
           "p_min": {"type": "number"},
           "power_min": {"type": "number", "minimum": 0, "maximum": 1},
+          "fcd_position": {"type": "integer", "minimum": 0},
           "sampling_hash": {"type": "string"},
           "policy_version": {"type": "string"},
           "fcd_policy_version": {"type": "string"},
@@ -169,7 +170,8 @@
             "type": "array", "minItems": 1,
             "items": {
               "type": "object",
-              "required": ["claim_id", "spec_hash", "composite", "composition", "agreeing", "k", "refuters"],
+              "required": ["claim_id", "spec_hash", "composite", "composition", "agreeing", "k",
+                           "ledger_composite", "bounded_composite", "floor_basis", "floor_witness", "refuters"],
               "properties": {
                 "claim_id": {"type": "string"},
                 "spec_hash": {"type": "string"},
@@ -177,6 +179,10 @@
                 "composition": {"type": "string", "enum": ["single", "union", "max"]},
                 "agreeing": {"type": "integer", "minimum": 0},
                 "k": {"type": "integer", "minimum": 1},
+                "ledger_composite": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+                "bounded_composite": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+                "floor_basis": {"type": "number", "minimum": 0, "maximum": 1},
+                "floor_witness": {"type": "string"},
                 "refuters": {
                   "type": "array", "minItems": 1,
                   "items": {

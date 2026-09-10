@@ -69,6 +69,14 @@ def _drive_everything() -> tuple[list[dict], list[dict]]:
     h.a.declare(Refuter("flaky", "v1", "someone", "ledger"))
     f = h.cal.file_escape("w", "tests_pass", "flaky", "v1", "n2", b"w-body-0", "s2", "fw", "aud")
     h.cal.replay_run(f.index, "refuted", "different")                 # cal_discredit
+    # a contest and its named resolution: a divergent replay of a run that
+    # had already established marks that run contested, and only a resolution
+    # can void it (C3)
+    h.a.declare(Refuter("shaky", "v1", "somebody", "ledger"))
+    c = h.cal.file_escape("w", "tests_pass", "shaky", "v1", "n3", b"w-body-0", "s3", "cw", "aud")
+    h.cal.replay_run(c.index, "refuted", "cw")                        # establishes
+    h.cal.replay_run(c.index, "survived", "not-a-kill")               # contests it
+    h.cal.resolve(c.index, "owner", "void", "reproduced as a flake")  # cal_resolve
     rga_events, cal_events = list(h.a.events), list(h.cal.events)
 
     # separate RGA-only flows for the remaining rga_* types
@@ -132,6 +140,9 @@ class RgaSchemaConformanceTests(unittest.TestCase):
             (cal, {k: v for k, v in plain_run.items()
                    if k != "seed"}),
             (cal, {"type": "cal_wish"}),
+            (cal, {k: v for k, v in to_plain_json(next(
+                e for e in self.cal_events if e["type"] == "cal_open")).items()
+                   if k != "as_of"}),
         ]
         for validator, ev in cases:
             ev = to_plain_json(ev)

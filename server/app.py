@@ -24,6 +24,7 @@ from urllib.parse import parse_qs, urlparse, urlsplit
 
 from atlas.context import build_context_atlas
 from rga.calibration import CalibrationAuthority, CalibrationClass, CalibrationPolicy
+from server.seal_sentence import FloorSentence
 from rga.core import Admission, AdmissionPolicy, ClaimSpec, ClassAdmission, DefectModel, LedgerEntry, Refuter
 from fcd.context import (
     AgentRef,
@@ -1208,8 +1209,7 @@ class CockpitEngine:
                                      "authority: no track-record stamp binds this seal, so it "
                                      "carries layer-R standing only.")
             else:
-                block["sentence"] = (f"Sealed: survived the pinned refuter at measured power {seal.power_min:g}; "
-                                     f"concordance is ({seal.claims[0].agreeing}, {seal.k}) — unmeasured at k=1.")
+                block["sentence"] = FloorSentence().render(seal)
         elif closed_reason is not None:
             reason = f": {closed_reason}" if closed_reason else ""
             block["sentence"] = (f"Closed under scrutiny ({line.fault}){reason} "

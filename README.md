@@ -61,7 +61,7 @@ This is Clark–Wilson integrity applied to LLM binds, not a new algebra.
 | `docs/IMPEACHMENT.md` | Filing defects, observed vs reachable vs unknown impact, raw miss counts |
 | `examples/developer-workflow/demo.sh` | Offline end-to-end walk-through in a throwaway repository: init, an evaluation, a cache hit, the four-step admission path, a refusal, the signed-review handoff, an impeachment |
 | `docs/PROOFS_PLAIN.md` | Every theorem of both papers — FCD I1–I17 and RGA R1–R13 — in one plain sentence each, plus what neither proves |
-| `tests/` | 3034 kernel/server/context/project/class/RGA/calibration/bench/schema/paper/custody tests, including 2451 for the developer product |
+| `tests/` | 3066 kernel/server/context/project/class/RGA/calibration/bench/schema/paper/custody tests, including 2452 for the developer product |
 | `atlas/tests/` | 37 atlas/immutability/impact/schema tests |
 | `apps/cockpit/tests/` | 71 UI/steering/context/receipt/readiness/instrument/skin-contract/skin-authority tests |
 | `metrics/SCHEMA.md` | Event contract. Rates stay empty until a named cut |
@@ -563,14 +563,30 @@ No numbers in the paper until those calls run on a write-ahead journal after a n
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-3142 checks green in this repository, in two scopes that are counted
+Two prerequisites, both worth stating because a run without them fails in a
+way that reads as broken code rather than a missing tool:
+
+- **`build`, `setuptools` and `wheel` must be importable *system-wide*, not
+  from the user site.** The packaging suites launch every subprocess with
+  `PYTHONNOUSERSITE=1` on purpose, so that an import canary reports what the
+  wheel ships rather than what the developer's shell happens to have. A
+  `pip install --user build` is therefore invisible to them and roughly 290
+  checks fail with `No module named build`. Install into the interpreter the
+  suites run (`sudo python3 -m pip install --break-system-packages build
+  setuptools wheel`), or use a virtualenv whose site-packages carry them.
+- **A `.venv/` at the repository root**, because the documented `PYTHON`
+  override may be relative and one check runs the demo through
+  `.venv/bin/python` to prove the relative path is resolved before the script
+  changes directory.
+
+3185 checks green in this repository, in two scopes that are counted
 separately because they prove different things:
 
 | Scope | Checks | Where |
 | ----- | -----: | ----- |
-| Research kernel — the number the paper cites | 691 | 583 in `tests/` + 37 `atlas/tests/` + 71 `apps/cockpit/tests/` |
-| Developer product (`admissible/`) | 2451 | `tests/test_admissible_*.py` + the split suites under `tests/architecture/`, `tests/core/`, `tests/ready/`, `tests/trust/` and `tests/compatibility/` |
-| **Total** | **3142** | 3034 under `tests/`, 37 atlas, 71 cockpit |
+| Research kernel — the number the paper cites | 733 | 625 in `tests/` + 37 `atlas/tests/` + 71 `apps/cockpit/tests/` |
+| Developer product (`admissible/`) | 2452 | `tests/test_admissible_*.py` + the split suites under `tests/architecture/`, `tests/core/`, `tests/ready/`, `tests/trust/` and `tests/compatibility/` |
+| **Total** | **3185** | 3077 under `tests/`, 37 atlas, 71 cockpit |
 
 The research-kernel number moves when kernel-scope checks are added, and the
 cockpit server's are: `tests/test_server.py` carries neither the

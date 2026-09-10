@@ -280,6 +280,107 @@ class R2PowerCarriedNeverInferred(unittest.TestCase):
         self.assertEqual(len(s.claims), 2)
         self.assertAlmostEqual(s.power_min, 0.6)
 
+    def test_a_declaration_cannot_clear_a_floor_a_measurement_failed(self):
+        """The repair of finding CF6. A bounded refuter declared at
+        (epsilon=1, N=1) carries power 1.0; while the floor read the
+        cross-sort max, that declaration cleared any p_min on a claim whose
+        kernel-counted power was 0/|D|. The floor now reads the weakest sort
+        present, so the measurement it contradicts closes the line."""
+        BND = ("bnd", "v1")
+        h = Harness(refuters=frozenset({TESTS, BND}), p_min=0.9)
+        h.declare_tests(kills=0, size=10)
+        h.a.declare(Refuter("bnd", "v1", "bnd-author", "bounded"))
+        h.a.bound("bnd", "v1", 1.0, 1)
+        h.fcd_open(); h.rga_open()
+        for i in range(K):
+            h.fcd_write(); h.sample(body=f"b{i}".encode())
+            h.trial(i=i, refuter=TESTS); h.trial(i=i, refuter=BND, witness="b-same")
+        h.replay_all(); h.fcd_check()
+        with self.assertRaises(ValueError):
+            h.a.seal("w")
+        line = h.a.lines["w"]
+        self.assertEqual((line.pc, line.fault), ("Closed", "V5"))
+        self.assertNotIn("w", h.a.sealed)
+
+    def test_the_seal_carries_both_sorts_and_names_the_floors_realizer(self):
+        BND = ("bnd", "v1")
+        h = Harness(refuters=frozenset({TESTS, BND}), p_min=0.5)
+        h.declare_tests(kills=6, size=10)
+        h.a.declare(Refuter("bnd", "v1", "bnd-author", "bounded"))
+        h.a.bound("bnd", "v1", 0.2, 10)                  # 1-(0.8)^10 = 0.8926
+        h.fcd_open(); h.rga_open()
+        for i in range(K):
+            h.fcd_write(); h.sample(body=f"b{i}".encode())
+            h.trial(i=i, refuter=TESTS); h.trial(i=i, refuter=BND, witness="b-same")
+        h.replay_all(); h.fcd_check()
+        c = h.a.seal("w").claims[0]
+        self.assertAlmostEqual(c.ledger_composite, 0.6)
+        self.assertAlmostEqual(c.bounded_composite, 1.0 - 0.8 ** 10)
+        self.assertAlmostEqual(c.composite, 1.0 - 0.8 ** 10)   # strongest applied
+        self.assertAlmostEqual(c.floor_basis, 0.6)             # weakest sort: what V5 read
+        self.assertEqual(c.floor_witness, "ledger:tests@v1:6/10")
+
+    def test_a_bounded_only_claim_says_so_on_the_seal(self):
+        BND = ("bnd", "v1")
+        claims = (ClaimSpec("tests_pass", "spec-1", frozenset({BND}), D1),)
+        h = Harness(claims=claims, refuters=frozenset({BND}), p_min=0.5)
+        h.a.declare(Refuter("bnd", "v1", "bnd-author", "bounded"))
+        h.a.bound("bnd", "v1", 0.2, 10)
+        h.fcd_open(); h.rga_open()
+        for i in range(K):
+            h.fcd_write(); h.sample(body=f"b{i}".encode())
+            h.trial(i=i, refuter=BND, witness="b-same")
+        h.replay_all(); h.fcd_check()
+        c = h.a.seal("w").claims[0]
+        self.assertIsNone(c.ledger_composite)
+        self.assertIn("only sort present", c.floor_witness)
+        self.assertIn("bounded", c.floor_witness)
+
+
+class R8SealRecordsItsIdentityCut(unittest.TestCase):
+    """The seal records the identity-journal position it read, as Open and
+    Sample already did, and rebuild witnesses the Accept there.
+
+    The store is grow-only, so reading current membership on rebuild reads a
+    superset of what the live guard saw — the shape of the filing seams. This
+    closes it by witnessing the accept in the journal up to the recorded cut
+    rather than inferring it from a monotone set."""
+
+    def test_the_seal_carries_the_position_it_read(self):
+        h = Harness(); h.declare_tests(); h.run_to_seal_ready()
+        before = len(h.e.events)
+        h.a.seal("w")
+        ev = [e for e in h.a.events if e["type"] == "rga_seal"][-1]
+        self.assertEqual(ev["fcd_position"], before)
+
+    def test_a_seal_whose_accept_is_not_yet_witnessed_is_refused(self):
+        h = Harness(); h.declare_tests(); h.run_to_seal_ready()
+        accept_at = next(i for i, e in enumerate(h.e.events)
+                         if e["type"] == "accept" and e.get("work_item_id") == "w")
+        # a cut that predates the accept: the store says yes, the journal does not
+        with self.assertRaises(ValueError) as caught:
+            h.a._seal("w", accept_at)
+        self.assertIn("recorded position", str(caught.exception))
+        self.assertNotIn("w", h.a.sealed)
+
+    def test_the_recorded_cut_is_range_checked_on_rebuild(self):
+        h = Harness(); h.declare_tests(); h.run_to_seal_ready(); h.a.seal("w")
+        for bad in (-1, len(h.e.events) + 1):
+            forged = [dict(e) for e in h.a.events]
+            at = next(i for i, e in enumerate(forged) if e["type"] == "rga_seal")
+            forged[at]["fcd_position"] = bad
+            with self.assertRaises(ValueError):
+                Admission.from_events(forged, h.e, admission_policy())
+
+    def test_an_honest_seal_replays_at_its_own_cut(self):
+        h = Harness(); h.declare_tests(); h.run_to_seal_ready(); h.a.seal("w")
+        h.fcd_open("x")                     # the identity journal grows afterwards
+        for _ in range(h.k):
+            h.fcd_write("x")
+        rebuilt = Admission.from_events(list(h.a.events), h.e, admission_policy())
+        self.assertIn("w", rebuilt.sealed)
+        self.assertTrue(rebuilt.admissible("w"))
+
 
 class R3SeparationOfDuty(unittest.TestCase):
     def test_refuter_authored_by_generator_cannot_be_pinned(self):

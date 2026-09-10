@@ -232,6 +232,16 @@ class ClaimSeal:
     composition: str                # single | union | max
     agreeing: int
     k: int
+    # The two sorts, never collapsed into one another: `ledger_composite` is
+    # kernel-counted over a named defect model, `bounded_composite` is computed
+    # from a declaration. `floor_basis` is the figure the V5 gate compared —
+    # the weakest sort present, so a declaration can never be the sole
+    # realizer of a floor a measurement failed (finding CF6) — and
+    # `floor_witness` names the contributor that realized it.
+    ledger_composite: Optional[float] = None
+    bounded_composite: Optional[float] = None
+    floor_basis: float = 0.0
+    floor_witness: str = ""
 
 
 @dataclass(frozen=True)
@@ -420,6 +430,12 @@ class Admission:
             raise ValueError("bound requires a bounded-mode refuter")
         self._guard_not_refused(r.key)                                   # V4
         self._guard_bound_once(r)                                        # V13
+        # N counts draws, so it is an integer. The event contract has always
+        # declared it one; the kernel accepted 2.5 and True, which is a drift
+        # the schema-conformance test cannot catch because the harness never
+        # emitted a non-integer.
+        if not isinstance(n, int) or isinstance(n, bool):
+            raise ValueError("bound requires an integer N (a count of draws)")
         if not (0.0 < epsilon <= 1.0) or n < 1:
             raise ValueError("bound requires 0 < epsilon <= 1 and N >= 1")
         rec = PowerRecord(r.id, r.version, "bounded", None, epsilon=epsilon, n=n)
@@ -576,7 +592,11 @@ class Admission:
 
     @_journal_atomic("line", "sealed_item")
     def seal(self, item_id: str) -> Seal:
-        """The only writer of S_R."""
+        """The only writer of S_R. The public row takes no journal position:
+        the kernel reads its own, as Open and Sample do."""
+        return self._seal(item_id, self.fcd._position())
+
+    def _seal(self, item_id: str, fpos: int) -> Seal:
         line = self._line(item_id)
         if line.pc != "Open":
             raise ValueError("seal requires pc=Open")
@@ -584,12 +604,12 @@ class Admission:
         self._guard_seal_replayed(line)                                       # V11
         self._guard_seal_measured(line)                                       # V12
         self._guard_seal_independent(line)                                    # V14
-        self._guard_seal_accepted(line)                                       # V15
+        self._guard_seal_accepted(line, fpos)                                 # V15
         self._guard_seal_residual(line)                                       # V15
         claims = tuple(self._claim_seal(line, c) for c in line.claims)
         if not self._check_concordance(line, claims):                         # V2
             return self._closed_seal_attempt(line)
-        power_min = min(c.composite for c in claims)
+        power_min = min(c.floor_basis for c in claims)
         if not self._check_power_floor(line, power_min):                      # V5
             return self._closed_seal_attempt(line)
         designated = line.samples[0]
@@ -612,12 +632,15 @@ class Admission:
                    claims=[{"claim_id": c.claim_id, "spec_hash": c.spec_hash,
                             "composite": c.composite, "composition": c.composition,
                             "agreeing": c.agreeing, "k": c.k,
+                            "ledger_composite": c.ledger_composite,
+                            "bounded_composite": c.bounded_composite,
+                            "floor_basis": c.floor_basis, "floor_witness": c.floor_witness,
                             "refuters": [{"id": r.id, "version": r.version, "mode": r.mode,
                                           "power": r.power, "defect_model_hash": r.defect_model_hash,
                                           "kills": r.kills, "size": r.size,
                                           "epsilon": r.epsilon, "n": r.n} for r in c.refuters]}
                            for c in claims],
-                   residual=[list(x) for x in s.residual])
+                   residual=[list(x) for x in s.residual], fcd_position=fpos)
         return s
 
     def _closed_seal_attempt(self, line: Line) -> Seal:
@@ -829,10 +852,26 @@ class Admission:
             if self.defect_authors.get(claim.defect_model_hash) == line.generator:
                 raise ValueError(f"defect model {claim.defect_model_hash!r} authored by the generator")
 
-    def _guard_seal_accepted(self, line: Line) -> None:
-        """V15. Seal implies FCD Accept: id in S."""
+    def _guard_seal_accepted(self, line: Line, fcd_position: int) -> None:
+        """V15. Seal implies FCD Accept: id in S, as of the identity-journal
+        position the kernel recorded here.
+
+        The store is grow-only (I8: only Accept writes it, and nothing
+        shrinks it), so reading current membership on rebuild is a read of a
+        superset of what the live guard saw — the same shape as the filing
+        seams. Witnessing the accept in the identity journal up to the
+        recorded cut, as the before-generation guard does, makes the two
+        paths agree. We could not exhibit an exploit of the unordered
+        version, because the identity machine's own field-by-field replay
+        refuses the journal reordering it would take; this closes the seam
+        rather than a demonstrated attack, and the ordering is now witnessed
+        instead of inferred from a monotone set."""
         if line.id not in self.fcd.store:
             raise ValueError("seal requires FCD Accept (id in S)")
+        for ev in self.fcd._events[:fcd_position]:
+            if ev.get("type") == "accept" and ev.get("work_item_id") == line.id:
+                return
+        raise ValueError("seal requires FCD Accept at or before its recorded position")
 
     def _guard_seal_residual(self, line: Line) -> None:
         """V15. A residual disposition of check_stage is derived from FCD
@@ -933,7 +972,48 @@ class Admission:
             composition = "union"
         else:
             composition = "max"
-        return ClaimSeal(claim.id, claim.spec_hash, tuple(refs), composite, composition, agreeing, line.k)
+        ledger_composite = union_power if ledger_records else None
+        bounded_composite = max(bounded_powers) if bounded_powers else None
+        floor_basis, floor_witness = self._floor_basis(claim, ledger_records,
+                                                       ledger_composite, bounded_composite)
+        return ClaimSeal(claim.id, claim.spec_hash, tuple(refs), composite, composition,
+                         agreeing, line.k, ledger_composite=ledger_composite,
+                         bounded_composite=bounded_composite,
+                         floor_basis=floor_basis, floor_witness=floor_witness)
+
+    def _floor_basis(self, claim: ClaimSpec, ledger_records: list[PowerRecord],
+                     ledger_composite: Optional[float],
+                     bounded_composite: Optional[float]) -> tuple[float, str]:
+        """V5's basis: the weakest sort present, with the contributor that
+        realized it named on the seal.
+
+        A ledger figure is counted by the kernel over a named finite defect
+        model; a bounded figure is computed from a declared `(epsilon, N)`.
+        They speak about different alternatives, so `max` across them is not a
+        lower bound on anything joint — and taking it let a declared `1.0`
+        clear any floor over a `0/|D|` ledger, which is a declaration
+        outranking a measurement (finding CF6). Gating on the minimum over the
+        sorts actually present refuses that at the cause: where both sorts
+        attack a claim, each must clear the floor on its own base. A claim
+        attacked only by declarations still clears its floor by declaration —
+        the kernel cannot measure what nobody measured — and says so in the
+        witness, which is the label a reader needs to discount it."""
+        parts: list[tuple[float, str]] = []
+        if ledger_composite is not None:
+            if len(ledger_records) >= 2:
+                base = f"union({len(ledger_records)})@{claim.defect_model_hash}"
+            else:
+                rec = ledger_records[0]
+                base = f"{rec.refuter_id}@{rec.refuter_version}:{rec.kills}/{rec.size}"
+            parts.append((ledger_composite, f"ledger:{base}"))
+        if bounded_composite is not None:
+            parts.append((bounded_composite, "bounded:declared"))
+        if not parts:
+            return 0.0, "none"
+        value, witness = min(parts, key=lambda p: p[0])
+        if len(parts) == 1:
+            witness = f"{witness} (only sort present)"
+        return value, witness
 
     # -- replay ----------------------------------------------------------------------
 
@@ -1010,7 +1090,9 @@ class Admission:
             elif t == "rga_refuse":
                 pass  # emitted by replay; not re-driven
             elif t == "rga_seal":
-                a.seal(ev["work_item_id"])
+                if not 0 <= ev["fcd_position"] <= fcd._position():
+                    raise ValueError("journal fcd_position out of range")
+                a._seal(ev["work_item_id"], ev["fcd_position"])
             elif t == "rga_close":
                 fault = ev.get("fault")
                 if fault in {"V2", "V5"}:

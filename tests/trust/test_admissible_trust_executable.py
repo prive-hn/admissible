@@ -591,6 +591,26 @@ class TheRealSystemGitStillAnswersEverything(ExecutableFixtureCase):
                          reader.origin_url(self.repo))
         self.assertEqual(head, reader.root_commits(self.repo, head))
 
+    def test_a_credential_in_the_remote_never_reaches_the_record(self):
+        """`git remote get-url` applies `url.<rewritten>.insteadOf`, and CI
+        runners and coding agents both rewrite GitHub URLs to carry a token.
+        The answer is recorded on an identity record and travels with the
+        evidence, so it must not carry the secret."""
+        redact = git_reader._without_credentials
+        self.assertEqual(
+            "https://github.com/acme/widget.git",
+            redact("https://x-access-token:ghs_secret@github.com/acme/widget.git"))
+        self.assertEqual("https://github.com/acme/widget.git",
+                         redact("https://github.com/acme/widget.git"))
+        # an SCP-form remote's userinfo is not a secret, and dropping it would
+        # change the address
+        self.assertEqual("git@github.com:acme/widget.git",
+                         redact("git@github.com:acme/widget.git"))
+        # a path may contain @ and must survive
+        self.assertEqual("https://host/acme/wid@get.git",
+                         redact("https://u:p@host/acme/wid@get.git"))
+        self.assertEqual("", redact(""))
+
     def test_a_dirty_tree_is_still_seen_as_dirty(self):
         (self.repo / "extra.txt").write_text("x\n", encoding="utf-8")
         self.assertIn("extra.txt", git_reader.GitReader().status(self.repo))

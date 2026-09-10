@@ -118,22 +118,29 @@ class CalibrationConstructed(unittest.TestCase):
         self.assertEqual(h.cal.charges("tests", "v1", "impl"), 1)  # ... one charge
         self.assertEqual(len([c for c in h.cal.charge_cells("impl") if c[0] == "w"]), 1)
 
-    def test_C1_a_discredited_checker_lifts_impeachment(self):
-        """C1/E1: impeachment needs a VALID established escape, not merely an
-        established+refuted one. Establish an escape (impeaches), then discredit
-        its checker via a divergent replay: the established+refuted run is still on
-        record, but the checker is discredited so impeached() — which reads the
-        validity half of _check_valid — is False. The universal test's first clause
-        checks only establishment, so this drives the discredited/validity half."""
+    def test_C1_only_a_resolved_contest_lifts_impeachment(self):
+        """C1/E1/C3: impeachment needs a VALID established escape, and the one
+        fact that can invalidate an established one is a resolution of its own
+        contest. Discrediting the checker through a divergent replay of a
+        DIFFERENT run leaves the demonstrated escape standing; a divergent
+        replay of the escape itself only contests it, still impeaching; the
+        named resolution is what lifts it. This drives the validity half of
+        `_check_valid`, which the universal test's establishment clause does
+        not reach."""
         h = CalHarness(); h.declare_tests(); h.seal_line()
-        h.tier_a_escape(nonce="e1")                              # established+refuted -> impeaches
+        first = h.tier_a_escape(nonce="e1")                      # established+refuted -> impeaches
         self.assertTrue(h.cal.impeached("w"))
         second = h.tier_a_escape(nonce="e2", replay=False)
         h.cal.replay_run(second.index, "refuted", "other-witness")  # diverges -> discredits checker
         self.assertIn(TESTS, h.cal.discredited)
+        self.assertTrue(h.cal.impeached("w"))                    # a report about another run revokes nothing
+        h.cal.replay_run(first.index, "survived", "not-a-kill")  # contest the escape itself
+        self.assertTrue(h.cal.contested(first.index))
+        self.assertTrue(h.cal.impeached("w"))                    # contested: fail-closed
+        h.cal.resolve(first.index, "owner", "void", "reproduced as a flake")
         self.assertTrue(any(r.line_id == "w" and r.verdict == "refuted" and r.established
                             for r in h.cal.runs))                # the established+refuted run remains
-        self.assertFalse(h.cal.impeached("w"))                   # ... yet impeachment is lifted
+        self.assertFalse(h.cal.impeached("w"))                   # ... and only now is it lifted
 
     def test_C4_ratchet_refuses_forgetting_a_valid_escape(self):
         h = CalHarness(); h.declare_tests(); h.seal_line()

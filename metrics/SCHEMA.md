@@ -184,8 +184,9 @@ Emitted by `rga/core.py`. They support the R1–R13 audits (fault codes V1–V15
 ### `rga_seal`
 
 - `ts`, `work_item_id`, `class`, `body_hash`, `artifact_hash`, `k`, `theta`, `p_min`, `power_min`, `sampling_hash`, `policy_version` (RGA), `fcd_policy_version`, `generator`, `executed_model`
-- `claims` list of `{claim_id, spec_hash, composite, composition single|union|max, agreeing, k, refuters: [{id, version, mode, power, defect_model_hash, kills, size, epsilon, n}]}` — ledger refuters carry `kills`/`size`, bounded refuters `epsilon`/`n`; the null fields mark the other mode
+- `claims` list of `{claim_id, spec_hash, composite, composition single|union|max, agreeing, k, ledger_composite, bounded_composite, floor_basis, floor_witness, refuters: [{id, version, mode, power, defect_model_hash, kills, size, epsilon, n}]}` — ledger refuters carry `kills`/`size`, bounded refuters `epsilon`/`n`; the null fields mark the other mode. `ledger_composite` and `bounded_composite` are the two sorts' own coordinates, never collapsed into one another; `floor_basis` is the weaker of the sorts present, which is what the V5 gate compared, and `floor_witness` names the contributor that realized it
 - `residual` list of `[intent, disposition]`; `check_stage` only if an FCD check stage Passed
+- `fcd_position` the identity-journal position the seal read, recorded as `rga_open` and `rga_sample` record theirs. The store is grow-only, so reading current membership on rebuild reads a superset of what the live guard saw; witnessing the Accept in the identity journal up to this cut makes the live and rebuilt paths agree. Range-checked on rebuild, and a root there like every recorded position in this stack
 
 ### `rga_close`
 
@@ -207,32 +208,42 @@ Emitted by `rga/core.py`. They support the R1–R13 audits (fault codes V1–V15
 
 Emitted by `rga/calibration.py` (`CalibrationAuthority`). They support the C1–C7 audits in `paper/RGA/PROOFS.md`; fault codes are E1–E9. Positions are indices into the calibration journal.
 
+### `cal_open`
+
+- `ts`, `line_id`, `class`, `generator`, `as_of` the line's `opened_at`. Emitted after `Admission.open` succeeds, so a refused CalOpen leaves no trace. It is what makes C6's open-time demotion gate auditable: `mediated` requires exactly one of these beside the seal's stamp, so a line opened around the authority and sealed through it is layer IR however good its stamp looks, and rebuild re-verifies the gate against the corpus folded up to this point. Naive deletion fails the stamp control total; a deleter who refits the surviving stamps replays, and absence then fails closed to IR. The journaled cut must equal `opened_at`, and a filing at or before that cut cannot sit after the open — sliding the filing's `as_of` past the open is a root rewrite, stated as residue.
+
 ### `cal_run`
 
 - `ts`, `run_index`, `line_id`, `class`, `claim_id`, `checker_id`, `checker_version`
 - `tier` A (checker pinned to the claim in the seal; seed is the kernel's derivation over the sealed hash) | B (any other declared checker; consequences require adjudication)
 - `nonce` finder-chosen; `artifact_hash` sha256 computed by the kernel over the filed bytes, equal to the seal's; `seed`
 - `verdict` refuted (escape) | survived (audit), `witness_hash`, `finder` (journal-cited provenance; gates nothing)
+- `as_of` the scrutiny-journal position the filing was written at. The checker's standing is evaluated there rather than at the final registry, so a refusal recorded after this filing does not retroactively refuse it and a filing by an already-refused checker is refused on both the live path and rebuild. A recorded position is a root on replay, so it is bounded rather than trusted: at or after the seal it files against, at or before the end of the scrutiny journal, and never earlier than any earlier recorded cut — filings, opens, exclusions, installs and E5 closes share one monotone sequence (E6).
 
 ### `cal_replay`
 
-- `ts`, `run_index`, `verdict`, `witness_hash`, `diverged`. Equal outcome establishes the run; divergence discredits the checker.
+- `ts`, `run_index`, `verdict`, `witness_hash`, `diverged`, `contested`. Equal outcome establishes the run; divergence discredits the checker and, when the run had already established, marks that run contested. `contested` is derived and recomputed on rebuild.
 
 ### `cal_discredit`
 
-- `ts`, `checker_id`, `checker_version`, `run_index`. Monotone: there is no un-discredit event; validity of every run by that checker degrades at query time.
+- `ts`, `checker_id`, `checker_version`, `run_index`. Monotone: there is no un-discredit event. It bars the checker's later filings and voids its **unestablished** runs; it does not reach a run the checker demonstrated (C3).
 
 ### `cal_adjudicate`
 
 - `ts`, `run_index`, `actor`, `decision` accept | reject, `reason`. Tier B escapes only; once.
 
+### `cal_resolve`
+
+- `ts`, `run_index`, `actor`, `decision` uphold | void, `reason`, `line_id`, `class`, `defect_id`, `charged_cells`, `corpus_size`, `obligation_size`. The named outcome of a contest, once per contest, and the only event that raises a line's standing (C3). A contested escape keeps impeaching until it arrives, which is the fail-closed direction for the artifact.
+- The primaries say what the decision moved and what it did not. A `void` lowers `corpus_size` — the standing corpus that impeaches, charges and demotes — and leaves `obligation_size` alone, because coverage is C4's business and C4 has its own named exit. Releasing a defect from successor coverage still takes an `exclude`, with its own actor, reason and diff. Without that separation a resolution would achieve everything an exclusion achieves while naming nothing, and forgetting would stop being loud.
+
 ### `cal_exclude`
 
-- `ts`, `class`, `as_of` (the Admission position the corpus was read at), `run_indices`, `actor`, `reason`, `corpus_size`, `excluded_total`. Releases named corpus entries from successor coverage; waives nothing else.
+- `ts`, `class`, `as_of` (the Admission position the corpus was read at), `run_indices`, `actor`, `reason`, `corpus_size`, `excluded_total`. Releases named corpus entries from successor coverage; waives nothing else. `as_of` is a recorded cut: integer, in range, and never earlier than a prior cut of any type that carries one.
 
 ### `cal_install`
 
-- `ts`, `policy_version` (the **admission** policy), `calibration_policy_version`, `as_of` (the Admission position the ratchet was read at), `budgets` per class `{e_max, demotion_gate}`, `coverage` per class `{corpus_size, excluded, models: {claim_id: defect_model_hash}}`, `dropped_defect_ids` (the predecessor-diff), `dropped_classes` (classes leaving the policy; refused while they owe coverage). Emitted only past the ratchet guards (E4) and the class-coverage guard (E9); `rga/core.py install` itself emits nothing. The budgets are journaled because `demoted()` gates CalOpen and CalSeal: a budget nobody can read from the record is a gate nobody can audit, and replay refuses a supplied policy that disagrees with the one the journal installed.
+- `ts`, `policy_version` (the **admission** policy), `calibration_policy_version`, `as_of` (the Admission position the ratchet was read at), `budgets` per class `{e_max, demotion_gate}`, `coverage` per class `{corpus_size, excluded, models: {claim_id: defect_model_hash}}`, `dropped_defect_ids` (the predecessor-diff), `dropped_classes` (classes leaving the policy; refused while they owe coverage). Emitted only past the ratchet guards (E4) and the class-coverage guard (E9); `rga/core.py install` itself emits nothing. The budgets are journaled because `demoted()` gates CalOpen and CalSeal: a budget nobody can read from the record is a gate nobody can audit, and replay refuses a supplied policy that disagrees with the one the journal installed. `as_of` is a recorded cut, ordered with filings, exclusions and closes.
 
 ### `cal_stamp`
 
@@ -240,7 +251,7 @@ Emitted by `rga/calibration.py` (`CalibrationAuthority`). They support the C1–
 
 ### `cal_close`
 
-- `ts`, `line_id`, `fault` E5, `as_of` (the Admission position the demotion was read at), `refuter_id`, `refuter_version`, `primaries`. The demotion gate where the class declared it; the line closes through Admission's operator close in the same step. `as_of` is what makes the close replayable: without it, rebuild re-reads the demotion against final state and refuses honest journals.
+- `ts`, `line_id`, `fault` E5, `as_of` (the Admission position the demotion was read at), `refuter_id`, `refuter_version`, `primaries`. The demotion gate where the class declared it; the line closes through Admission's operator close in the same step. `as_of` is a recorded cut, ordered with filings, exclusions and installs; without it, rebuild re-reads the demotion against final state and refuses honest journals.
 
 ## Calibration rates (empty)
 
