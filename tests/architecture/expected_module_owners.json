@@ -13,7 +13,7 @@
       "tests",
       "packages/*/src"
     ],
-    "module_count": 200
+    "module_count": 203
   },
   "module_owners": {
     "admissible": "Umbrella",
@@ -98,10 +98,12 @@
     "rga.attestation": "Existing Research Surface",
     "rga.calibration": "Existing Research Surface",
     "rga.core": "Existing Research Surface",
+    "rga.recorded_cut": "Existing Research Surface",
     "server": "Existing Research Surface",
     "server.app": "Existing Research Surface",
     "server.execution": "Existing Research Surface",
     "server.project": "Existing Research Surface",
+    "server.seal_sentence": "Existing Research Surface",
     "tests.admissible_support": "Test Surface",
     "tests.architecture": "Test Surface",
     "tests.architecture.inspect_wheel": "Test Surface",
@@ -194,6 +196,7 @@
     "tests.test_project_registry": "Test Surface",
     "tests.test_public_export": "Test Surface",
     "tests.test_public_release_metadata": "Test Surface",
+    "tests.test_recorded_cuts": "Test Surface",
     "tests.test_release_builder": "Test Surface",
     "tests.test_rga_calibration": "Test Surface",
     "tests.test_rga_citations": "Test Surface",
@@ -570,7 +573,8 @@
     ],
     "rga.calibration": [
       "fcd.journal",
-      "rga.core"
+      "rga.core",
+      "rga.recorded_cut"
     ],
     "rga.core": [
       "fcd.core",
@@ -584,7 +588,8 @@
       "rga.calibration",
       "rga.core",
       "server.execution",
-      "server.project"
+      "server.project",
+      "server.seal_sentence"
     ],
     "server.execution": [
       "fcd.context"
@@ -918,6 +923,12 @@
     "tests.test_public_release_metadata": [
       "admissible.config",
       "admissible.runner"
+    ],
+    "tests.test_recorded_cuts": [
+      "rga.calibration",
+      "rga.core",
+      "rga.recorded_cut",
+      "server.seal_sentence"
     ],
     "tests.test_rga_calibration": [
       "fcd.core",
