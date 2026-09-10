@@ -1090,6 +1090,8 @@ class SupportIncludesValidityDegraders(unittest.TestCase):
         run = h.tier_a_escape("w", nonce="e1")
         h.cal.replay_run(run.index, "survived", "not-a-kill")    # contests THIS run
         h.cal.resolve(run.index, "owner", "void", "reproduced as a flake")
+        resolve_i = next(i for i, e in enumerate(h.cal.events) if e["type"] == "cal_resolve")
+        self.assertIn(resolve_i, custody._run_structural(h.cal, run))
         self.assertTrue(h.cal.admissible("w"))
         sup = custody.support(h.cal, "w")
         self.assertEqual(sup.negative, ())                        # no valid witness stands

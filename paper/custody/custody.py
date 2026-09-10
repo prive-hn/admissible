@@ -368,7 +368,7 @@ def _install_anchors_for_escape(cal: CalibrationAuthority, s: SurfaceEvent,
         if jr != "cal":
             continue
         delete.add(j)
-        if cal.events[j].get("type") in ("cal_run", "cal_replay", "cal_adjudicate"):
+        if cal.events[j].get("type") in ("cal_run", "cal_replay", "cal_adjudicate", "cal_resolve"):
             run = _run_at_index(cal, j)
             if run is not None:
                 delete |= {k for k in _run_structural(cal, run)}
@@ -432,7 +432,7 @@ def _group_of(cal: CalibrationAuthority, s: SurfaceEvent, surface: list) -> tupl
     group = []
     if s.type == "cal_run":
         for j, ev in enumerate(cal.events):
-            if (ev.get("type") in ("cal_replay", "cal_discredit", "cal_adjudicate")
+            if (ev.get("type") in ("cal_replay", "cal_discredit", "cal_adjudicate", "cal_resolve")
                     and ev.get("run_index") == run.index):
                 group.append(("cal", j))
     elif s.type == "cal_replay" and run.tier == "B" and len(_establishing_replay_indices(cal, run)) == 1:
@@ -592,11 +592,12 @@ def _run_at_index(cal: CalibrationAuthority, j: int) -> Optional[Run]:
 
 def _run_structural(cal: CalibrationAuthority, run: Run) -> list:
     """Every event that names `run` and must go if its `cal_run` is deleted:
-    the run's replays, discredit and adjudication (from_events range-checks
-    each `run_index`)."""
+    the run's replays, discredit, adjudication and resolution (from_events
+    range-checks each `run_index`)."""
     return [k for k, ev in enumerate(cal.events)
             if ev.get("run_index") == run.index
-            and ev.get("type") in ("cal_run", "cal_replay", "cal_adjudicate", "cal_discredit")]
+            and ev.get("type") in ("cal_run", "cal_replay", "cal_adjudicate",
+                                  "cal_discredit", "cal_resolve")]
 
 
 def _install_e5_candidates(cal: CalibrationAuthority, j: int) -> list:
@@ -745,7 +746,7 @@ def deletion_closure(cal: CalibrationAuthority, s: SurfaceEvent, *,
         if jr != "cal":
             continue
         t = cal.events[j].get("type")
-        if t in ("cal_run", "cal_replay", "cal_adjudicate"):
+        if t in ("cal_run", "cal_replay", "cal_adjudicate", "cal_resolve"):
             run = _run_at_index(cal, j)
             if run is not None:
                 adj = _adjudication_index(cal, run) if run.tier == "B" else None

@@ -27,11 +27,12 @@
     {
       "if": {"properties": {"type": {"const": "cal_open"}}},
       "then": {
-        "required": ["line_id", "class", "generator"],
+        "required": ["line_id", "class", "generator", "as_of"],
         "properties": {
           "line_id": {"type": "string"},
           "class": {"type": "string"},
-          "generator": {"type": "string"}
+          "generator": {"type": "string"},
+          "as_of": {"type": "integer", "minimum": 0}
         }
       }
     },

@@ -140,6 +140,9 @@ class RgaSchemaConformanceTests(unittest.TestCase):
             (cal, {k: v for k, v in plain_run.items()
                    if k != "seed"}),
             (cal, {"type": "cal_wish"}),
+            (cal, {k: v for k, v in to_plain_json(next(
+                e for e in self.cal_events if e["type"] == "cal_open")).items()
+                   if k != "as_of"}),
         ]
         for validator, ev in cases:
             ev = to_plain_json(ev)

@@ -1014,6 +1014,7 @@ class CalibrationAuthority:
                 run = a.runs[ev["run_index"]]
                 a._guard_resolution(run, ev["actor"], ev["decision"], ev["reason"])
                 run.resolution = ev["decision"]
+                a._require_resolve_recomputes(run, ev)
                 a._events.append(JournalEvent(dict(ev)))
             elif t == "cal_exclude":
                 a._guard_exclusion(ev["class"], tuple(ev["run_indices"]), ev["actor"],
@@ -1140,3 +1141,17 @@ class CalibrationAuthority:
                 cut = run_ev.get("as_of")
                 if isinstance(cut, int) and cut <= at and j > i:
                     raise ValueError("replay diverged: open precedes a filing at its cut")
+
+    def _require_resolve_recomputes(self, run, ev) -> None:
+        """C5a on rebuild: resolve primaries are a control total, not trusted."""
+        expected = {
+            "line_id": run.line_id,
+            "class": run.cls,
+            "defect_id": self.derived_defect_id(run),
+            "charged_cells": len(self.charge_cells(run.cls)),
+            "corpus_size": len(self.corpus(run.cls)),
+            "obligation_size": len(self._obligation_all(run.cls)),
+        }
+        got = {key: ev.get(key) for key in expected}
+        if got != expected:
+            raise ValueError("replay diverged: resolve does not recompute from the ledger")

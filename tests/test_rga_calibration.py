@@ -232,6 +232,12 @@ class C3UnRevocationIsDemonstratedNeverReported(unittest.TestCase):
         rebuilt = CalibrationAuthority.from_events(list(h.cal.events), h.a, h.cal.policy)
         self.assertFalse(rebuilt.impeached("w"))
         self.assertEqual(len(rebuilt.events), len(h.cal.events))
+        forged_primaries = [dict(e) for e in h.cal.events]
+        at = next(i for i, e in enumerate(forged_primaries) if e["type"] == "cal_resolve")
+        forged_primaries[at]["charged_cells"] = forged_primaries[at]["charged_cells"] + 1
+        with self.assertRaises(ValueError) as caught:
+            CalibrationAuthority.from_events(forged_primaries, h.a, h.cal.policy)
+        self.assertIn("recompute", str(caught.exception))
         # a void resolution for a run nobody contested is refused on rebuild
         h2 = CalHarness(e_max=0); h2.declare_tests(); h2.seal_line()
         run = h2.tier_a_escape(nonce="e1")
