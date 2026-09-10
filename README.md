@@ -579,14 +579,14 @@ way that reads as broken code rather than a missing tool:
   `.venv/bin/python` to prove the relative path is resolved before the script
   changes directory.
 
-3169 checks green in this repository, in two scopes that are counted
+3180 checks green in this repository, in two scopes that are counted
 separately because they prove different things:
 
 | Scope | Checks | Where |
 | ----- | -----: | ----- |
-| Research kernel — the number the paper cites | 717 | 609 in `tests/` + 37 `atlas/tests/` + 71 `apps/cockpit/tests/` |
+| Research kernel — the number the paper cites | 728 | 620 in `tests/` + 37 `atlas/tests/` + 71 `apps/cockpit/tests/` |
 | Developer product (`admissible/`) | 2452 | `tests/test_admissible_*.py` + the split suites under `tests/architecture/`, `tests/core/`, `tests/ready/`, `tests/trust/` and `tests/compatibility/` |
-| **Total** | **3169** | 3061 under `tests/`, 37 atlas, 71 cockpit |
+| **Total** | **3180** | 3072 under `tests/`, 37 atlas, 71 cockpit |
 
 The research-kernel number moves when kernel-scope checks are added, and the
 cockpit server's are: `tests/test_server.py` carries neither the

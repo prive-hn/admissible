@@ -876,6 +876,7 @@ ROOT_FIELDS: dict[str, tuple[str, ...]] = {
     "rga_seal": ("work_item_id", "fcd_position"),
     "cal_run": ("line_id", "claim_id", "checker_id", "checker_version", "nonce",
                 "artifact_hash", "verdict", "witness_hash", "finder", "as_of"),
+    "cal_open": ("line_id", "class", "generator"),
     "cal_stamp": ("line_id", "sealed_at"),
 }
 
@@ -892,7 +893,9 @@ def _canon(obj) -> str:
 def _necessity_events(cal: CalibrationAuthority, line_id: str) -> list[tuple[str, int, dict]]:
     """The events whose roots the necessity conjuncts of admissible(line_id)
     mention: the item's identity history, the line's scrutiny history, the
-    registry records of every refuter its seal pinned, and the stamp."""
+    registry records of every refuter its seal pinned, the journaled CalOpen,
+    and the stamp. Mediation requires both halves; omitting the open left the
+    roots hash blind to the event CF7 made load-bearing."""
     adm = cal.adm
     seal = adm.sealed.get(line_id)
     pinned = {(r.id, r.version) for c in seal.claims for r in c.refuters} if seal else set()
@@ -908,7 +911,7 @@ def _necessity_events(cal: CalibrationAuthority, line_id: str) -> list[tuple[str
         elif ev.get("work_item_id") == line_id and t in ROOT_FIELDS:
             out.append(("rga", i, _roots(ev)))
     for i, ev in enumerate(cal.events):
-        if ev.get("type") == "cal_stamp" and ev.get("line_id") == line_id:
+        if ev.get("type") in ("cal_open", "cal_stamp") and ev.get("line_id") == line_id:
             out.append(("cal", i, _roots(ev)))
     return out
 

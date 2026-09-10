@@ -218,7 +218,7 @@ Emitted by `rga/calibration.py` (`CalibrationAuthority`). They support the C1–
 - `tier` A (checker pinned to the claim in the seal; seed is the kernel's derivation over the sealed hash) | B (any other declared checker; consequences require adjudication)
 - `nonce` finder-chosen; `artifact_hash` sha256 computed by the kernel over the filed bytes, equal to the seal's; `seed`
 - `verdict` refuted (escape) | survived (audit), `witness_hash`, `finder` (journal-cited provenance; gates nothing)
-- `as_of` the scrutiny-journal position the filing was written at. The checker's standing is evaluated there rather than at the final registry, so a refusal recorded after this filing does not retroactively refuse it and a filing by an already-refused checker is refused on both the live path and rebuild. A recorded position is a root on replay, so it is bounded rather than trusted: at or after the seal it files against, at or before the end of the scrutiny journal, and never earlier than an earlier filing's (E6).
+- `as_of` the scrutiny-journal position the filing was written at. The checker's standing is evaluated there rather than at the final registry, so a refusal recorded after this filing does not retroactively refuse it and a filing by an already-refused checker is refused on both the live path and rebuild. A recorded position is a root on replay, so it is bounded rather than trusted: at or after the seal it files against, at or before the end of the scrutiny journal, and never earlier than any earlier recorded cut — filings, exclusions, installs and E5 closes share one monotone sequence (E6).
 
 ### `cal_replay`
 
@@ -239,11 +239,11 @@ Emitted by `rga/calibration.py` (`CalibrationAuthority`). They support the C1–
 
 ### `cal_exclude`
 
-- `ts`, `class`, `as_of` (the Admission position the corpus was read at), `run_indices`, `actor`, `reason`, `corpus_size`, `excluded_total`. Releases named corpus entries from successor coverage; waives nothing else.
+- `ts`, `class`, `as_of` (the Admission position the corpus was read at), `run_indices`, `actor`, `reason`, `corpus_size`, `excluded_total`. Releases named corpus entries from successor coverage; waives nothing else. `as_of` is a recorded cut: integer, in range, and never earlier than a prior cut of any type that carries one.
 
 ### `cal_install`
 
-- `ts`, `policy_version` (the **admission** policy), `calibration_policy_version`, `as_of` (the Admission position the ratchet was read at), `budgets` per class `{e_max, demotion_gate}`, `coverage` per class `{corpus_size, excluded, models: {claim_id: defect_model_hash}}`, `dropped_defect_ids` (the predecessor-diff), `dropped_classes` (classes leaving the policy; refused while they owe coverage). Emitted only past the ratchet guards (E4) and the class-coverage guard (E9); `rga/core.py install` itself emits nothing. The budgets are journaled because `demoted()` gates CalOpen and CalSeal: a budget nobody can read from the record is a gate nobody can audit, and replay refuses a supplied policy that disagrees with the one the journal installed.
+- `ts`, `policy_version` (the **admission** policy), `calibration_policy_version`, `as_of` (the Admission position the ratchet was read at), `budgets` per class `{e_max, demotion_gate}`, `coverage` per class `{corpus_size, excluded, models: {claim_id: defect_model_hash}}`, `dropped_defect_ids` (the predecessor-diff), `dropped_classes` (classes leaving the policy; refused while they owe coverage). Emitted only past the ratchet guards (E4) and the class-coverage guard (E9); `rga/core.py install` itself emits nothing. The budgets are journaled because `demoted()` gates CalOpen and CalSeal: a budget nobody can read from the record is a gate nobody can audit, and replay refuses a supplied policy that disagrees with the one the journal installed. `as_of` is a recorded cut, ordered with filings, exclusions and closes.
 
 ### `cal_stamp`
 
@@ -251,7 +251,7 @@ Emitted by `rga/calibration.py` (`CalibrationAuthority`). They support the C1–
 
 ### `cal_close`
 
-- `ts`, `line_id`, `fault` E5, `as_of` (the Admission position the demotion was read at), `refuter_id`, `refuter_version`, `primaries`. The demotion gate where the class declared it; the line closes through Admission's operator close in the same step. `as_of` is what makes the close replayable: without it, rebuild re-reads the demotion against final state and refuses honest journals.
+- `ts`, `line_id`, `fault` E5, `as_of` (the Admission position the demotion was read at), `refuter_id`, `refuter_version`, `primaries`. The demotion gate where the class declared it; the line closes through Admission's operator close in the same step. `as_of` is a recorded cut, ordered with filings, exclusions and installs; without it, rebuild re-reads the demotion against final state and refuses honest journals.
 
 ## Calibration rates (empty)
 

@@ -729,20 +729,20 @@ class CalibrationAuthority:
                 raise ValueError(f"checker {checker!r} is refused")
 
     def _guard_run_cut(self, seal, as_of: int, previous: int) -> None:
-        """E6. The recorded filing cut is a root on replay, so it is bounded
-        rather than trusted: at or after the seal it files against, at or
-        before the end of the scrutiny journal, and never earlier than an
-        earlier filing's cut. That converts a forged cut from a free choice
-        into a coherent rewrite of the surrounding record — the residue every
-        recorded position in this stack carries, narrowed, not removed."""
-        if not isinstance(as_of, int) or isinstance(as_of, bool):
-            raise ValueError("filing cut must be an integer journal position")
-        if as_of < seal.sealed_at:
-            raise ValueError("filing cut precedes the seal it files against")
-        if as_of > self.adm._position():
-            raise ValueError("filing cut is beyond the scrutiny journal")
-        if as_of < previous:
-            raise ValueError("filing cuts move backwards")
+        """E6. A recorded admission-position cut is a root on replay: integer,
+        inside the scrutiny journal, and never earlier than a prior cut of
+        any event type that carries one. Filings add the seal as a floor.
+        That converts a forged cut from a free choice into a coherent rewrite
+        of the surrounding record — the residue every recorded position in
+        this stack carries, narrowed, not removed."""
+        from .recorded_cut import RecordedCut
+        floor = 0 if seal is None else seal.sealed_at
+        # Shared by cal_run, cal_exclude, cal_install and cal_close: one monotone
+        # sequence of recorded admission positions, not filings alone. seal is
+        # the filing floor; the other three types pass seal=None (floor 0).
+        # Integer, range and order live in RecordedCut so the four sites cannot
+        # drift from each other the way the filing-only last_cut did.
+        RecordedCut(as_of, previous, ceiling=self.adm._position(), floor=floor).check()
 
     def _guard_run_bytes(self, seal, artifact_hash: str) -> None:
         """E6, single-holder: the kernel hashed the filed bytes itself and they
@@ -928,6 +928,11 @@ class CalibrationAuthority:
         last_cut = 0
         for ev in cal_events:
             t = ev["type"]
+            if t in ("cal_run", "cal_exclude", "cal_install", "cal_close"):
+                seal_for_cut = admission.sealed.get(ev["line_id"]) if t == "cal_run" else None
+                cut = ev.get("as_of")
+                a._guard_run_cut(seal_for_cut, cut, last_cut)
+                last_cut = cut
             if pending_discredit is not None and t != "cal_discredit":
                 raise ValueError("replay diverged: diverged replay without its discredit event")
             if t == "cal_run":
@@ -950,8 +955,6 @@ class CalibrationAuthority:
                     raise ValueError("replay diverged: journaled class is not the seal's")
                 if ev["verdict"] not in RUN_VERDICTS:
                     raise ValueError(f"replay diverged: unknown verdict {ev['verdict']!r}")
-                a._guard_run_cut(seal, ev["as_of"], last_cut)                 # E6
-                last_cut = ev["as_of"]
                 a._guard_run_checker(checker, as_of=ev["as_of"])              # E1, at the live cut
                 if ev["artifact_hash"] != seal.artifact_hash:
                     raise ValueError("replay diverged: run hash differs from the seal")

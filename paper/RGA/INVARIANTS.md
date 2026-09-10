@@ -224,7 +224,7 @@ E5 publishes a close through CalSeal. E4, E6, E7 and E9 are guard refusals that 
 | E3 | A second charge in one `(line, claim, refuter_version)` cell |
 | E4 | An install whose ledger defect models omit a valid, unexcluded corpus entry — or reference an unmeasured D, leave a claim bounded-only against a nonempty corpus, or drop a class that owes coverage |
 | E5 | CalSeal under a demoted refuter where the class declared the gate |
-| E6 | FileEscape whose bytes do not hash to the seal's artifact hash, whose checker is not pinned (tier A), whose seed is not the kernel's derivation, or whose recorded cut precedes the seal, exceeds the scrutiny journal, or moves backwards from an earlier filing's |
+| E6 | FileEscape whose bytes do not hash to the seal's artifact hash, whose checker is not pinned (tier A), whose seed is not the kernel's derivation, or whose recorded cut precedes the seal, exceeds the scrutiny journal, or moves backwards from any earlier recorded cut — filings, exclusions, installs and E5 closes share one monotone sequence |
 | E7 | Exclusion, adjudication or resolution without a named actor and reason; a second adjudication of one escape; a second resolution of one contest; a resolution of a run nobody contested |
 | E8 | Any write to charges, corpus, exclusions or stamps except through the named transitions |
 | E9 | A CalOpen, CalSeal, budget query or install for a class carrying no explicit calibration policy — `e_max` and `demotion_gate` have no defaults, and an unconfigured class must never behave as an unlimited one |

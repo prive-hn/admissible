@@ -351,12 +351,12 @@ class C5MediationCoversTheWholeLine(unittest.TestCase):
         self.assertIn("demoted", str(caught.exception))
 
     def test_deleting_an_open_event_is_refused_by_its_own_stamp(self):
-        """The open event is anchored, not merely fail-closed on absence. A
-        stamp's `track_records` carry an `as_of` primary that counts the
-        calibration journal's own length, so dropping any earlier event —
-        including this one — makes the stamp fail to recompute. Deletion is
-        therefore refused rather than quietly lowering the line to IR, which
-        is a stronger property than a missing mediation record needs."""
+        """Naive deletion is refused by the stamp's control total, not by an
+        anchor. A stamp `as_of` counts journal length, so dropping the open
+        and failing to refit the stamp fails to recompute. A deleter who
+        prunes and refits the surviving stamps replays clean, and absence
+        then fails closed to IR — the documented direction, not an extra
+        lock. See RecomputationIsAControlTotalNotAnAnchor."""
         h = CalHarness(); h.declare_tests(); h.seal_line("w")
         pruned = [e for e in h.cal.events if e["type"] != "cal_open"]
         with self.assertRaises(ValueError) as caught:
@@ -1227,7 +1227,8 @@ class CalibrationRound1Repairs(unittest.TestCase):
         r = h.tier_a_escape()
         journal = [dict(e) for e in h.cal.events]
         journal.append({"type": "cal_exclude", "class": "impl", "run_indices": [r.index],
-                        "actor": "", "reason": "", "corpus_size": 1, "excluded_total": 1, "ts": 0.0})
+                        "actor": "", "reason": "", "corpus_size": 1, "excluded_total": 1,
+                        "as_of": h.a._position(), "ts": 0.0})
         with self.assertRaises(ValueError) as ctx:
             self._rebuild_journal(h, journal)
         self.assertIn("actor", str(ctx.exception))

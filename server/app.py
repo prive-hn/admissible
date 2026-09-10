@@ -24,6 +24,7 @@ from urllib.parse import parse_qs, urlparse, urlsplit
 
 from atlas.context import build_context_atlas
 from rga.calibration import CalibrationAuthority, CalibrationClass, CalibrationPolicy
+from server.seal_sentence import FloorSentence
 from rga.core import Admission, AdmissionPolicy, ClaimSpec, ClassAdmission, DefectModel, LedgerEntry, Refuter
 from fcd.context import (
     AgentRef,
@@ -1208,16 +1209,7 @@ class CockpitEngine:
                                      "authority: no track-record stamp binds this seal, so it "
                                      "carries layer-R standing only.")
             else:
-                # "measured" is only true where a kernel-counted ledger figure
-                # realized the floor. A claim attacked only by declarations
-                # clears its floor by declaration, and the seal's floor witness
-                # is what says which -- so the sentence reads the witness
-                # rather than asserting the stronger word for both.
-                basis = seal.claims[0].floor_witness or "declared"
-                strength = "measured" if basis.startswith("ledger") else "declared"
-                block["sentence"] = (f"Sealed: survived the pinned refuter at {strength} power "
-                                     f"{seal.power_min:g} ({basis}); "
-                                     f"concordance is ({seal.claims[0].agreeing}, {seal.k}) — unmeasured at k=1.")
+                block["sentence"] = FloorSentence().render(seal)
         elif closed_reason is not None:
             reason = f": {closed_reason}" if closed_reason else ""
             block["sentence"] = (f"Closed under scrutiny ({line.fault}){reason} "
