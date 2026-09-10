@@ -20,7 +20,7 @@ from rga.core import (  # noqa: E402
 from rga.recorded_cut import RecordedCut  # noqa: E402
 from server.seal_sentence import FloorSentence  # noqa: E402
 from test_rga_calibration import CalHarness  # noqa: E402
-from test_rga_invariants import D1, K, Harness  # noqa: E402
+from test_rga_invariants import D1, K, LINT, TESTS, Harness, ledger  # noqa: E402
 
 
 def _forgetful_successor(h):
@@ -159,6 +159,56 @@ class CalOpenIsANecessityRoot(unittest.TestCase):
         self.assertNotEqual(
             custody.standing_certificate(rebuilt, "w").roots_hash, cert.roots_hash)
 
+    def test_a_tail_appended_open_after_a_stamp_is_refused(self):
+        h = CalHarness()
+        h.declare_tests()
+        h.seal_line("w")
+        h.fcd_open("x")
+        h.a.open("x", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("x")
+            h.sample("x", f"x-{i}".encode())
+            h.trial("x", i)
+        h.replay_all("x")
+        h.fcd_check("x")
+        h.cal.seal("x")
+        self.assertFalse(h.cal.mediated("x"))
+        forged = list(h.cal.events) + [dict(type="cal_open", line_id="x",
+                                            **{"class": "impl"}, generator="gen", ts=0.0)]
+        with self.assertRaises(ValueError) as caught:
+            CalibrationAuthority.from_events(forged, h.a, h.cal.policy)
+        self.assertIn("stamp", str(caught.exception))
+
+    def test_an_open_inserted_before_a_later_demotion_is_refused(self):
+        h = CalHarness(e_max=0, gate="carry")
+        h.declare_tests()
+        h.seal_line("w")
+        h.tier_a_escape("w")
+        h.fcd_open("x")
+        h.a.open("x", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("x")
+            h.sample("x", f"x-{i}".encode())
+            h.trial("x", i)
+        h.replay_all("x")
+        h.fcd_check("x")
+        h.cal.seal("x")
+        self.assertFalse(h.cal.mediated("x"))
+        forged = [dict(e) for e in h.cal.events]
+        at = next(i for i, e in enumerate(forged) if e["type"] == "cal_run")
+        forged.insert(at, dict(type="cal_open", line_id="x", **{"class": "impl"},
+                               generator="gen", ts=0.0))
+        for ev in forged[at + 1:]:
+            if ev["type"] != "cal_stamp":
+                continue
+            ev["track_records"] = {
+                k: {**dict(rec), "as_of": rec["as_of"] + 1}
+                for k, rec in ev["track_records"].items()
+            }
+        with self.assertRaises(ValueError) as caught:
+            CalibrationAuthority.from_events(forged, h.a, h.cal.policy)
+        self.assertIn("demoted", str(caught.exception))
+
 
 class FloorSentenceReadsTheWitness(unittest.TestCase):
     def test_a_ledger_floor_is_called_measured(self):
@@ -185,3 +235,45 @@ class FloorSentenceReadsTheWitness(unittest.TestCase):
         text = FloorSentence().render(h.a.seal("w"))
         self.assertIn("at declared power", text)
         self.assertNotIn("at measured power", text)
+
+    def test_the_sentence_names_the_claim_that_realized_power_min(self):
+        claims = (ClaimSpec("tests_pass", "spec-1", frozenset({TESTS}), D1),
+                  ClaimSpec("lint_clean", "spec-2", frozenset({LINT}), "d2-hash"))
+        h = Harness(claims=claims)
+        h.a.declare(Refuter("tests", "v1", "tester", "ledger"))
+        h.a.declare(Refuter("lint", "v1", "linter", "ledger"))
+        h.a.measure("tests", "v1", DefectModel(D1, "mutator"), ledger(9, 10))
+        h.a.measure("lint", "v1", DefectModel("d2-hash", "mutator"), ledger(6, 10))
+        h.fcd_open()
+        h.rga_open()
+        for i in range(h.k):
+            h.fcd_write()
+            h.sample(body=f"b{i}".encode())
+            h.trial(i=i, refuter=TESTS, claim="tests_pass")
+            h.trial(i=i, refuter=LINT, claim="lint_clean", witness="lint-w")
+        h.replay_all()
+        h.fcd_check()
+        seal = h.a.seal("w")
+        text = FloorSentence().render(seal)
+        self.assertIn("0.6", text)
+        self.assertIn("lint@v1:6/10", text)
+        self.assertNotIn("tests@v1:9/10", text)
+
+    def test_seal_joint_reads_floor_basis_not_the_cross_sort_max(self):
+        bnd = ("bnd", "v1")
+        claims = (ClaimSpec("tests_pass", "spec-1", frozenset({TESTS, bnd}), D1),)
+        h = Harness(claims=claims, refuters=frozenset({TESTS, bnd}), p_min=0.5)
+        h.declare_tests(kills=6, size=10)
+        h.a.declare(Refuter("bnd", "v1", "bnd-author", "bounded"))
+        h.a.bound("bnd", "v1", 0.2, 10)
+        h.fcd_open()
+        h.rga_open()
+        for i in range(h.k):
+            h.fcd_write()
+            h.sample(body=f"b{i}".encode())
+            h.trial(i=i, refuter=TESTS)
+            h.trial(i=i, refuter=bnd, witness="b-same")
+        h.replay_all()
+        h.fcd_check()
+        seal = h.a.seal("w")
+        self.assertLessEqual(custody.seal_joint(seal), seal.power_min + 1e-12)

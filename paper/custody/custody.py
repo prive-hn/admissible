@@ -61,11 +61,12 @@ POLARITY: dict[str, str] = {
     "cal_adjudicate": "-",      # decision=accept impeaches a tier-B run; reject is neutral
     "cal_resolve": "+",         # decision=void is the one event that raises a line's standing,
                                 # and only for a contested run, with a named actor (C3)
-    "cal_open": "e",            # enabling: never lowers, and `mediated` requires it, so a line
-                                # without it is IR whatever its stamp says. It is not the event at
-                                # which admissible rises -- the stamp is -- and it cannot be
-                                # deleted quietly, because the stamp's `as_of` primary counts the
-                                # calibration journal's own length
+    "cal_open": "e",            # enabling on live traces: never lowers, and `mediated` requires
+                                # it, so a line without it is IR whatever its stamp says. Rebuild
+                                # refuses an open after that line's stamp, and re-checks C6 at
+                                # the line's opened_at, so a tail-appended open is not a silent
+                                # raise. Naive deletion fails the stamp control total; a deleter
+                                # who refits the stamps replays and standing falls to IR.
     "cal_exclude": "0", "cal_install": "0", "cal_close": "0",
     "cal_stamp": "+",           # mediated
 }
@@ -1025,7 +1026,7 @@ def bonferroni_horizon(p: float) -> Optional[int]:
 
 
 def seal_joint(seal: Seal) -> float:
-    return power_joint(c.composite for c in seal.claims)
+    return power_joint(c.floor_basis for c in seal.claims)
 
 
 def frechet_bounds(powers: Iterable[float], event: str) -> tuple[float, float]:
@@ -1147,7 +1148,7 @@ def power_joint_closure(cal: CalibrationAuthority, line_id: str) -> float:
         seal = adm.sealed.get(lid)
         if seal is None:
             return 0.0                       # an unsealed ancestor: nothing is certified jointly
-        composites.extend(c.composite for c in seal.claims)
+        composites.extend(c.floor_basis for c in seal.claims)
     return power_joint(composites)
 
 

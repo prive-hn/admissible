@@ -12,7 +12,7 @@ class FloorSentence:
     """
 
     def render(self, seal) -> str:
-        claim = seal.claims[0]
+        claim = min(seal.claims, key=lambda c: c.floor_basis)
         basis = claim.floor_witness or "declared"
         strength = "measured" if basis.startswith("ledger") else "declared"
         return (

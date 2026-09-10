@@ -1050,10 +1050,12 @@ class CalibrationAuthority:
                     raise ValueError("replay diverged: open is not bound to its line")
                 if a.sealed_open(ev["line_id"]) is not None:
                     raise ValueError("replay diverged: a second open for one line")
-                # The gate is re-verified, not trusted: charges accumulate in
-                # journal order, so the corpus folded so far is the one the
-                # live open saw. The pinned set comes from the policy the line
-                # itself pinned, not from whichever is current.
+                if a.sealed_stamp(ev["line_id"]) is not None:
+                    raise ValueError("replay diverged: open after its stamp")
+                # The gate is re-verified, not trusted. Fold-so-far is the
+                # forger's insert point; C6 is also re-checked after the fold
+                # at the line's own opened_at, which is the cut the live
+                # CalOpen actually saw.
                 a._guard_class_configured(line.cls)                       # E9
                 spec = admission._policies.get(line.policy_version, admission.policy)
                 cls_spec = spec.classes.get(line.cls)
@@ -1109,4 +1111,50 @@ class CalibrationAuthority:
         if len(a._events) != len(cal_events):
             raise ValueError("replay diverged: event count mismatch")
         a._events = list(cal_events)
+        a._recheck_opens_at_opened_at(admission)
         return a
+
+    def _recheck_opens_at_opened_at(self, admission: Admission) -> None:
+        """C6 at each line's opened_at after the fold is complete.
+
+        Rebuild's insert-time check reads charges accumulated so far, so a
+        forged open placed before a demoting escape sees an empty charge
+        set. The live gate saw the admission position at Admission.open.
+        Re-reading charges whose filing cut is at or before that position
+        is the cut the live machine used."""
+        filed = {ev["run_index"]: ev["as_of"] for ev in self._events
+                 if ev.get("type") == "cal_run"}
+        for ev in self._events:
+            if ev.get("type") != "cal_open":
+                continue
+            line = admission.lines.get(ev["line_id"])
+            if line is None:
+                continue
+            pol = admission._policies.get(line.policy_version, admission.policy)
+            cls_adm = pol.classes.get(line.cls)
+            cal_cls = self.policy.classes.get(line.cls)
+            if cls_adm is None or cal_cls is None:
+                continue
+            self._open_demoted_at_cut(line, cls_adm, cal_cls.e_max, filed)
+
+    def _open_demoted_at_cut(self, line, spec, e_max: int, filed: dict) -> None:
+        """C6 at `line.opened_at` over the completed ledger.
+
+        Pins live on `ClassAdmission`; the budget lives on `CalibrationClass`.
+        The two are not the same object — mixing them was the first draft's
+        crash on honest rebuild."""
+        at = line.opened_at
+        for claim in spec.claims:
+            for key in claim.refuters:
+                cells: set = set()
+                for run in self.runs:
+                    if (run.verdict != "refuted" or not self._check_valid(run)
+                            or run.cls != line.cls or filed.get(run.index, 0) > at):
+                        continue
+                    seal = self.adm.sealed.get(run.line_id)
+                    if seal is None:
+                        continue
+                    if key in self._pinned_on_claim(seal, run.claim_id):
+                        cells.add((run.line_id, run.claim_id, key[0], key[1]))
+                if len(cells) > e_max:
+                    raise ValueError(f"refuter {key!r} is demoted in class {line.cls!r}")
