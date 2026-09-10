@@ -635,7 +635,7 @@ class CalibrationAuthority:
             if spec is not None:
                 self._guard_open_demoted(item.cls, spec)                  # C6
         line = self.adm.open(item_id, generator, sampling_hash)
-        self._emit(type="cal_open", line_id=item_id,
+        self._emit(type="cal_open", line_id=item_id, as_of=line.opened_at,
                    **{"class": getattr(item, "cls", line.cls)}, generator=generator)
         return line
 
@@ -928,7 +928,7 @@ class CalibrationAuthority:
         last_cut = 0
         for ev in cal_events:
             t = ev["type"]
-            if t in ("cal_run", "cal_exclude", "cal_install", "cal_close"):
+            if t in ("cal_run", "cal_exclude", "cal_install", "cal_close", "cal_open"):
                 seal_for_cut = admission.sealed.get(ev["line_id"]) if t == "cal_run" else None
                 cut = ev.get("as_of")
                 a._guard_run_cut(seal_for_cut, cut, last_cut)
@@ -1111,50 +1111,32 @@ class CalibrationAuthority:
         if len(a._events) != len(cal_events):
             raise ValueError("replay diverged: event count mismatch")
         a._events = list(cal_events)
-        a._recheck_opens_at_opened_at(admission)
+        a._filings_visible_at_open(admission)
         return a
 
-    def _recheck_opens_at_opened_at(self, admission: Admission) -> None:
-        """C6 at each line's opened_at after the fold is complete.
+    def _filings_visible_at_open(self, admission: Admission) -> None:
+        """Live CalOpen sees fold-so-far, not the completed ledger.
 
-        Rebuild's insert-time check reads charges accumulated so far, so a
-        forged open placed before a demoting escape sees an empty charge
-        set. The live gate saw the admission position at Admission.open.
-        Re-reading charges whose filing cut is at or before that position
-        is the cut the live machine used."""
-        filed = {ev["run_index"]: ev["as_of"] for ev in self._events
-                 if ev.get("type") == "cal_run"}
-        for ev in self._events:
+        A completed-ledger C6 recheck counted later-established escapes and
+        missed later voids, so honest journals failed and a void-then-insert
+        still raised mediation. The cut that is journaled is the root: the
+        open's `as_of` must be the line's `opened_at`, and a filing whose
+        own cut is at or before that position cannot sit after the open —
+        that is the insert that emptied fold-so-far C6. Sliding the filing's
+        `as_of` past the open is a coherent root rewrite (RecordedCut) and
+        is residue, the same shape as a refitted stamp."""
+        for i, ev in enumerate(self._events):
             if ev.get("type") != "cal_open":
                 continue
             line = admission.lines.get(ev["line_id"])
             if line is None:
                 continue
-            pol = admission._policies.get(line.policy_version, admission.policy)
-            cls_adm = pol.classes.get(line.cls)
-            cal_cls = self.policy.classes.get(line.cls)
-            if cls_adm is None or cal_cls is None:
-                continue
-            self._open_demoted_at_cut(line, cls_adm, cal_cls.e_max, filed)
-
-    def _open_demoted_at_cut(self, line, spec, e_max: int, filed: dict) -> None:
-        """C6 at `line.opened_at` over the completed ledger.
-
-        Pins live on `ClassAdmission`; the budget lives on `CalibrationClass`.
-        The two are not the same object — mixing them was the first draft's
-        crash on honest rebuild."""
-        at = line.opened_at
-        for claim in spec.claims:
-            for key in claim.refuters:
-                cells: set = set()
-                for run in self.runs:
-                    if (run.verdict != "refuted" or not self._check_valid(run)
-                            or run.cls != line.cls or filed.get(run.index, 0) > at):
-                        continue
-                    seal = self.adm.sealed.get(run.line_id)
-                    if seal is None:
-                        continue
-                    if key in self._pinned_on_claim(seal, run.claim_id):
-                        cells.add((run.line_id, run.claim_id, key[0], key[1]))
-                if len(cells) > e_max:
-                    raise ValueError(f"refuter {key!r} is demoted in class {line.cls!r}")
+            if ev.get("as_of") != line.opened_at:
+                raise ValueError("replay diverged: open cut is not the line's opened_at")
+            at = ev["as_of"]
+            for j, run_ev in enumerate(self._events):
+                if run_ev.get("type") != "cal_run":
+                    continue
+                cut = run_ev.get("as_of")
+                if isinstance(cut, int) and cut <= at and j > i:
+                    raise ValueError("replay diverged: open precedes a filing at its cut")

@@ -1532,8 +1532,8 @@ class DiscoveredCountsTest(unittest.TestCase):
         # The paper, README, and this assertion move with those guards instead
         # of holding the count still by leaving release fixes untested.
         kernel = sum(1 for item in self.ids if not self._is_product(item))
-        self.assertEqual(kernel + 37 + 71, 732)
-        self.assertIn("| Research kernel — the number the paper cites | 732 |",
+        self.assertEqual(kernel + 37 + 71, 733)
+        self.assertIn("| Research kernel — the number the paper cites | 733 |",
                       self.readme)
 
     def test_the_atlas_count_is_what_the_readme_states(self):

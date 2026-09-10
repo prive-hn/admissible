@@ -1015,7 +1015,7 @@ class AnchorsReadAsReplayReads(unittest.TestCase):
         switched pin records a `cal_stamp` whose `sealed_at` names an admission
         position. Deleting the refusal group shortens the admission journal, so
         that stamp — which no revived escape makes an analytic anchor — must
-        have its `sealed_at` (and any close/exclude/install `as_of`) rewritten
+        have its `sealed_at` (and any RecordedCut `as_of`) rewritten
         with the shift, or `_rebuild_alt` refuses the advertised closure as a
         stamp not bound to its seal (R4-21)."""
         from rga.core import AdmissionPolicy, ClassAdmission

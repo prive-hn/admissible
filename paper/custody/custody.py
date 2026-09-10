@@ -63,10 +63,13 @@ POLARITY: dict[str, str] = {
                                 # and only for a contested run, with a named actor (C3)
     "cal_open": "e",            # enabling on live traces: never lowers, and `mediated` requires
                                 # it, so a line without it is IR whatever its stamp says. Rebuild
-                                # refuses an open after that line's stamp, and re-checks C6 at
-                                # the line's opened_at, so a tail-appended open is not a silent
-                                # raise. Naive deletion fails the stamp control total; a deleter
-                                # who refits the stamps replays and standing falls to IR.
+                                # refuses an open after that line's stamp, and refuses an open
+                                # that precedes a filing at its own cut. A C6-green insert
+                                # before the stamp, or a filing whose as_of was slid past the
+                                # open, still replays once stamps are refitted — the stamp-
+                                # insertion dual, stated residue. Naive deletion fails the
+                                # stamp control total; a deleter who refits the stamps
+                                # replays and standing falls to IR.
     "cal_exclude": "0", "cal_install": "0", "cal_close": "0",
     "cal_stamp": "+",           # mediated
 }
@@ -611,14 +614,16 @@ def _install_e5_candidates(cal: CalibrationAuthority, j: int) -> list:
 def _shift_adm_positions(events: list, adm_del: set) -> list:
     """Rewrite the cal journal's recorded admission positions after deleting
     `adm_del` from the admission journal: `cal_stamp.sealed_at` and the `as_of`
-    of a `cal_run`, `cal_close`, `cal_exclude` or `cal_install` each name an
-    admission position, and `from_events` checks them against the rebuilt
-    admission, so each shifts by the deletions before it (T12c).
+    of every `RecordedCut` event each name an admission position, and
+    `from_events` checks them against the rebuilt admission, so each shifts
+    by the deletions before it (T12c).
 
     `cal_run.as_of` is included because it is range- and order-checked on
     rebuild: an unshifted filing cut reads as out of range once the scrutiny
     journal is shorter, and the minimizer would then report a coherent
     deletion as incoherent."""
+    from rga.recorded_cut import RecordedCut
+
     def shift(p: int) -> int:
         return p - sum(1 for d in adm_del if d < p)
 
@@ -627,8 +632,7 @@ def _shift_adm_positions(events: list, adm_del: set) -> list:
         ev = dict(ev)
         if ev.get("type") == "cal_stamp" and isinstance(ev.get("sealed_at"), int):
             ev["sealed_at"] = shift(ev["sealed_at"])
-        if (ev.get("type") in ("cal_run", "cal_close", "cal_exclude", "cal_install")
-                and isinstance(ev.get("as_of"), int)):
+        if ev.get("type") in RecordedCut.TYPES and isinstance(ev.get("as_of"), int):
             ev["as_of"] = shift(ev["as_of"])
         out.append(ev)
     return out
@@ -877,7 +881,7 @@ ROOT_FIELDS: dict[str, tuple[str, ...]] = {
     "rga_seal": ("work_item_id", "fcd_position"),
     "cal_run": ("line_id", "claim_id", "checker_id", "checker_version", "nonce",
                 "artifact_hash", "verdict", "witness_hash", "finder", "as_of"),
-    "cal_open": ("line_id", "class", "generator"),
+    "cal_open": ("line_id", "class", "generator", "as_of"),
     "cal_stamp": ("line_id", "sealed_at"),
 }
 

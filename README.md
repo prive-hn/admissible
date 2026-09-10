@@ -61,7 +61,7 @@ This is Clark–Wilson integrity applied to LLM binds, not a new algebra.
 | `docs/IMPEACHMENT.md` | Filing defects, observed vs reachable vs unknown impact, raw miss counts |
 | `examples/developer-workflow/demo.sh` | Offline end-to-end walk-through in a throwaway repository: init, an evaluation, a cache hit, the four-step admission path, a refusal, the signed-review handoff, an impeachment |
 | `docs/PROOFS_PLAIN.md` | Every theorem of both papers — FCD I1–I17 and RGA R1–R13 — in one plain sentence each, plus what neither proves |
-| `tests/` | 3065 kernel/server/context/project/class/RGA/calibration/bench/schema/paper/custody tests, including 2452 for the developer product |
+| `tests/` | 3066 kernel/server/context/project/class/RGA/calibration/bench/schema/paper/custody tests, including 2452 for the developer product |
 | `atlas/tests/` | 37 atlas/immutability/impact/schema tests |
 | `apps/cockpit/tests/` | 71 UI/steering/context/receipt/readiness/instrument/skin-contract/skin-authority tests |
 | `metrics/SCHEMA.md` | Event contract. Rates stay empty until a named cut |
@@ -579,14 +579,14 @@ way that reads as broken code rather than a missing tool:
   `.venv/bin/python` to prove the relative path is resolved before the script
   changes directory.
 
-3184 checks green in this repository, in two scopes that are counted
+3185 checks green in this repository, in two scopes that are counted
 separately because they prove different things:
 
 | Scope | Checks | Where |
 | ----- | -----: | ----- |
-| Research kernel — the number the paper cites | 732 | 624 in `tests/` + 37 `atlas/tests/` + 71 `apps/cockpit/tests/` |
+| Research kernel — the number the paper cites | 733 | 625 in `tests/` + 37 `atlas/tests/` + 71 `apps/cockpit/tests/` |
 | Developer product (`admissible/`) | 2452 | `tests/test_admissible_*.py` + the split suites under `tests/architecture/`, `tests/core/`, `tests/ready/`, `tests/trust/` and `tests/compatibility/` |
-| **Total** | **3184** | 3076 under `tests/`, 37 atlas, 71 cockpit |
+| **Total** | **3185** | 3077 under `tests/`, 37 atlas, 71 cockpit |
 
 The research-kernel number moves when kernel-scope checks are added, and the
 cockpit server's are: `tests/test_server.py` carries neither the

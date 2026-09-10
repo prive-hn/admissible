@@ -174,7 +174,8 @@ class CalOpenIsANecessityRoot(unittest.TestCase):
         h.cal.seal("x")
         self.assertFalse(h.cal.mediated("x"))
         forged = list(h.cal.events) + [dict(type="cal_open", line_id="x",
-                                            **{"class": "impl"}, generator="gen", ts=0.0)]
+                                            **{"class": "impl"}, generator="gen", ts=0.0,
+                                            as_of=h.a.lines["x"].opened_at)]
         with self.assertRaises(ValueError) as caught:
             CalibrationAuthority.from_events(forged, h.a, h.cal.policy)
         self.assertIn("stamp", str(caught.exception))
@@ -197,7 +198,8 @@ class CalOpenIsANecessityRoot(unittest.TestCase):
         forged = [dict(e) for e in h.cal.events]
         at = next(i for i, e in enumerate(forged) if e["type"] == "cal_run")
         forged.insert(at, dict(type="cal_open", line_id="x", **{"class": "impl"},
-                               generator="gen", ts=0.0))
+                               generator="gen", ts=0.0,
+                               as_of=h.a.lines["x"].opened_at))
         for ev in forged[at + 1:]:
             if ev["type"] != "cal_stamp":
                 continue
@@ -207,7 +209,26 @@ class CalOpenIsANecessityRoot(unittest.TestCase):
             }
         with self.assertRaises(ValueError) as caught:
             CalibrationAuthority.from_events(forged, h.a, h.cal.policy)
-        self.assertIn("demoted", str(caught.exception))
+        self.assertIn("precedes", str(caught.exception))
+
+    def test_an_honest_open_before_an_establishing_replay_replays(self):
+        h = CalHarness(e_max=0, gate="carry")
+        h.declare_tests()
+        h.seal_line("w")
+        h.tier_a_escape("w", replay=False)
+        h.fcd_open("x")
+        h.cal.open("x", "gen", "temp=0.7")
+        for i in range(h.k):
+            h.fcd_write("x")
+            h.sample("x", f"x-{i}".encode())
+            h.trial("x", i)
+        h.replay_all("x")
+        h.fcd_check("x")
+        h.cal.seal("x")
+        h.cal.replay_run(0, "refuted", "kill-w")
+        rebuilt = CalibrationAuthority.from_events(list(h.cal.events), h.a, h.cal.policy)
+        self.assertTrue(rebuilt.mediated("x"))
+        self.assertTrue(rebuilt.mediated("w"))
 
 
 class FloorSentenceReadsTheWitness(unittest.TestCase):

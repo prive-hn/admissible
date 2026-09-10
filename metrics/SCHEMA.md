@@ -210,7 +210,7 @@ Emitted by `rga/calibration.py` (`CalibrationAuthority`). They support the C1–
 
 ### `cal_open`
 
-- `ts`, `line_id`, `class`, `generator`. Emitted after `Admission.open` succeeds, so a refused CalOpen leaves no trace. It is what makes C6's open-time demotion gate auditable: `mediated` requires exactly one of these beside the seal's stamp, so a line opened around the authority and sealed through it is layer IR however good its stamp looks, and rebuild re-verifies the gate against the corpus folded up to this point under the policy the line pinned. Deleting one is refused rather than merely lowering standing, because each stamp's `track_records[*].as_of` counts the calibration journal's own length.
+- `ts`, `line_id`, `class`, `generator`, `as_of` the line's `opened_at`. Emitted after `Admission.open` succeeds, so a refused CalOpen leaves no trace. It is what makes C6's open-time demotion gate auditable: `mediated` requires exactly one of these beside the seal's stamp, so a line opened around the authority and sealed through it is layer IR however good its stamp looks, and rebuild re-verifies the gate against the corpus folded up to this point. Naive deletion fails the stamp control total; a deleter who refits the surviving stamps replays, and absence then fails closed to IR. The journaled cut must equal `opened_at`, and a filing at or before that cut cannot sit after the open — sliding the filing's `as_of` past the open is a root rewrite, stated as residue.
 
 ### `cal_run`
 
@@ -218,7 +218,7 @@ Emitted by `rga/calibration.py` (`CalibrationAuthority`). They support the C1–
 - `tier` A (checker pinned to the claim in the seal; seed is the kernel's derivation over the sealed hash) | B (any other declared checker; consequences require adjudication)
 - `nonce` finder-chosen; `artifact_hash` sha256 computed by the kernel over the filed bytes, equal to the seal's; `seed`
 - `verdict` refuted (escape) | survived (audit), `witness_hash`, `finder` (journal-cited provenance; gates nothing)
-- `as_of` the scrutiny-journal position the filing was written at. The checker's standing is evaluated there rather than at the final registry, so a refusal recorded after this filing does not retroactively refuse it and a filing by an already-refused checker is refused on both the live path and rebuild. A recorded position is a root on replay, so it is bounded rather than trusted: at or after the seal it files against, at or before the end of the scrutiny journal, and never earlier than any earlier recorded cut — filings, exclusions, installs and E5 closes share one monotone sequence (E6).
+- `as_of` the scrutiny-journal position the filing was written at. The checker's standing is evaluated there rather than at the final registry, so a refusal recorded after this filing does not retroactively refuse it and a filing by an already-refused checker is refused on both the live path and rebuild. A recorded position is a root on replay, so it is bounded rather than trusted: at or after the seal it files against, at or before the end of the scrutiny journal, and never earlier than any earlier recorded cut — filings, opens, exclusions, installs and E5 closes share one monotone sequence (E6).
 
 ### `cal_replay`
 

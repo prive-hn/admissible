@@ -345,7 +345,8 @@ class C5MediationCoversTheWholeLine(unittest.TestCase):
         at = next(i for i, e in enumerate(forged) if e["type"] == "cal_stamp"
                   and e["line_id"] == "x")
         forged.insert(at, dict(type="cal_open", line_id="x", **{"class": "impl"},
-                               generator="gen", ts=0.0))
+                               generator="gen", ts=0.0,
+                               as_of=h.a.lines["x"].opened_at))
         with self.assertRaises(ValueError) as caught:
             CalibrationAuthority.from_events(forged, h.a, h.cal.policy)
         self.assertIn("demoted", str(caught.exception))

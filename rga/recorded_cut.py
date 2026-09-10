@@ -13,7 +13,7 @@ class RecordedCut:
     a coherent rewrite of the surrounding record.
     """
 
-    TYPES = frozenset({"cal_run", "cal_exclude", "cal_install", "cal_close"})
+    TYPES = frozenset({"cal_run", "cal_exclude", "cal_install", "cal_close", "cal_open"})
 
     def __init__(self, as_of: object, previous: int, ceiling: int, floor: int = 0):
         self.as_of = as_of

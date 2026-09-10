@@ -18,7 +18,7 @@ Canonical machine: `fcd/`. Round 4 conditions applied. Metrics empty until a nam
 | Name | Fail-closed class dispatch. Work item → accepted artifact |
 | Observe vs Bind | `fcd/core.py`. Bind writes `m_decl`. Observe writes `m_exec` |
 | Proofs I1–I17 | `paper/PROOFS.md` |
-| Tests | 732 repository checks total: 624 Python kernel/server/context/RGA/calibration/paper/custody + 37 atlas/protocol + 71 cockpit |
+| Tests | 733 repository checks total: 625 Python kernel/server/context/RGA/calibration/paper/custody + 37 atlas/protocol + 71 cockpit |
 | Context authority | `fcd/context.py`; attempt/nonce, package receipts, steering, CAS promotion |
 | Execution boundary | `server/execution.py`; mature executor internals stay external |
 | Watchdog | `fcd/watchdog.py` (injected `alive_fn`) |
