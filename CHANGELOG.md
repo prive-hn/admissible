@@ -5,7 +5,15 @@ Semantic Versioning for its coordinated public distributions.
 
 ## [Unreleased]
 
-No changes yet.
+### Changed
+
+- Rewrote the repository `README.md` around what a new reader needs first: what
+  Admissible answers, the product loop, the installation boundary, and the
+  rule that an evaluation is not an admission. The long-form rationale now
+  lives in the documents that own it, and the README links to them instead of
+  restating them. Every claim the documentation contract derives — the command
+  ownership tables, the derived test counts, the version and authority
+  statements — is unchanged.
 
 ## [0.8.1] - 04/09/2026
 
