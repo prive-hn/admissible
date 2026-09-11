@@ -55,6 +55,14 @@ The product loop is deliberately short:
 
 **change → check → fix the next item → recheck → ready**
 
+> **Nothing here has been published yet.** The install line below is what
+> adopting the gate will look like, not something you can run today. Build the
+> four artifacts from this checkout first with
+> `.venv/bin/python scripts/build_release_artifacts.py`, then install the
+> verified local ones from `dist/` — see
+> [Installing Admissible](#installing-admissible). Everything after that line
+> is the loop itself, and works against a local install.
+
 ```bash
 pip install admissible                     # or admissible-ready alone
 admissible profiles                        # the eight starter profiles
@@ -111,10 +119,11 @@ pip install admissible==0.8.1        # developer umbrella; all three siblings
 
 The four are **0.8.1**, versioned and built together and pinned to each other.
 That is a coordinated version and a coordinated build in this repository, and
-nothing more: no distribution here has been published anywhere. Until then,
-build from this checkout with
-`.venv/bin/python scripts/build_release_artifacts.py` and install the verified
-local artifacts from `dist/`.
+nothing more: no distribution here has been published anywhere. Those index
+commands become valid only once all four artifacts exist in the canonical
+registry and their hashes have been read back; until then, build from this
+checkout with `.venv/bin/python scripts/build_release_artifacts.py` and install
+the verified local artifacts from `dist/`.
 
 Every sibling edge is an **exact** `==0.8.1` pin, never a range. The four agree
 about what a policy digest is, what an evidence record hashes to and what a
