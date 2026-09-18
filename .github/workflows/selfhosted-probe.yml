@@ -1,9 +1,0 @@
-name: self-hosted probe
-on:
-  pull_request:
-    branches-ignore: []  # probe only; remove after verification
-jobs:
-  probe:
-    runs-on: [self-hosted, linux, x64, prive-ci]
-    steps:
-      - run: echo "probe on $(hostname) at $(date)"
