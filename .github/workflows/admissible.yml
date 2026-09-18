@@ -51,7 +51,8 @@ jobs:
       tool-sha: 9edc64a53818445a1aa7362cbe1848737219c671
       # config-path: .admissible.json
       # class: default
-      # Self-hosted: the org's included Actions minutes emptied and hosted jobs
-      # stopped starting. Evaluation is untrusted, secret-free work; the org's
-      # prive-ci Linux runners take it at zero metered cost.
-      evaluate-runs-on: '["self-hosted","linux","x64","prive-ci"]'
+      # Hosted on purpose: this repository is public so the gate's unauthenticated
+      # tool checkout (no token by design) works from any caller. Public repos
+      # cannot use the org's self-hosted runner group, so the self-gate stays on
+      # hosted runners; it runs rarely and the included-minute pool resets monthly.
+      # evaluate-runs-on: '["self-hosted","linux","x64","your-label"]'
