@@ -48,7 +48,7 @@ admissible-trust = "admissible_trust.cli:main"
 [build-system]
 # The backend is pinned exactly because release artifacts record generator
 # identity and must not depend on resolver time.
-requires = ["setuptools==83.0.0"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
