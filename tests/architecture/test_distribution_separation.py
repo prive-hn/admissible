@@ -333,7 +333,7 @@ class BuildEnvironment(unittest.TestCase):
 
     def test_the_repository_still_declares_the_build_dependency(self):
         text = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertIn('dev = ["build==1.4.0"', text)
+        self.assertIn('dev = ["build==1.6.1"', text)
 
 
 class ProposedProjectLayout(WheelContractCase):

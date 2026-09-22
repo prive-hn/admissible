@@ -1062,11 +1062,11 @@ class PackagedArtefactTest(unittest.TestCase):
     def test_the_backend_can_parse_this_file_s_own_metadata(self):
         text = self.pyproject()
         self.assertIn('license = "Apache-2.0"', text)
-        self.assertIn('requires = ["setuptools==83.0.0"]', text)
+        self.assertIn('requires = ["setuptools==84.0.0"]', text)
         self.assertNotIn("setuptools>=", text)
 
     def test_build_is_in_the_dev_extra(self):
-        self.assertIn('dev = ["build==1.4.0"', self.pyproject())
+        self.assertIn('dev = ["build==1.6.1"', self.pyproject())
 
     def test_partial_test_packages_are_excluded_from_discovery(self):
         text = self.pyproject()

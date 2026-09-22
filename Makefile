@@ -11,8 +11,8 @@ COCKPIT := apps/cockpit
 # ADMISSIBLE_WHEELHOUSE (an offline mirror, say) keeps it: `?=` defers to the
 # environment and the download is skipped whenever the wheel is already present.
 ADMISSIBLE_WHEELHOUSE ?= $(CURDIR)/.wheelhouse
-BUILD_BACKEND_PIN := setuptools==83.0.0
-BUILD_BACKEND_WHEEL := setuptools-83.0.0-py3-none-any.whl
+BUILD_BACKEND_PIN := setuptools==84.0.0
+BUILD_BACKEND_WHEEL := setuptools-84.0.0-py3-none-any.whl
 export ADMISSIBLE_WHEELHOUSE
 
 .PHONY: test test-python test-cockpit wheelhouse audit build cockpit paper paper-check

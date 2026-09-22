@@ -108,7 +108,7 @@ class ReleaseBuilderProducesBoundArtifacts(unittest.TestCase):
                 self.assertEqual(item["sha256"], hashlib.sha256(path.read_bytes()).hexdigest())
                 self.assertEqual(item["version"], "0.8.1")
                 self.assertEqual(item["license_expression"], "Apache-2.0")
-                self.assertEqual(item["generator"], "setuptools (83.0.0)")
+                self.assertEqual(item["generator"], "setuptools (84.0.0)")
                 self.assertTrue(item["contains_license"])
                 self.assertTrue(item["contains_notice"])
 
@@ -198,7 +198,7 @@ class ReleaseBuilderProducesBoundArtifacts(unittest.TestCase):
             (repository / ".gitignore").write_text("*.egg-info/\n")
             (project / "pyproject.toml").write_text(
                 """[build-system]
-requires = ["setuptools==83.0.0"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]

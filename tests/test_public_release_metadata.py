@@ -82,7 +82,7 @@ class PublicLicenseContract(unittest.TestCase):
                     metadata["urls"]["Repository"],
                 )
                 self.assertEqual(
-                    ["setuptools==83.0.0"],
+                    ["setuptools==84.0.0"],
                     document["build-system"]["requires"],
                 )
 
@@ -92,11 +92,11 @@ class PublicRepositorySurface(unittest.TestCase):
         document = tomllib.loads(
             (ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         dev = document["project"]["optional-dependencies"]["dev"]
-        self.assertIn("hypothesis==6.165.10", dev)
-        self.assertIn("lxml==6.0.2", dev)
+        self.assertIn("hypothesis==6.168.0", dev)
+        self.assertIn("lxml==6.1.3", dev)
         instructions = (ROOT / "eval" / "README.md").read_text(encoding="utf-8")
-        self.assertIn("hypothesis==6.165.10", instructions)
-        self.assertIn("lxml==6.0.2", instructions)
+        self.assertIn("hypothesis==6.168.0", instructions)
+        self.assertIn("lxml==6.1.3", instructions)
         self.assertIn(
             "/tmp/admissible-e8-v080/bin/python eval/realdefects/e8_handcheck.py",
             instructions,

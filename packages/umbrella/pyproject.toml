@@ -62,7 +62,7 @@ admissible = "admissible.cli:main"
 # unpreparable, because a wheelhouse is a directory of files and a range does
 # not name one.
 #
-# 83.0.0 specifically: its own `Requires-Python` is `>=3.10`, which is this
+# The pinned version specifically: its own `Requires-Python` is `>=3.10`, which is this
 # project's floor exactly, so the pin is installable everywhere the project
 # claims to run; it ships as a pure `py3-none-any` wheel, so an air-gapped
 # build needs no compiler; and it vendors the wheel writer, so

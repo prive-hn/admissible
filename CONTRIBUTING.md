@@ -15,7 +15,7 @@ python -m pip install -e '.[dev]'
 npm ci --prefix apps/cockpit
 ```
 
-The repository pins the release build backend to `setuptools==83.0.0` so direct
+The repository pins the release build backend to `setuptools==84.0.0` so direct
 and sdist-derived artifacts identify the same generator.
 
 ## Before opening a pull request
