@@ -1,5 +1,5 @@
 name: unit-diag
-on: workflow_dispatch
+on: [push]
 jobs:
   diag:
     runs-on: ubuntu-latest
@@ -9,4 +9,4 @@ jobs:
         with: {python-version: '3.12'}
       - run: python3 -m venv .venv
       - run: .venv/bin/python -m pip install -e '.[dev]'
-      - run: make test-python 2>&1 | tail -80
+      - run: make test-python 2>&1 | tail -100
