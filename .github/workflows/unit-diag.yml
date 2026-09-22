@@ -20,5 +20,9 @@ jobs:
           rc=$?
           echo "make-exit=$rc"
           grep -E '^(OK|FAILED|Ran )' /tmp/mkt.log | tail -4
-          grep -E '^(FAIL|ERROR):' /tmp/mkt.log | head -10
+          grep -E '^(FAIL|ERROR):' /tmp/mkt.log | head -20
+          echo '=== first traceback ==='
+          grep -m1 -A16 '^ERROR: test_a_hint' /tmp/mkt.log || grep -m1 -A16 '^ERROR:' /tmp/mkt.log
+          echo '=== setUp errors ==='
+          grep -B1 -A10 'Error in setUp' /tmp/mkt.log | head -30
           exit 0
