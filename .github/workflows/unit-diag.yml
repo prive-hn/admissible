@@ -10,4 +10,4 @@ jobs:
       - run: python3 -m venv .venv
       - run: .venv/bin/python -m pip install -e '.[dev]'
       - run: npm ci --prefix apps/cockpit
-      - run: make test 2>&1 | tail -150
+      - run: env -u GITHUB_REPOSITORY -u GITHUB_ACTIONS make test > /tmp/mkt.log 2>&1; echo "exit=$?"; tail -60 /tmp/mkt.log
