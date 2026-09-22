@@ -9,4 +9,6 @@ jobs:
         with: {python-version: '3.12'}
       - run: python3 -m venv .venv
       - run: .venv/bin/python -m pip install -e '.[dev]'
-      - run: make test-python 2>&1 | tail -100
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - run: make test 2>&1 | tail -120
