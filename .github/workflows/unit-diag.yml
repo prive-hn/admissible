@@ -9,5 +9,5 @@ jobs:
         with: {python-version: '3.12'}
       - run: python3 -m venv .venv
       - run: .venv/bin/python -m pip install -e '.[dev]'
-      - run: node --version && npm --version
-      - run: make test-cockpit 2>&1 | tail -60
+      - run: npm ci --prefix apps/cockpit
+      - run: make test 2>&1 | tail -150
