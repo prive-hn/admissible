@@ -35,7 +35,7 @@ python3 scripts/build_release_artifacts.py
 ```
 
 Build from a disposable exact-commit checkout with the pinned
-`setuptools==83.0.0` backend. The release builder refuses dirty inputs by
+`setuptools==84.0.0` backend. The release builder refuses dirty inputs by
 default, verifies the exact eight-archive set and package metadata, and writes
 names, sizes, SHA-256 values, and source identity to
 `dist/artifact-manifest.json`. `source.tree` and `source.working_tree` must match

@@ -314,7 +314,7 @@ class CoreSdistCarriesEverythingItNeeds(unittest.TestCase):
                 name for name in archive.namelist()
                 if name.endswith(".dist-info/WHEEL"))
             metadata = archive.read(member).decode("utf-8")
-        self.assertIn("Generator: setuptools (83.0.0)\n", metadata)
+        self.assertIn("Generator: setuptools (84.0.0)\n", metadata)
         self.assertNotIn("Generator: setuptools (0.8.1)\n", metadata)
 
 

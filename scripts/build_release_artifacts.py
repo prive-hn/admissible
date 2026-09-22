@@ -324,9 +324,9 @@ def build(output: Path, *, allow_dirty: bool = False) -> dict[str, object]:
         raise ReleaseBuildError("release builds require a clean Git tree")
 
     setuptools_version = _installed_setuptools_version()
-    if setuptools_version != "83.0.0":
+    if setuptools_version != "84.0.0":
         raise ReleaseBuildError(
-            f"setuptools {setuptools_version} is loaded; expected pinned 83.0.0")
+            f"setuptools {setuptools_version} is loaded; expected pinned 84.0.0")
     generator = f"setuptools ({setuptools_version})"
     build_environment = os.environ.copy()
     build_environment.update(DETERMINISTIC_ENVIRONMENT)

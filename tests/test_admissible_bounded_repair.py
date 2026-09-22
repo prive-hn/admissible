@@ -1342,8 +1342,8 @@ class PackagingContractTest(unittest.TestCase):
 
     def test_the_build_requires_a_setuptools_that_reads_this_metadata(self):
         text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertIn('requires = ["setuptools==83.0.0"]', text)
-        self.assertIn('dev = ["build==1.4.0"', text)
+        self.assertIn('requires = ["setuptools==84.0.0"]', text)
+        self.assertIn('dev = ["build==1.6.1"', text)
 
     def test_the_python_profile_ships_a_required_packaging_check(self):
         document = config_module.profile_document("python-library")

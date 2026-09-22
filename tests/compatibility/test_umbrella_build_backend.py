@@ -102,7 +102,7 @@ DISTRIBUTION = "admissible"
 
 #: The backend, named once and exactly.
 #:
-#: 83.0.0 and not a range: this is the version installed in the interpreter the
+#: 84.0.0 and not a range: this is the version installed in the interpreter the
 #: repository's own ``Makefile`` runs, its wheel is a pure-Python
 #: ``py3-none-any`` archive that needs no compiler to install offline, and its
 #: own ``Requires-Python`` is ``>=3.10``, which is this project's floor exactly.
@@ -110,7 +110,7 @@ DISTRIBUTION = "admissible"
 #: resolver felt like on the day of the release, and "the same wheel" would stop
 #: being a checkable claim.
 BACKEND_DISTRIBUTION = "setuptools"
-BACKEND_VERSION = "83.0.0"
+BACKEND_VERSION = "84.0.0"
 BACKEND_REQUIREMENT = f"{BACKEND_DISTRIBUTION}=={BACKEND_VERSION}"
 BACKEND_WHEEL = f"{BACKEND_DISTRIBUTION}-{BACKEND_VERSION}-py3-none-any.whl"
 BUILD_BACKEND = "setuptools.build_meta"

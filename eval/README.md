@@ -15,7 +15,7 @@ Nothing here is copied into `paper/` unless it is rewritten with opaque ids and 
 ## Reproducing the E8 hand adjudication
 
 The committed E8 result was produced with Python 3.11,
-`hypothesis==6.165.10`, and `lxml==6.0.2`. Install the pinned development
+`hypothesis==6.168.0`, and `lxml==6.1.3`. Install the pinned development
 environment, then run the hand-check directly:
 
 ```bash
