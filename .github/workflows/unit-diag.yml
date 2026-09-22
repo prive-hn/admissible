@@ -5,6 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: python3 -m venv .venv
@@ -14,6 +15,8 @@ jobs:
         env:
           GITHUB_REPOSITORY: ''
           GITHUB_ACTIONS: ''
+          GITHUB_REF: ''
+          GITHUB_SHA: ''
         run: |
           set +e
           make test > /tmp/mkt.log 2>&1
@@ -21,8 +24,4 @@ jobs:
           echo "make-exit=$rc"
           grep -E '^(OK|FAILED|Ran )' /tmp/mkt.log | tail -4
           grep -E '^(FAIL|ERROR):' /tmp/mkt.log | head -20
-          echo '=== first traceback ==='
-          grep -m1 -A16 '^ERROR: test_a_hint' /tmp/mkt.log || grep -m1 -A16 '^ERROR:' /tmp/mkt.log
-          echo '=== setUp errors ==='
-          grep -B1 -A10 'Error in setUp' /tmp/mkt.log | head -30
           exit 0
