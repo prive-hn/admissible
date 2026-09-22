@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
+        with: {fetch-depth: 0, ref: '2621c2e41e5db94d0425bda7d720604102b207f1'}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: python3 -m venv .venv
