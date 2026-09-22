@@ -10,4 +10,15 @@ jobs:
       - run: python3 -m venv .venv
       - run: .venv/bin/python -m pip install -e '.[dev]'
       - run: npm ci --prefix apps/cockpit
-      - run: env -u GITHUB_REPOSITORY -u GITHUB_ACTIONS make test > /tmp/mkt.log 2>&1; echo "exit=$?"; tail -60 /tmp/mkt.log
+      - name: scrubbed make test
+        env:
+          GITHUB_REPOSITORY: ''
+          GITHUB_ACTIONS: ''
+        run: |
+          set +e
+          make test > /tmp/mkt.log 2>&1
+          rc=$?
+          echo "make-exit=$rc"
+          grep -E '^(OK|FAILED|Ran )' /tmp/mkt.log | tail -4
+          grep -E '^(FAIL|ERROR):' /tmp/mkt.log | head -10
+          exit 0
