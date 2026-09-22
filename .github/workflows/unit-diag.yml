@@ -5,21 +5,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0, ref: '2621c2e41e5db94d0425bda7d720604102b207f1'}
+        with: {fetch-depth: 0}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - run: python3 -m venv .venv
       - run: .venv/bin/python -m pip install -e '.[dev]'
       - run: npm ci --prefix apps/cockpit
       - name: scrubbed make test
-        env:
-          GITHUB_REPOSITORY: ''
-          GITHUB_ACTIONS: ''
-          GITHUB_REF: ''
-          GITHUB_SHA: ''
         run: |
           set +e
-          make test > /tmp/mkt.log 2>&1
+          env -u GITHUB_REPOSITORY -u GITHUB_ACTIONS -u GITHUB_REF -u GITHUB_SHA -u GITHUB_EVENT_NAME -u GITHUB_WORKSPACE -u RUNNER_TEMP -u CI make test > /tmp/mkt.log 2>&1
           rc=$?
           echo "make-exit=$rc"
           grep -E '^(OK|FAILED|Ran )' /tmp/mkt.log | tail -4
