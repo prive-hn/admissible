@@ -1,5 +1,7 @@
 name: unit-diag
 on: [push]
+permissions:
+  contents: write
 jobs:
   diag:
     runs-on: ubuntu-latest
@@ -10,7 +12,16 @@ jobs:
         with: {python-version: '3.12'}
       - run: python3 -m venv .venv
       - run: .venv/bin/python -m pip install -e '.[dev]'
-      - run: npm ci --prefix apps/cockpit
+      - run: make paper
+      - name: commit rebuilt paper
+        run: |
+          git config user.name "prive-ci-bot"
+          git config user.email "ci@priveperfumeshn.com"
+          git add paper/ || true
+          if git diff --cached --quiet; then echo "no paper changes"; else
+            git commit -m "Rebuild paper artifacts on the canonical hosted build environment (linux, py3.12)"
+            git push
+          fi
       - name: scrubbed make test
         run: |
           set +e
@@ -18,5 +29,5 @@ jobs:
           rc=$?
           echo "make-exit=$rc"
           grep -E '^(OK|FAILED|Ran )' /tmp/mkt.log | tail -4
-          grep -E '^(FAIL|ERROR):' /tmp/mkt.log | head -20
+          grep -E '^(FAIL|ERROR):' /tmp/mkt.log | head -10
           exit 0
