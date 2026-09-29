@@ -30,7 +30,7 @@ admissible = "admissible.cli:main"
 dev = ["build==1.6.1",
     "setuptools==84.0.0",
     "wheel==0.48.0",
-    "hypothesis==6.168.0",
+    "hypothesis==6.168.1",
     "lxml==6.1.3",
     # Keep this paper closure identical to paper/requirements.txt. The artifact
     # gate compares committed PDFs and figures byte-for-byte.
@@ -46,7 +46,7 @@ dev = ["build==1.6.1",
     "packaging==26.3",
     "pillow==12.3.0",
     "pymupdf==1.28.2",
-    "pyparsing==3.3.2",
+    "pyparsing==3.3.3",
     "python-dateutil==2.9.0.post0",
     "reportlab==5.0.1",
     "six==1.17.0",
