@@ -92,10 +92,10 @@ class PublicRepositorySurface(unittest.TestCase):
         document = tomllib.loads(
             (ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         dev = document["project"]["optional-dependencies"]["dev"]
-        self.assertIn("hypothesis==6.168.3", dev)
+        self.assertIn("hypothesis==6.168.5", dev)
         self.assertIn("lxml==6.1.3", dev)
         instructions = (ROOT / "eval" / "README.md").read_text(encoding="utf-8")
-        self.assertIn("hypothesis==6.168.3", instructions)
+        self.assertIn("hypothesis==6.168.5", instructions)
         self.assertIn("lxml==6.1.3", instructions)
         self.assertIn(
             "/tmp/admissible-e8-v080/bin/python eval/realdefects/e8_handcheck.py",
